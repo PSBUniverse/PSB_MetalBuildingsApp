@@ -1759,7 +1759,7 @@ function BonusWorkflowModal() {
   return (
     <div className={styles.playBody}>
       <p className={styles.playLabel}>
-        Critical workflow actions use a modal instead of <code>window.confirm</code>.
+        Critical workflow actions USE a modal instead of <code>window.confirm</code>.
         Developers remain free to define what happens on click � this is just a pattern example.
       </p>
       <div className={styles.toolbarRow}>
