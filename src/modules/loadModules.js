@@ -28,7 +28,7 @@ export async function loadModules() {
       continue;
     }
 
-    const importedModule = await import(pathToFileURL(modulePath).href);
+    const importedModule = await import(/* webpackIgnore: true */ pathToFileURL(modulePath).href);
     const moduleDefinition = importedModule.default ?? importedModule;
     modules.push(moduleDefinition);
   }

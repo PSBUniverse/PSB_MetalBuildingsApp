@@ -62,8 +62,43 @@ function isMyAppsPath(pathname) {
   );
 }
 
+function isExamplesPath(pathname) {
+  const path = normalizePath(pathname);
+  return path === "/examples" || path.startsWith("/examples/");
+}
+
+function normalizeAccessToken(value) {
+  return String(value || "").trim().toUpperCase();
+}
+
+function hasExampleNavAccess(roles) {
+  if (!Array.isArray(roles) || roles.length === 0) {
+    return false;
+  }
+
+  return roles.some((mapping) => {
+    if (!mapping) {
+      return false;
+    }
+
+    const appToken =
+      normalizeAccessToken(mapping.app_name) ||
+      normalizeAccessToken(mapping.app_code) ||
+      normalizeAccessToken(mapping.app_key) ||
+      normalizeAccessToken(mapping.app_id);
+    const roleToken =
+      normalizeAccessToken(mapping.role_name) ||
+      normalizeAccessToken(mapping.role_code) ||
+      normalizeAccessToken(mapping.role_key) ||
+      normalizeAccessToken(mapping.role_id);
+
+    return appToken === "PSBUNIVERSE" && roleToken === "DEVMAIN";
+  });
+}
+
 export default function Header({
   user,
+  roles = [],
   pathname = "/",
   onLogout,
   logoutBusy = false,
@@ -88,20 +123,35 @@ export default function Header({
     return user?.username || user?.email || "User";
   }, [user]);
 
-  const tabs = [
-    {
-      key: "my-psb",
-      label: "My PSB",
-      href: "/profile",
-      active: isMyPsbPath(pathname),
-    },
-    {
-      key: "my-apps",
-      label: "My Apps",
-      href: "/dashboard",
-      active: isMyAppsPath(pathname),
-    },
-  ];
+  const canSeeExamples = useMemo(() => hasExampleNavAccess(roles), [roles]);
+
+  const tabs = useMemo(() => {
+    const nextTabs = [
+      {
+        key: "my-psb",
+        label: "My PSB",
+        href: "/profile",
+        active: isMyPsbPath(pathname),
+      },
+      {
+        key: "my-apps",
+        label: "My Apps",
+        href: "/dashboard",
+        active: isMyAppsPath(pathname),
+      },
+    ];
+
+    if (canSeeExamples) {
+      nextTabs.push({
+        key: "example",
+        label: "Example",
+        href: "/examples",
+        active: isExamplesPath(pathname),
+      });
+    }
+
+    return nextTabs;
+  }, [canSeeExamples, pathname]);
 
   const activeTab = tabs.find((tab) => tab.active) || tabs[0];
 

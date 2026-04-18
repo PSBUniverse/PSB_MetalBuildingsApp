@@ -82,7 +82,7 @@ function shouldStartRouteLoader(event) {
 export default function AppLayout({ children }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { loading, authUser, dbUser } = useAuth();
+  const { loading, authUser, dbUser, roles } = useAuth();
   const [logoutBusy, setLogoutBusy] = useState(false);
   const [progress, setProgress] = useState(0);
   const [progressVisible, setProgressVisible] = useState(false);
@@ -348,6 +348,7 @@ export default function AppLayout({ children }) {
       <Header
         pathname={pathname}
         user={user}
+        roles={roles}
         onLogout={handleLogout}
         logoutBusy={logoutBusy}
         onNavigateStart={startLoader}
