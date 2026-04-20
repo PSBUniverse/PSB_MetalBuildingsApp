@@ -1525,19 +1525,37 @@ export function UserMasterSetupPanel({ users = [], totalUsers = 0 }) {
   }
 
   function renderAccessTab() {
+    const accessEditorReady = Boolean(
+      normalizeText(accessEditor?.app_id) && normalizeText(accessEditor?.role_id),
+    );
+
     return (
       <>
-        <div className="d-flex justify-content-between align-items-center mb-2">
-          <div className="small text-muted">Assign application role access using shared setup table controls.</div>
-          <Button type="button" variant="secondary" size="sm" onClick={startAccessCreate} disabled={!panelEditable}>
+        <div className="d-flex justify-content-between align-items-center mb-2 umsp-access-toolbar">
+          <div className="small text-muted umsp-access-helper-text">Assign application role access using shared setup table controls.</div>
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            className="umsp-access-trigger-btn"
+            onClick={startAccessCreate}
+            disabled={!panelEditable}
+          >
             Add Access
           </Button>
         </div>
 
         {accessEditor?.mode ? (
           <div className="umsp-access-editor mb-2">
-            <div className="row g-2 align-items-end">
-              <div className="col-12 col-md-5">
+            <div className="umsp-access-editor-head">
+              <h3 className="umsp-access-editor-title mb-0">
+                {accessEditor?.mode === "edit" ? "Edit Access Mapping" : "Add Access Mapping"}
+              </h3>
+              <p className="umsp-access-editor-subtitle mb-0">Choose one application and the role to assign.</p>
+            </div>
+
+            <div className="row g-2 umsp-access-editor-grid">
+              <div className="col-12 col-md-6">
                 <label className="form-label mb-1">Application</label>
                 <Input
                   as="select"
@@ -1558,14 +1576,15 @@ export function UserMasterSetupPanel({ users = [], totalUsers = 0 }) {
                   ))}
                 </Input>
               </div>
-              <div className="col-12 col-md-5">
+              <div className="col-12 col-md-6">
                 <label className="form-label mb-1">Role</label>
                 <Input
                   as="select"
                   value={asChoiceValue(accessEditor?.role_id)}
                   onChange={(event) => setAccessEditor((previous) => ({ ...previous, role_id: event.target.value }))}
+                  disabled={!normalizeText(accessEditor?.app_id)}
                 >
-                  <option value="">Select role</option>
+                  <option value="">{normalizeText(accessEditor?.app_id) ? "Select role" : "Select application first"}</option>
                   {roleOptionsForAccessEditor.map((role) => (
                     <option key={String(role?.role_id)} value={String(role?.role_id)}>
                       {role?.label}
@@ -1573,19 +1592,22 @@ export function UserMasterSetupPanel({ users = [], totalUsers = 0 }) {
                   ))}
                 </Input>
               </div>
-              <div className="col-12 col-md-2 d-flex gap-1">
-                <Button type="button" variant="primary" size="sm" onClick={submitAccessEditor}>
+            </div>
+
+            <div className="umsp-access-editor-actions">
+              <Button type="button" variant="primary" size="sm" onClick={submitAccessEditor} disabled={!accessEditorReady}>
+                <i className="bi bi-check2 me-1" aria-hidden="true" />
                   Save
-                </Button>
-                <Button type="button" variant="ghost" size="sm" onClick={cancelAccessEditor}>
+              </Button>
+              <Button type="button" variant="ghost" size="sm" onClick={cancelAccessEditor}>
                   Cancel
-                </Button>
-              </div>
+              </Button>
             </div>
           </div>
         ) : null}
 
         <SetupTable
+          className="umsp-access-table"
           columns={accessColumns}
           rows={accessRows}
           rowIdKey="access_key"
@@ -1798,7 +1820,7 @@ export function UserMasterSetupPanel({ users = [], totalUsers = 0 }) {
             <h2 className="h6 mb-1">
               {panelMode === "add" ? "Add User" : panelMode === "edit" ? "Edit User" : "User Details"}
             </h2>
-            <div className="d-flex align-items-center gap-1">
+            <div className="d-flex align-items-center gap-1 flex-wrap umsp-status-row">
               <Badge bg={form?.is_active ? "success" : "secondary"} text="light">
                 {selectedStatusLabel}
               </Badge>
@@ -1812,7 +1834,7 @@ export function UserMasterSetupPanel({ users = [], totalUsers = 0 }) {
               )}
             </div>
           </div>
-          <Button type="button" variant="ghost" size="sm" onClick={closePanel}>
+          <Button type="button" variant="ghost" size="sm" className="umsp-close-btn" onClick={closePanel}>
             <i className="bi bi-x-lg" aria-hidden="true" />
           </Button>
         </div>

@@ -229,22 +229,6 @@ function mergeRowWithAuthUser(row, authUser) {
     }
   }
 
-  if (!hasValue(merged.full_name)) {
-    const metadataFullName = normalizeText(authUser?.user_metadata?.full_name);
-    const metadataFirstName = normalizeText(authUser?.user_metadata?.first_name);
-    const metadataLastName = normalizeText(authUser?.user_metadata?.last_name);
-    const joinedName = [metadataFirstName, metadataLastName].filter(Boolean).join(" ").trim();
-    merged.full_name = metadataFullName || joinedName || merged.full_name;
-  }
-
-  if (!hasValue(merged.first_name) && hasValue(authUser?.user_metadata?.first_name)) {
-    merged.first_name = normalizeText(authUser?.user_metadata?.first_name);
-  }
-
-  if (!hasValue(merged.last_name) && hasValue(authUser?.user_metadata?.last_name)) {
-    merged.last_name = normalizeText(authUser?.user_metadata?.last_name);
-  }
-
   if (!hasOwn(merged, "is_active") && hasOwn(authUser?.user_metadata || {}, "is_active")) {
     merged.is_active = normalizeBoolean(authUser.user_metadata.is_active);
   }

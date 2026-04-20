@@ -121,10 +121,21 @@ If your task needs any forbidden action:
 Required structure:
 
 ```text
-src/modules/<module-name>/
-   index.js
-   pages/
-   components/
+src/modules/<APP_NAME> (Roles)/
+  index.js
+  pages/
+    RolesPage.jsx
+  components/
+    RolesTable.jsx
+  services/
+    useRoles.js
+  repo/
+    roles.repo.js
+  model/
+    roles.model.js
+  hooks/
+    useRolesTable.js
+  utils/
 ```
 
 Purpose:
