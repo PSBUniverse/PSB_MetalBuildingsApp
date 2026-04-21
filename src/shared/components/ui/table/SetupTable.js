@@ -5,6 +5,94 @@ import { DndContext, PointerSensor, closestCenter, useSensor, useSensors } from 
 import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import Button from "@/shared/components/ui/controls/Button";
+import ActionColumn from "@/shared/components/ui/table/ActionColumn";
+
+const BATCH_TYPE_CREATED = "create";
+const BATCH_TYPE_UPDATED = "update";
+const BATCH_TYPE_DELETED = "delete";
+
+const BATCH_STATE_NONE = "none";
+const BATCH_STATE_CREATED = "created";
+const BATCH_STATE_UPDATED = "updated";
+const BATCH_STATE_DELETED = "deleted";
+
+function normalizeBatchType(value) {
+  const raw = String(value || "").trim().toLowerCase();
+
+  if (!raw) return "";
+  if (raw === BATCH_TYPE_CREATED || raw === BATCH_STATE_CREATED || raw === "new") return BATCH_TYPE_CREATED;
+  if (raw === BATCH_TYPE_UPDATED || raw === BATCH_STATE_UPDATED || raw === "edited") return BATCH_TYPE_UPDATED;
+  if (raw === BATCH_TYPE_DELETED || raw === BATCH_STATE_DELETED || raw === "deactivated") return BATCH_TYPE_DELETED;
+
+  return "";
+}
+
+function inferBatchTypeFromText(value) {
+  const raw = String(value || "").trim().toLowerCase();
+  if (!raw) return "";
+
+  if (/(delete|deactivate|remove|archive)/.test(raw)) return BATCH_TYPE_DELETED;
+  if (/(create|add|new)/.test(raw)) return BATCH_TYPE_CREATED;
+  if (/(edit|update|toggle|enable|disable|save)/.test(raw)) return BATCH_TYPE_UPDATED;
+
+  return "";
+}
+
+function resolveBatchTypeFromAction(action) {
+  const explicitType = normalizeBatchType(
+    action?.batchType
+    || action?.batchEventType
+    || action?.mutationType
+    || action?.intent,
+  );
+
+  if (explicitType) {
+    return explicitType;
+  }
+
+  const inferredType = inferBatchTypeFromText(`${action?.key || ""} ${action?.label || ""}`);
+  return inferredType || BATCH_TYPE_UPDATED;
+}
+
+function normalizeBatchState(value) {
+  const raw = String(value || "").trim().toLowerCase();
+
+  if (!raw || raw === BATCH_STATE_NONE) return BATCH_STATE_NONE;
+  if (raw === BATCH_STATE_CREATED || raw === "new") return BATCH_STATE_CREATED;
+  if (raw === BATCH_STATE_UPDATED || raw === "edited") return BATCH_STATE_UPDATED;
+  if (raw === BATCH_STATE_DELETED || raw === "deactivated") return BATCH_STATE_DELETED;
+
+  return BATCH_STATE_NONE;
+}
+
+function resolveNextBatchState(currentBatchState, batchType) {
+  const normalizedState = normalizeBatchState(currentBatchState);
+  const normalizedType = normalizeBatchType(batchType);
+
+  if (normalizedType === BATCH_TYPE_CREATED) {
+    return BATCH_STATE_CREATED;
+  }
+
+  if (normalizedType === BATCH_TYPE_DELETED) {
+    return BATCH_STATE_DELETED;
+  }
+
+  if (normalizedType === BATCH_TYPE_UPDATED) {
+    return normalizedState === BATCH_STATE_CREATED ? BATCH_STATE_CREATED : BATCH_STATE_UPDATED;
+  }
+
+  return normalizedState;
+}
+
+function resolveBatchClassName(batchState) {
+  const normalizedState = normalizeBatchState(batchState);
+
+  if (normalizedState === BATCH_STATE_CREATED) return "psb-row-created";
+  if (normalizedState === BATCH_STATE_UPDATED) return "psb-row-updated";
+  if (normalizedState === BATCH_STATE_DELETED) return "psb-row-deleted";
+
+  return "";
+}
 
 function toRowId(row, rowIdKey, index) {
   const value = row?.[rowIdKey];
@@ -24,16 +112,51 @@ function resolveCellStyle(column) {
   };
 }
 
-function ActionCell({ row, rowIndex, draggable, dragHandleProps, renderActions }) {
+function ActionCell({
+  row,
+  rowIndex,
+  draggable,
+  dragHandleProps,
+  actions,
+  batchMode,
+  onBatchChange,
+}) {
+  const handleAction = ({ action, row: actionRow }) => {
+    const targetRow = actionRow || row;
+
+    if (batchMode && typeof onBatchChange === "function") {
+      const batchType = resolveBatchTypeFromAction(action);
+      const nextBatchState = resolveNextBatchState(targetRow?.__batchState, batchType);
+      const nextRow = {
+        ...(targetRow || {}),
+        __batchState: nextBatchState,
+      };
+
+      onBatchChange({
+        type: batchType,
+        row: nextRow,
+        previousRow: targetRow,
+        action,
+        batchState: nextBatchState,
+        source: "SetupTable",
+      });
+      return;
+    }
+
+    if (typeof action?.onClick === "function") {
+      action.onClick(targetRow, rowIndex);
+    }
+  };
+
   return (
     <td
-      style={{ width: 140, verticalAlign: "middle" }}
+      style={{ width: 140, verticalAlign: "middle", textAlign: "center", whiteSpace: "nowrap" }}
       onClick={(event) => {
         event.stopPropagation();
       }}
     >
-      <div className="d-flex align-items-center gap-1">
-        {draggable ? (
+      {draggable ? (
+        <div className="d-flex align-items-center justify-content-center gap-1">
           <Button
             type="button"
             variant="ghost"
@@ -49,9 +172,11 @@ function ActionCell({ row, rowIndex, draggable, dragHandleProps, renderActions }
           >
             <i className="bi bi-grip-vertical" aria-hidden="true" />
           </Button>
-        ) : null}
-        {typeof renderActions === "function" ? renderActions(row, rowIndex) : null}
-      </div>
+          <ActionColumn row={row} actions={actions} onAction={handleAction} />
+        </div>
+      ) : (
+        <ActionColumn row={row} actions={actions} onAction={handleAction} />
+      )}
     </td>
   );
 }
@@ -66,8 +191,10 @@ function SortableBodyRow({
   isSelected,
   onRowClick,
   draggable,
-  renderActions,
+  actions,
   rowClassName,
+  batchMode,
+  onBatchChange,
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: rowId });
 
@@ -92,7 +219,9 @@ function SortableBodyRow({
           rowIndex={rowIndex}
           draggable={draggable}
           dragHandleProps={{ ...attributes, ...listeners }}
-          renderActions={renderActions}
+          actions={actions}
+          batchMode={batchMode}
+          onBatchChange={onBatchChange}
         />
       ) : null}
       {columns.map((column) => {
@@ -119,8 +248,10 @@ function StaticBodyRow({
   isSelected,
   onRowClick,
   draggable,
-  renderActions,
+  actions,
   rowClassName,
+  batchMode,
+  onBatchChange,
 }) {
   return (
     <tr
@@ -132,7 +263,14 @@ function StaticBodyRow({
       onClick={rowClickable ? () => onRowClick(row) : undefined}
     >
       {actionColumnVisible ? (
-        <ActionCell row={row} rowIndex={rowIndex} draggable={draggable} renderActions={renderActions} />
+        <ActionCell
+          row={row}
+          rowIndex={rowIndex}
+          draggable={draggable}
+          actions={actions}
+          batchMode={batchMode}
+          onBatchChange={onBatchChange}
+        />
       ) : null}
       {columns.map((column) => {
         const rawValue = row?.[column.key];
@@ -154,13 +292,15 @@ export default function SetupTable({
   rowIdKey = "id",
   selectedRowId = null,
   onRowClick,
-  renderActions,
+  actions = [],
   showActionColumn = true,
   onHeaderContextMenu,
   draggable = false,
   onReorder,
   emptyMessage = "No records found.",
   className = "",
+  batchMode = false,
+  onBatchChange,
 }) {
   const normalizedColumns = Array.isArray(columns) ? columns : [];
   const normalizedRows = useMemo(
@@ -177,7 +317,8 @@ export default function SetupTable({
 
   const rowClickable = typeof onRowClick === "function";
   const hasRows = normalizedRows.length > 0;
-  const actionColumnVisible = showActionColumn === true;
+  const actionColumnVisible = showActionColumn === true && (draggable || Array.isArray(actions) && actions.length > 0);
+  const batchModeEnabled = batchMode === true && typeof onBatchChange === "function";
 
   const handleHeaderContextMenu = useCallback(
     (event, column = null) => {
@@ -236,10 +377,12 @@ export default function SetupTable({
             isSelected={String(selectedRowId ?? "") === String(row?.[rowIdKey] ?? "")}
             onRowClick={onRowClick}
             draggable={draggable}
-            renderActions={renderActions}
+            actions={actions}
+            batchMode={batchModeEnabled}
+            onBatchChange={onBatchChange}
             rowClassName={[
               index % 2 === 1 ? "table-light" : "",
-              typeof row?.__batchClassName === "string" ? row.__batchClassName : "",
+              resolveBatchClassName(row?.__batchState),
             ].filter(Boolean).join(" ")}
           />
         ))}
@@ -259,10 +402,12 @@ export default function SetupTable({
           isSelected={String(selectedRowId ?? "") === String(row?.[rowIdKey] ?? "")}
           onRowClick={onRowClick}
           draggable={false}
-          renderActions={renderActions}
+          actions={actions}
+          batchMode={batchModeEnabled}
+          onBatchChange={onBatchChange}
           rowClassName={[
             index % 2 === 1 ? "table-light" : "",
-            typeof row?.__batchClassName === "string" ? row.__batchClassName : "",
+            resolveBatchClassName(row?.__batchState),
           ].filter(Boolean).join(" ")}
         />
       ))}

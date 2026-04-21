@@ -16,6 +16,93 @@ const DEFAULT_MIN_COLUMN_WIDTH = 96;
 const ACTION_COLUMN_VISIBILITY_KEY = "__psb_action_column__";
 const ACTION_COLUMN_WIDTH = 112;
 
+const BATCH_TYPE_CREATED = "create";
+const BATCH_TYPE_UPDATED = "update";
+const BATCH_TYPE_DELETED = "delete";
+
+const BATCH_STATE_NONE = "none";
+const BATCH_STATE_CREATED = "created";
+const BATCH_STATE_UPDATED = "updated";
+const BATCH_STATE_DELETED = "deleted";
+
+function normalizeBatchType(value) {
+  const raw = String(value || "").trim().toLowerCase();
+
+  if (!raw) return "";
+  if (raw === BATCH_TYPE_CREATED || raw === BATCH_STATE_CREATED || raw === "new") return BATCH_TYPE_CREATED;
+  if (raw === BATCH_TYPE_UPDATED || raw === BATCH_STATE_UPDATED || raw === "edited") return BATCH_TYPE_UPDATED;
+  if (raw === BATCH_TYPE_DELETED || raw === BATCH_STATE_DELETED || raw === "deactivated") return BATCH_TYPE_DELETED;
+
+  return "";
+}
+
+function inferBatchTypeFromText(value) {
+  const raw = String(value || "").trim().toLowerCase();
+  if (!raw) return "";
+
+  if (/(delete|deactivate|remove|archive)/.test(raw)) return BATCH_TYPE_DELETED;
+  if (/(create|add|new)/.test(raw)) return BATCH_TYPE_CREATED;
+  if (/(edit|update|toggle|enable|disable|save)/.test(raw)) return BATCH_TYPE_UPDATED;
+
+  return "";
+}
+
+function resolveBatchTypeFromAction(action) {
+  const explicitType = normalizeBatchType(
+    action?.batchType
+    || action?.batchEventType
+    || action?.mutationType
+    || action?.intent,
+  );
+
+  if (explicitType) {
+    return explicitType;
+  }
+
+  const inferredType = inferBatchTypeFromText(`${action?.key || ""} ${action?.label || ""}`);
+  return inferredType || BATCH_TYPE_UPDATED;
+}
+
+function normalizeBatchState(value) {
+  const raw = String(value || "").trim().toLowerCase();
+
+  if (!raw || raw === BATCH_STATE_NONE) return BATCH_STATE_NONE;
+  if (raw === BATCH_STATE_CREATED || raw === "new") return BATCH_STATE_CREATED;
+  if (raw === BATCH_STATE_UPDATED || raw === "edited") return BATCH_STATE_UPDATED;
+  if (raw === BATCH_STATE_DELETED || raw === "deactivated") return BATCH_STATE_DELETED;
+
+  return BATCH_STATE_NONE;
+}
+
+function resolveNextBatchState(currentBatchState, batchType) {
+  const normalizedState = normalizeBatchState(currentBatchState);
+  const normalizedType = normalizeBatchType(batchType);
+
+  if (normalizedType === BATCH_TYPE_CREATED) {
+    return BATCH_STATE_CREATED;
+  }
+
+  if (normalizedType === BATCH_TYPE_DELETED) {
+    return BATCH_STATE_DELETED;
+  }
+
+  if (normalizedType === BATCH_TYPE_UPDATED) {
+    return normalizedState === BATCH_STATE_CREATED ? BATCH_STATE_CREATED : BATCH_STATE_UPDATED;
+  }
+
+  return normalizedState;
+}
+
+function resolveBatchClassName(batchState) {
+  const normalizedState = normalizeBatchState(batchState);
+
+  if (normalizedState === BATCH_STATE_CREATED) return "psb-row-created";
+  if (normalizedState === BATCH_STATE_UPDATED) return "psb-row-updated";
+  if (normalizedState === BATCH_STATE_DELETED) return "psb-row-deleted";
+
+  return "";
+}
+
 function isDevEnvironment() {
   return process.env.NODE_ENV !== "production";
 }
@@ -199,7 +286,18 @@ function normalizePageSizeOptions(pageSizeOptions, currentPageSize) {
   return Array.from(uniqueValues).sort((left, right) => left - right);
 }
 
-function validateDataTableProps({ data, columns, state, filterConfig, actions, onChange, loading, children }) {
+function validateDataTableProps({
+  data,
+  columns,
+  state,
+  filterConfig,
+  actions,
+  onChange,
+  loading,
+  children,
+  batchMode,
+  onBatchChange,
+}) {
   ensure(children === undefined || children === null, "children are not supported in data table mode.");
   ensure(Array.isArray(data), "data must be an array.");
   ensure(Array.isArray(columns), "columns must be an array.");
@@ -208,6 +306,10 @@ function validateDataTableProps({ data, columns, state, filterConfig, actions, o
   ensure(Array.isArray(actions), "actions must be an array.");
   ensure(typeof onChange === "function", "onChange must be a function.");
   ensure(typeof loading === "boolean", "loading must be a boolean.");
+
+  if (batchMode === true) {
+    ensure(typeof onBatchChange === "function", "onBatchChange must be a function when batchMode is enabled.");
+  }
 
   createFilterConfig(filterConfig);
 
@@ -265,6 +367,8 @@ export default function Table({
   filterConfig = [],
   actions = [],
   onChange,
+  batchMode = false,
+  onBatchChange,
   loading = false,
   className = "",
   emptyMessage = "No records found.",
@@ -285,6 +389,8 @@ export default function Table({
       filterConfig,
       actions,
       onChange,
+      batchMode,
+      onBatchChange,
       loading,
       children,
     });
@@ -292,6 +398,7 @@ export default function Table({
 
   const normalizedColumns = useMemo(() => normalizeColumns(columns), [columns]);
   const actionColumnEnabled = Array.isArray(actions) && actions.length > 0;
+  const batchModeEnabled = batchMode === true && typeof onBatchChange === "function";
   const normalizedFilterConfig = useMemo(() => createFilterConfig(filterConfig), [filterConfig]);
   const normalizedPagination = useMemo(() => normalizePagination(state?.pagination), [state?.pagination]);
   const normalizedSorting = useMemo(() => normalizeSorting(state?.sorting), [state?.sorting]);
@@ -599,13 +706,32 @@ export default function Table({
 
   const handleAction = useCallback(
     ({ action, row }) => {
+      if (batchModeEnabled) {
+        const batchType = resolveBatchTypeFromAction(action);
+        const nextBatchState = resolveNextBatchState(row?.__batchState, batchType);
+        const nextRow = {
+          ...(row || {}),
+          __batchState: nextBatchState,
+        };
+
+        onBatchChange({
+          type: batchType,
+          row: nextRow,
+          previousRow: row,
+          action,
+          batchState: nextBatchState,
+          source: "Table",
+        });
+        return;
+      }
+
       emitChange({
         type: "action",
         action,
         row,
       });
     },
-    [emitChange],
+    [batchModeEnabled, emitChange, onBatchChange],
   );
 
   const sidePanelColumns = useMemo(() => {
@@ -854,7 +980,7 @@ export default function Table({
               </tr>
             ) : (
               data.map((row, rowIndex) => (
-                <tr key={String(row?.id || rowIndex)}>
+                <tr key={String(row?.id || rowIndex)} className={resolveBatchClassName(row?.__batchState) || undefined}>
                   {actionColumnVisible ? (
                     <td className="psb-ui-table-actions-cell">
                       <ActionColumn row={row} actions={actions} onAction={handleAction} />

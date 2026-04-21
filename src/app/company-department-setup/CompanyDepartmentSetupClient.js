@@ -218,9 +218,7 @@ export default function CompanyDepartmentSetupClient({
   const [companyChanges, setCompanyChanges] = useState(createEmptyCompanyChanges());
   const [departmentChanges, setDepartmentChanges] = useState(createEmptyDepartmentChanges());
   const [isMutatingAction, setIsMutatingAction] = useState(false);
-  const [isSavingCompanyBatch, setIsSavingCompanyBatch] = useState(false);
-  const [isSavingDepartmentBatch, setIsSavingDepartmentBatch] = useState(false);
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isSavingBatch, setIsSavingBatch] = useState(false);
   const [dialog, setDialog] = useState(EMPTY_DIALOG);
   const [companyDraft, setCompanyDraft] = useState({ name: "", shortName: "", email: "", phone: "" });
   const [departmentDraft, setDepartmentDraft] = useState({ name: "", shortName: "" });
@@ -248,9 +246,7 @@ export default function CompanyDepartmentSetupClient({
     setCompanyDraft({ name: "", shortName: "", email: "", phone: "" });
     setDepartmentDraft({ name: "", shortName: "" });
     setIsMutatingAction(false);
-    setIsSavingCompanyBatch(false);
-    setIsSavingDepartmentBatch(false);
-    setIsRefreshing(false);
+    setIsSavingBatch(false);
 
     const queryCompanyId = parseCompanyId(searchParams?.get("company"));
     const nextSelected =
@@ -262,23 +258,32 @@ export default function CompanyDepartmentSetupClient({
     setSelectedCompanyId(nextSelected);
   }, [initialSelectedCompanyId, searchParams, seedCompanies, seedDepartments]);
 
-  const companyChangeCount = useMemo(
-    () =>
-      (companyChanges.creates?.length || 0)
-      + Object.keys(companyChanges.updates || {}).length
-      + (companyChanges.deactivations?.length || 0),
-    [companyChanges],
-  );
+  const pendingSummary = useMemo(() => {
+    const companyAdded = companyChanges.creates.length;
+    const companyEdited = Object.keys(companyChanges.updates || {}).length;
+    const companyDeactivated = companyChanges.deactivations.length;
+    const departmentAdded = departmentChanges.creates.length;
+    const departmentEdited = Object.keys(departmentChanges.updates || {}).length;
+    const departmentDeactivated = departmentChanges.deactivations.length;
 
-  const departmentChangeCount = useMemo(
-    () =>
-      (departmentChanges.creates?.length || 0)
-      + Object.keys(departmentChanges.updates || {}).length
-      + (departmentChanges.deactivations?.length || 0),
-    [departmentChanges],
-  );
+    return {
+      companyAdded,
+      companyEdited,
+      companyDeactivated,
+      departmentAdded,
+      departmentEdited,
+      departmentDeactivated,
+      total:
+        companyAdded
+        + companyEdited
+        + companyDeactivated
+        + departmentAdded
+        + departmentEdited
+        + departmentDeactivated,
+    };
+  }, [companyChanges, departmentChanges]);
 
-  const hasPendingChanges = companyChangeCount + departmentChangeCount > 0;
+  const hasPendingChanges = pendingSummary.total > 0;
 
   const pendingDeactivatedCompanyIds = useMemo(
     () => new Set((companyChanges.deactivations || []).map((id) => String(id ?? ""))),
@@ -326,31 +331,27 @@ export default function CompanyDepartmentSetupClient({
       if (deactivatedIds.has(id)) {
         return {
           ...row,
-          __batchState: "deactivated",
-          __batchClassName: "psb-batch-row-deleted",
+          __batchState: "deleted",
         };
       }
 
       if (createdIds.has(id)) {
         return {
           ...row,
-          __batchState: "new",
-          __batchClassName: "psb-batch-row-new",
+          __batchState: "created",
         };
       }
 
       if (updatedIds.has(id)) {
         return {
           ...row,
-          __batchState: "edited",
-          __batchClassName: "psb-batch-row-edited",
+          __batchState: "updated",
         };
       }
 
       return {
         ...row,
-        __batchState: "",
-        __batchClassName: "",
+        __batchState: "none",
       };
     });
   }, [companyChanges.creates, companyChanges.deactivations, companyChanges.updates, orderedCompanies]);
@@ -366,31 +367,27 @@ export default function CompanyDepartmentSetupClient({
       if (deactivatedIds.has(id)) {
         return {
           ...row,
-          __batchState: "deactivated",
-          __batchClassName: "psb-batch-row-deleted",
+          __batchState: "deleted",
         };
       }
 
       if (createdIds.has(id)) {
         return {
           ...row,
-          __batchState: "new",
-          __batchClassName: "psb-batch-row-new",
+          __batchState: "created",
         };
       }
 
       if (updatedIds.has(id)) {
         return {
           ...row,
-          __batchState: "edited",
-          __batchClassName: "psb-batch-row-edited",
+          __batchState: "updated",
         };
       }
 
       return {
         ...row,
-        __batchState: "",
-        __batchClassName: "",
+        __batchState: "none",
       };
     });
   }, [departmentChanges.creates, departmentChanges.deactivations, departmentChanges.updates, selectedCompanyDepartments]);
@@ -424,16 +421,16 @@ export default function CompanyDepartmentSetupClient({
   }, []);
 
   const closeDialog = useCallback(() => {
-    if (isMutatingAction || isSavingCompanyBatch || isSavingDepartmentBatch) {
+    if (isMutatingAction || isSavingBatch) {
       return;
     }
 
     setDialog(EMPTY_DIALOG);
-  }, [isMutatingAction, isSavingCompanyBatch, isSavingDepartmentBatch]);
+  }, [isMutatingAction, isSavingBatch]);
 
   const handleCompanyRowClick = useCallback(
     (row) => {
-      if (isMutatingAction || isSavingCompanyBatch || isSavingDepartmentBatch) {
+      if (isMutatingAction || isSavingBatch) {
         return;
       }
 
@@ -443,134 +440,57 @@ export default function CompanyDepartmentSetupClient({
         return;
       }
 
-      if (hasPendingChanges && typeof window !== "undefined") {
-        const confirmed = window.confirm("You have unsaved batch changes. Switch company anyway?");
-
-        if (!confirmed) {
-          return;
-        }
-      }
-
       updateSelectedCompanyInQuery(nextCompanyId);
     },
     [
-      hasPendingChanges,
       isMutatingAction,
-      isSavingCompanyBatch,
-      isSavingDepartmentBatch,
+      isSavingBatch,
       selectedCompany?.comp_id,
       updateSelectedCompanyInQuery,
     ],
   );
 
-  const refreshData = useCallback(async () => {
-    if (isRefreshing || isMutatingAction || isSavingCompanyBatch || isSavingDepartmentBatch) {
+  const handleCancelBatch = useCallback(() => {
+    if (isMutatingAction || isSavingBatch) {
       return;
     }
 
-    if (hasPendingChanges && typeof window !== "undefined") {
-      const confirmed = window.confirm("Refreshing will discard staged changes. Continue?");
-      if (!confirmed) {
-        return;
-      }
-    }
-
-    setIsRefreshing(true);
-
-    try {
-      setCompanyChanges(createEmptyCompanyChanges());
-      setDepartmentChanges(createEmptyDepartmentChanges());
-      setDialog(EMPTY_DIALOG);
-      router.refresh();
-      toastSuccess("Company/Department data refreshed.", "Refresh");
-    } finally {
-      setIsRefreshing(false);
-    }
-  }, [hasPendingChanges, isMutatingAction, isRefreshing, isSavingCompanyBatch, isSavingDepartmentBatch, router]);
-
-  const cancelCompanyBatch = useCallback(() => {
-    if (isMutatingAction || isSavingCompanyBatch || isSavingDepartmentBatch) {
+    if (!hasPendingChanges) {
       return;
     }
-
-    if (companyChangeCount === 0) {
-      return;
-    }
-
-    if (typeof window !== "undefined") {
-      const confirmed = window.confirm("Discard staged company changes?");
-      if (!confirmed) {
-        return;
-      }
-    }
-
-    const tempCompanyIds = new Set((companyChanges.creates || []).map((entry) => String(entry?.tempId ?? "")));
 
     setOrderedCompanies(seedCompanies);
+    setAllDepartments(seedDepartments);
     setCompanyChanges(createEmptyCompanyChanges());
-    setAllDepartments((previous) =>
-      previous
-        .filter((department) => !tempCompanyIds.has(String(department?.comp_id ?? "")))
-        .map((department, index) => mapDepartmentRow(department, index)),
-    );
+    setDepartmentChanges(createEmptyDepartmentChanges());
+    setDialog(EMPTY_DIALOG);
+    setCompanyDraft({ name: "", shortName: "", email: "", phone: "" });
+    setDepartmentDraft({ name: "", shortName: "" });
 
-    setDepartmentChanges((previous) => ({
-      creates: (previous.creates || []).filter((entry) => !tempCompanyIds.has(String(entry?.payload?.comp_id ?? ""))),
-      updates: Object.fromEntries(
-        Object.entries(previous.updates || {}).filter(([, update]) => !tempCompanyIds.has(String(update?.comp_id ?? ""))),
-      ),
-      deactivations: [...(previous.deactivations || [])],
-    }));
-
-    if (selectedCompanyId && tempCompanyIds.has(String(selectedCompanyId))) {
-      const fallbackCompanyId = seedCompanies[0]?.comp_id ?? null;
-      updateSelectedCompanyInQuery(fallbackCompanyId);
-    }
-
-    toastSuccess("Company batch canceled.", "Batching");
+    const fallbackCompanyId = seedCompanies[0]?.comp_id ?? null;
+    updateSelectedCompanyInQuery(fallbackCompanyId);
+    toastSuccess("Batch changes canceled.", "Batching");
   }, [
-    companyChangeCount,
-    companyChanges.creates,
+    hasPendingChanges,
     isMutatingAction,
-    isSavingCompanyBatch,
-    isSavingDepartmentBatch,
+    isSavingBatch,
     seedCompanies,
-    selectedCompanyId,
+    seedDepartments,
     updateSelectedCompanyInQuery,
   ]);
 
-  const cancelDepartmentBatch = useCallback(() => {
-    if (isMutatingAction || isSavingCompanyBatch || isSavingDepartmentBatch) {
+  const handleSaveBatch = useCallback(async () => {
+    if (!hasPendingChanges || isSavingBatch || isMutatingAction) {
       return;
     }
 
-    if (departmentChangeCount === 0) {
-      return;
-    }
-
-    if (typeof window !== "undefined") {
-      const confirmed = window.confirm("Discard staged department changes?");
-      if (!confirmed) {
-        return;
-      }
-    }
-
-    setAllDepartments(seedDepartments);
-    setDepartmentChanges(createEmptyDepartmentChanges());
-    toastSuccess("Department batch canceled.", "Batching");
-  }, [departmentChangeCount, isMutatingAction, isSavingCompanyBatch, isSavingDepartmentBatch, seedDepartments]);
-
-  const saveCompanyBatch = useCallback(async () => {
-    if (companyChangeCount === 0 || isSavingCompanyBatch || isMutatingAction) {
-      return;
-    }
-
-    setIsSavingCompanyBatch(true);
+    setIsSavingBatch(true);
     setIsMutatingAction(true);
 
     try {
       const companyIdMap = new Map();
       const deactivatedCompanySet = new Set((companyChanges.deactivations || []).map((id) => String(id ?? "")));
+      const deactivatedDepartmentSet = new Set((departmentChanges.deactivations || []).map((id) => String(id ?? "")));
 
       for (const createEntry of companyChanges.creates || []) {
         const payload = await requestJson(
@@ -595,11 +515,13 @@ export default function CompanyDepartmentSetupClient({
       }
 
       for (const [companyId, updates] of Object.entries(companyChanges.updates || {})) {
-        if (deactivatedCompanySet.has(String(companyId))) {
+        const resolvedCompanyId = companyIdMap.get(String(companyId)) ?? companyId;
+
+        if (deactivatedCompanySet.has(String(resolvedCompanyId))) {
           continue;
         }
 
-        if (isTempCompanyId(companyId)) {
+        if (isTempCompanyId(resolvedCompanyId)) {
           continue;
         }
 
@@ -609,7 +531,7 @@ export default function CompanyDepartmentSetupClient({
         }
 
         await requestJson(
-          `/api/company-department-setup/companies/${encodeURIComponent(String(companyId))}`,
+          `/api/company-department-setup/companies/${encodeURIComponent(String(resolvedCompanyId))}`,
           {
             method: "PATCH",
             headers: {
@@ -622,12 +544,14 @@ export default function CompanyDepartmentSetupClient({
       }
 
       for (const companyId of companyChanges.deactivations || []) {
-        if (isTempCompanyId(companyId)) {
+        const resolvedCompanyId = companyIdMap.get(String(companyId)) ?? companyId;
+
+        if (isTempCompanyId(resolvedCompanyId)) {
           continue;
         }
 
         await requestJson(
-          `/api/company-department-setup/companies/${encodeURIComponent(String(companyId))}`,
+          `/api/company-department-setup/companies/${encodeURIComponent(String(resolvedCompanyId))}`,
           {
             method: "DELETE",
           },
@@ -635,64 +559,20 @@ export default function CompanyDepartmentSetupClient({
         );
       }
 
-      if (companyIdMap.size > 0) {
-        setDepartmentChanges((previous) => ({
-          ...previous,
-          creates: remapDepartmentCreatesByCompanyId(previous.creates, companyIdMap),
-        }));
+      const remappedDepartmentCreates = remapDepartmentCreatesByCompanyId(departmentChanges.creates, companyIdMap);
+      const hasTempCompanyReference = remappedDepartmentCreates.some((entry) => isTempCompanyId(entry?.payload?.comp_id));
 
-        setAllDepartments((previous) => remapDepartmentsByCompanyId(previous, companyIdMap));
+      if (hasTempCompanyReference) {
+        throw new Error("Save company batch first before saving departments for a newly created company.");
       }
 
-      setCompanyChanges(createEmptyCompanyChanges());
+      for (const createEntry of remappedDepartmentCreates) {
+        const resolvedCompanyId = createEntry?.payload?.comp_id;
 
-      const selectedResolved = companyIdMap.get(String(selectedCompany?.comp_id ?? "")) ?? selectedCompany?.comp_id ?? null;
-      const nextSelectedCompanyId =
-        selectedResolved && !deactivatedCompanySet.has(String(selectedResolved))
-          ? selectedResolved
-          : null;
+        if (deactivatedCompanySet.has(String(resolvedCompanyId ?? ""))) {
+          continue;
+        }
 
-      updateSelectedCompanyInQuery(nextSelectedCompanyId);
-      router.refresh();
-      toastSuccess("Company batch saved.", "Save Batch");
-    } catch (error) {
-      toastError(error?.message || "Failed to save company batch.");
-    } finally {
-      setIsMutatingAction(false);
-      setIsSavingCompanyBatch(false);
-    }
-  }, [
-    companyChangeCount,
-    companyChanges.creates,
-    companyChanges.deactivations,
-    companyChanges.updates,
-    isMutatingAction,
-    isSavingCompanyBatch,
-    requestJson,
-    router,
-    selectedCompany?.comp_id,
-    updateSelectedCompanyInQuery,
-  ]);
-
-  const saveDepartmentBatch = useCallback(async () => {
-    if (departmentChangeCount === 0 || isSavingDepartmentBatch || isMutatingAction) {
-      return;
-    }
-
-    const hasTempCompanyReference = (departmentChanges.creates || []).some((entry) => isTempCompanyId(entry?.payload?.comp_id));
-
-    if (hasTempCompanyReference) {
-      toastError("Save company batch first before saving departments for a newly created company.");
-      return;
-    }
-
-    setIsSavingDepartmentBatch(true);
-    setIsMutatingAction(true);
-
-    try {
-      const deactivatedDepartmentSet = new Set((departmentChanges.deactivations || []).map((id) => String(id ?? "")));
-
-      for (const createEntry of departmentChanges.creates || []) {
         await requestJson(
           "/api/company-department-setup/departments",
           {
@@ -700,7 +580,10 @@ export default function CompanyDepartmentSetupClient({
             headers: {
               "Content-Type": "application/json",
             },
-            body: JSON.stringify(createEntry.payload),
+            body: JSON.stringify({
+              ...(createEntry.payload || {}),
+              comp_id: resolvedCompanyId,
+            }),
           },
           "Failed to create department.",
         );
@@ -720,6 +603,21 @@ export default function CompanyDepartmentSetupClient({
           continue;
         }
 
+        const resolvedCompanyId = Object.prototype.hasOwnProperty.call(updates || {}, "comp_id")
+          ? (companyIdMap.get(String(updates?.comp_id ?? "")) ?? updates?.comp_id)
+          : undefined;
+
+        if (resolvedCompanyId !== undefined && deactivatedCompanySet.has(String(resolvedCompanyId ?? ""))) {
+          continue;
+        }
+
+        const payload = resolvedCompanyId === undefined
+          ? updates
+          : {
+            ...updates,
+            comp_id: resolvedCompanyId,
+          };
+
         await requestJson(
           `/api/company-department-setup/departments/${encodeURIComponent(String(departmentId))}`,
           {
@@ -727,7 +625,7 @@ export default function CompanyDepartmentSetupClient({
             headers: {
               "Content-Type": "application/json",
             },
-            body: JSON.stringify(updates),
+            body: JSON.stringify(payload),
           },
           "Failed to update department.",
         );
@@ -747,37 +645,65 @@ export default function CompanyDepartmentSetupClient({
         );
       }
 
+      if (companyIdMap.size > 0) {
+        setAllDepartments((previous) => remapDepartmentsByCompanyId(previous, companyIdMap));
+      }
+
+      setCompanyChanges(createEmptyCompanyChanges());
       setDepartmentChanges(createEmptyDepartmentChanges());
+
+      const orderedPersistedCompanyIds = orderedCompanies
+        .map((company) => companyIdMap.get(String(company?.comp_id ?? "")) ?? company?.comp_id)
+        .filter((companyId) => companyId !== undefined && companyId !== null && companyId !== "")
+        .filter((companyId) => !deactivatedCompanySet.has(String(companyId)))
+        .filter((companyId) => !isTempCompanyId(companyId));
+
+      const selectedResolved = companyIdMap.get(String(selectedCompany?.comp_id ?? "")) ?? selectedCompany?.comp_id ?? null;
+      const nextSelectedCompanyId =
+        selectedResolved
+        && !deactivatedCompanySet.has(String(selectedResolved))
+        && !isTempCompanyId(selectedResolved)
+          ? selectedResolved
+          : (orderedPersistedCompanyIds[0] ?? null);
+
+      updateSelectedCompanyInQuery(nextSelectedCompanyId);
       router.refresh();
-      toastSuccess("Department batch saved.", "Save Batch");
+      toastSuccess(`Saved ${pendingSummary.total} batched change(s).`, "Save Batch");
     } catch (error) {
-      toastError(error?.message || "Failed to save department batch.");
+      toastError(error?.message || "Failed to save batched changes.");
     } finally {
       setIsMutatingAction(false);
-      setIsSavingDepartmentBatch(false);
+      setIsSavingBatch(false);
     }
   }, [
-    departmentChangeCount,
+    companyChanges.creates,
+    companyChanges.deactivations,
+    companyChanges.updates,
     departmentChanges.creates,
     departmentChanges.deactivations,
     departmentChanges.updates,
+    hasPendingChanges,
     isMutatingAction,
-    isSavingDepartmentBatch,
+    isSavingBatch,
+    orderedCompanies,
+    pendingSummary.total,
     requestJson,
     router,
+    selectedCompany?.comp_id,
+    updateSelectedCompanyInQuery,
   ]);
 
   const openAddCompanyDialog = useCallback(() => {
-    if (isMutatingAction || isSavingCompanyBatch || isSavingDepartmentBatch) {
+    if (isMutatingAction || isSavingBatch) {
       return;
     }
 
     setCompanyDraft({ name: "", shortName: "", email: "", phone: "" });
     setDialog({ kind: "add-company", target: null, nextIsActive: true });
-  }, [isMutatingAction, isSavingCompanyBatch, isSavingDepartmentBatch]);
+  }, [isMutatingAction, isSavingBatch]);
 
   const openEditCompanyDialog = useCallback((row) => {
-    if (isMutatingAction || isSavingCompanyBatch || isSavingDepartmentBatch) {
+    if (isMutatingAction || isSavingBatch) {
       return;
     }
 
@@ -789,26 +715,26 @@ export default function CompanyDepartmentSetupClient({
     });
 
     setDialog({ kind: "edit-company", target: row, nextIsActive: null });
-  }, [isMutatingAction, isSavingCompanyBatch, isSavingDepartmentBatch]);
+  }, [isMutatingAction, isSavingBatch]);
 
   const openToggleCompanyDialog = useCallback((row) => {
-    if (isMutatingAction || isSavingCompanyBatch || isSavingDepartmentBatch) {
+    if (isMutatingAction || isSavingBatch) {
       return;
     }
 
     setDialog({ kind: "toggle-company", target: row, nextIsActive: !Boolean(row?.is_active_bool) });
-  }, [isMutatingAction, isSavingCompanyBatch, isSavingDepartmentBatch]);
+  }, [isMutatingAction, isSavingBatch]);
 
   const openDeactivateCompanyDialog = useCallback((row) => {
-    if (isMutatingAction || isSavingCompanyBatch || isSavingDepartmentBatch) {
+    if (isMutatingAction || isSavingBatch) {
       return;
     }
 
     setDialog({ kind: "deactivate-company", target: row, nextIsActive: null });
-  }, [isMutatingAction, isSavingCompanyBatch, isSavingDepartmentBatch]);
+  }, [isMutatingAction, isSavingBatch]);
 
   const openAddDepartmentDialog = useCallback(() => {
-    if (isMutatingAction || isSavingCompanyBatch || isSavingDepartmentBatch) {
+    if (isMutatingAction || isSavingBatch) {
       return;
     }
 
@@ -833,15 +759,14 @@ export default function CompanyDepartmentSetupClient({
     });
   }, [
     isMutatingAction,
-    isSavingCompanyBatch,
-    isSavingDepartmentBatch,
+    isSavingBatch,
     isSelectedCompanyPendingDeactivation,
     selectedCompany?.comp_id,
     selectedCompany?.comp_name,
   ]);
 
   const openEditDepartmentDialog = useCallback((row) => {
-    if (isMutatingAction || isSavingCompanyBatch || isSavingDepartmentBatch) {
+    if (isMutatingAction || isSavingBatch) {
       return;
     }
 
@@ -851,23 +776,23 @@ export default function CompanyDepartmentSetupClient({
     });
 
     setDialog({ kind: "edit-department", target: row, nextIsActive: null });
-  }, [isMutatingAction, isSavingCompanyBatch, isSavingDepartmentBatch]);
+  }, [isMutatingAction, isSavingBatch]);
 
   const openToggleDepartmentDialog = useCallback((row) => {
-    if (isMutatingAction || isSavingCompanyBatch || isSavingDepartmentBatch) {
+    if (isMutatingAction || isSavingBatch) {
       return;
     }
 
     setDialog({ kind: "toggle-department", target: row, nextIsActive: !Boolean(row?.is_active_bool) });
-  }, [isMutatingAction, isSavingCompanyBatch, isSavingDepartmentBatch]);
+  }, [isMutatingAction, isSavingBatch]);
 
   const openDeactivateDepartmentDialog = useCallback((row) => {
-    if (isMutatingAction || isSavingCompanyBatch || isSavingDepartmentBatch) {
+    if (isMutatingAction || isSavingBatch) {
       return;
     }
 
     setDialog({ kind: "deactivate-department", target: row, nextIsActive: null });
-  }, [isMutatingAction, isSavingCompanyBatch, isSavingDepartmentBatch]);
+  }, [isMutatingAction, isSavingBatch]);
 
   const submitAddCompany = useCallback(() => {
     const companyName = normalizeText(companyDraft.name);
@@ -1355,18 +1280,18 @@ export default function CompanyDepartmentSetupClient({
         render: (row) => {
           const batchState = String(row?.__batchState || "");
           const markerText =
-            batchState === "deactivated"
+            batchState === "deleted"
               ? "Deactivated"
-              : (batchState === "new" ? "New" : (batchState === "edited" ? "Edited" : ""));
+              : (batchState === "created" ? "New" : (batchState === "updated" ? "Edited" : ""));
           const markerClass =
-            batchState === "deactivated"
+            batchState === "deleted"
               ? "psb-batch-marker psb-batch-marker-deleted"
-              : (batchState === "new"
+              : (batchState === "created"
                 ? "psb-batch-marker psb-batch-marker-new"
-                : (batchState === "edited" ? "psb-batch-marker psb-batch-marker-edited" : ""));
+                : (batchState === "updated" ? "psb-batch-marker psb-batch-marker-edited" : ""));
           const textClassName = [
             isSameId(row?.comp_id, selectedCompany?.comp_id) ? "fw-semibold text-primary" : "",
-            batchState === "deactivated" ? "text-decoration-line-through" : "",
+            batchState === "deleted" ? "text-decoration-line-through" : "",
           ].filter(Boolean).join(" ");
 
           return (
@@ -1412,18 +1337,18 @@ export default function CompanyDepartmentSetupClient({
         render: (row) => {
           const batchState = String(row?.__batchState || "");
           const markerText =
-            batchState === "deactivated"
+            batchState === "deleted"
               ? "Deactivated"
-              : (batchState === "new" ? "New" : (batchState === "edited" ? "Edited" : ""));
+              : (batchState === "created" ? "New" : (batchState === "updated" ? "Edited" : ""));
           const markerClass =
-            batchState === "deactivated"
+            batchState === "deleted"
               ? "psb-batch-marker psb-batch-marker-deleted"
-              : (batchState === "new"
+              : (batchState === "created"
                 ? "psb-batch-marker psb-batch-marker-new"
-                : (batchState === "edited" ? "psb-batch-marker psb-batch-marker-edited" : ""));
+                : (batchState === "updated" ? "psb-batch-marker psb-batch-marker-edited" : ""));
 
           return (
-            <span className={batchState === "deactivated" ? "text-decoration-line-through" : ""}>
+            <span className={batchState === "deleted" ? "text-decoration-line-through" : ""}>
               {row?.dept_name || "--"}
               {markerText ? <span className={markerClass}>{markerText}</span> : null}
             </span>
@@ -1446,66 +1371,58 @@ export default function CompanyDepartmentSetupClient({
     [],
   );
 
-  const renderCompanyActions = useCallback(
-    (row) => {
-      const isPendingDeactivation = pendingDeactivatedCompanyIds.has(String(row?.comp_id ?? ""));
-      const actionDisabled = isMutatingAction || isSavingCompanyBatch || isSavingDepartmentBatch || isPendingDeactivation;
-      const isActive = Boolean(row?.is_active_bool);
-
-      return (
-        <>
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            className="px-2 psb-setup-action-btn psb-setup-action-edit"
-            disabled={actionDisabled}
-            title="Edit company"
-            aria-label={`Edit ${row?.comp_name || "company"}`}
-            onClick={(event) => {
-              event.stopPropagation();
-              openEditCompanyDialog(row);
-            }}
-          >
-            <i className="bi bi-pencil-square" aria-hidden="true" />
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            className={`px-2 psb-setup-action-btn ${isActive ? "psb-setup-action-toggle-disable" : "psb-setup-action-toggle-enable"}`}
-            disabled={actionDisabled}
-            title={isActive ? "Disable company" : "Enable company"}
-            aria-label={isActive ? "Disable company" : "Enable company"}
-            onClick={(event) => {
-              event.stopPropagation();
-              openToggleCompanyDialog(row);
-            }}
-          >
-            <i className={`bi ${isActive ? "bi-slash-circle" : "bi-check-circle"}`} aria-hidden="true" />
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            className="px-2 psb-setup-action-btn psb-setup-action-delete"
-            disabled={actionDisabled}
-            title="Deactivate company"
-            aria-label="Deactivate company"
-            onClick={(event) => {
-              event.stopPropagation();
-              openDeactivateCompanyDialog(row);
-            }}
-          >
-            <i className="bi bi-trash" aria-hidden="true" />
-          </Button>
-        </>
-      );
-    },
+  const companyActions = useMemo(
+    () => [
+      {
+        key: "edit-company",
+        label: "Edit",
+        type: "secondary",
+        icon: "pencil-square",
+        disabled: (row) => {
+          const isPendingDeactivation = pendingDeactivatedCompanyIds.has(String(row?.comp_id ?? ""));
+          return isMutatingAction || isSavingBatch || isPendingDeactivation;
+        },
+        onClick: (row) => openEditCompanyDialog(row),
+      },
+      {
+        key: "disable-company",
+        label: "Disable",
+        type: "secondary",
+        icon: "slash-circle",
+        visible: (row) => Boolean(row?.is_active_bool),
+        disabled: (row) => {
+          const isPendingDeactivation = pendingDeactivatedCompanyIds.has(String(row?.comp_id ?? ""));
+          return isMutatingAction || isSavingBatch || isPendingDeactivation;
+        },
+        onClick: (row) => openToggleCompanyDialog(row),
+      },
+      {
+        key: "enable-company",
+        label: "Enable",
+        type: "secondary",
+        icon: "check-circle",
+        visible: (row) => !Boolean(row?.is_active_bool),
+        disabled: (row) => {
+          const isPendingDeactivation = pendingDeactivatedCompanyIds.has(String(row?.comp_id ?? ""));
+          return isMutatingAction || isSavingBatch || isPendingDeactivation;
+        },
+        onClick: (row) => openToggleCompanyDialog(row),
+      },
+      {
+        key: "deactivate-company",
+        label: "Deactivate",
+        type: "danger",
+        icon: "trash",
+        disabled: (row) => {
+          const isPendingDeactivation = pendingDeactivatedCompanyIds.has(String(row?.comp_id ?? ""));
+          return isMutatingAction || isSavingBatch || isPendingDeactivation;
+        },
+        onClick: (row) => openDeactivateCompanyDialog(row),
+      },
+    ],
     [
       isMutatingAction,
-      isSavingCompanyBatch,
-      isSavingDepartmentBatch,
+      isSavingBatch,
       openDeactivateCompanyDialog,
       openEditCompanyDialog,
       openToggleCompanyDialog,
@@ -1513,66 +1430,58 @@ export default function CompanyDepartmentSetupClient({
     ],
   );
 
-  const renderDepartmentActions = useCallback(
-    (row) => {
-      const isPendingDeactivation = pendingDeactivatedDepartmentIds.has(String(row?.dept_id ?? ""));
-      const actionDisabled = isMutatingAction || isSavingCompanyBatch || isSavingDepartmentBatch || isPendingDeactivation;
-      const isActive = Boolean(row?.is_active_bool);
-
-      return (
-        <>
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            className="px-2 psb-setup-action-btn psb-setup-action-edit"
-            disabled={actionDisabled}
-            title="Edit department"
-            aria-label={`Edit ${row?.dept_name || "department"}`}
-            onClick={(event) => {
-              event.stopPropagation();
-              openEditDepartmentDialog(row);
-            }}
-          >
-            <i className="bi bi-pencil-square" aria-hidden="true" />
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            className={`px-2 psb-setup-action-btn ${isActive ? "psb-setup-action-toggle-disable" : "psb-setup-action-toggle-enable"}`}
-            disabled={actionDisabled}
-            title={isActive ? "Disable department" : "Enable department"}
-            aria-label={isActive ? "Disable department" : "Enable department"}
-            onClick={(event) => {
-              event.stopPropagation();
-              openToggleDepartmentDialog(row);
-            }}
-          >
-            <i className={`bi ${isActive ? "bi-slash-circle" : "bi-check-circle"}`} aria-hidden="true" />
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            className="px-2 psb-setup-action-btn psb-setup-action-delete"
-            disabled={actionDisabled}
-            title="Deactivate department"
-            aria-label="Deactivate department"
-            onClick={(event) => {
-              event.stopPropagation();
-              openDeactivateDepartmentDialog(row);
-            }}
-          >
-            <i className="bi bi-trash" aria-hidden="true" />
-          </Button>
-        </>
-      );
-    },
+  const departmentActions = useMemo(
+    () => [
+      {
+        key: "edit-department",
+        label: "Edit",
+        type: "secondary",
+        icon: "pencil-square",
+        disabled: (row) => {
+          const isPendingDeactivation = pendingDeactivatedDepartmentIds.has(String(row?.dept_id ?? ""));
+          return isMutatingAction || isSavingBatch || isPendingDeactivation;
+        },
+        onClick: (row) => openEditDepartmentDialog(row),
+      },
+      {
+        key: "disable-department",
+        label: "Disable",
+        type: "secondary",
+        icon: "slash-circle",
+        visible: (row) => Boolean(row?.is_active_bool),
+        disabled: (row) => {
+          const isPendingDeactivation = pendingDeactivatedDepartmentIds.has(String(row?.dept_id ?? ""));
+          return isMutatingAction || isSavingBatch || isPendingDeactivation;
+        },
+        onClick: (row) => openToggleDepartmentDialog(row),
+      },
+      {
+        key: "enable-department",
+        label: "Enable",
+        type: "secondary",
+        icon: "check-circle",
+        visible: (row) => !Boolean(row?.is_active_bool),
+        disabled: (row) => {
+          const isPendingDeactivation = pendingDeactivatedDepartmentIds.has(String(row?.dept_id ?? ""));
+          return isMutatingAction || isSavingBatch || isPendingDeactivation;
+        },
+        onClick: (row) => openToggleDepartmentDialog(row),
+      },
+      {
+        key: "deactivate-department",
+        label: "Deactivate",
+        type: "danger",
+        icon: "trash",
+        disabled: (row) => {
+          const isPendingDeactivation = pendingDeactivatedDepartmentIds.has(String(row?.dept_id ?? ""));
+          return isMutatingAction || isSavingBatch || isPendingDeactivation;
+        },
+        onClick: (row) => openDeactivateDepartmentDialog(row),
+      },
+    ],
     [
       isMutatingAction,
-      isSavingCompanyBatch,
-      isSavingDepartmentBatch,
+      isSavingBatch,
       openDeactivateDepartmentDialog,
       openEditDepartmentDialog,
       openToggleDepartmentDialog,
@@ -1599,148 +1508,108 @@ export default function CompanyDepartmentSetupClient({
       ? "Deactivate Department"
       : "";
 
-  const companyHeader = (
-    <div className="d-flex flex-wrap justify-content-between align-items-start gap-2">
-      <div>
-        <h3 className="psb-ui-card-title mb-0">Companies</h3>
-        <p className="psb-ui-card-subtitle mb-0">Master company records.</p>
-      </div>
-      <div className="d-flex flex-wrap align-items-center gap-2 justify-content-end">
-        <Button
-          type="button"
-          size="sm"
-          variant="secondary"
-          loading={isSavingCompanyBatch}
-          disabled={companyChangeCount === 0 || isSavingCompanyBatch || isMutatingAction || isSavingDepartmentBatch}
-          onClick={saveCompanyBatch}
-        >
-          Save Batch
-        </Button>
-        <Button
-          type="button"
-          size="sm"
-          variant="ghost"
-          disabled={companyChangeCount === 0 || isSavingCompanyBatch || isMutatingAction || isSavingDepartmentBatch}
-          onClick={cancelCompanyBatch}
-        >
-          Cancel Batch
-        </Button>
-        <Button
-          type="button"
-          size="sm"
-          variant="ghost"
-          disabled={isRefreshing || isMutatingAction || isSavingCompanyBatch || isSavingDepartmentBatch}
-          onClick={refreshData}
-        >
-          {isRefreshing ? "Refreshing..." : "Refresh"}
-        </Button>
-        <Button
-          type="button"
-          size="sm"
-          variant="primary"
-          disabled={isMutatingAction || isSavingCompanyBatch || isSavingDepartmentBatch}
-          onClick={openAddCompanyDialog}
-        >
-          Add Company
-        </Button>
-      </div>
-    </div>
-  );
-
-  const departmentHeader = (
-    <div className="d-flex flex-wrap justify-content-between align-items-start gap-2">
-      <div>
-        <h3 className="psb-ui-card-title mb-0">
-          {selectedCompany ? `Departments for: ${selectedCompany.comp_name}` : "Departments"}
-        </h3>
-        <p className="psb-ui-card-subtitle mb-0">
-          {selectedCompany ? "Company-scoped departments." : "Select a company to view departments."}
-        </p>
-      </div>
-      <div className="d-flex flex-wrap align-items-center gap-2 justify-content-end">
-        <Button
-          type="button"
-          size="sm"
-          variant="secondary"
-          loading={isSavingDepartmentBatch}
-          disabled={departmentChangeCount === 0 || isSavingDepartmentBatch || isMutatingAction || isSavingCompanyBatch}
-          onClick={saveDepartmentBatch}
-        >
-          Save Batch
-        </Button>
-        <Button
-          type="button"
-          size="sm"
-          variant="ghost"
-          disabled={departmentChangeCount === 0 || isSavingDepartmentBatch || isMutatingAction || isSavingCompanyBatch}
-          onClick={cancelDepartmentBatch}
-        >
-          Cancel Batch
-        </Button>
-        <Button
-          type="button"
-          size="sm"
-          variant="primary"
-          disabled={isMutatingAction || isSavingCompanyBatch || isSavingDepartmentBatch || !selectedCompany?.comp_id || isSelectedCompanyPendingDeactivation}
-          onClick={openAddDepartmentDialog}
-        >
-          Add Department
-        </Button>
-      </div>
-    </div>
-  );
-
   return (
     <main className="container py-4">
       <div className="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
         <div>
-          <h1 className="h3 mb-1">Company-Department Setup</h1>
-          <p className="text-muted mb-0">Configure companies and their department mappings using shared setup tables.</p>
+          <h1 className="h3 mb-1">Configuration and Settings</h1>
+          <p className="text-muted mb-0">Manage setup tables and mapping assignments for Company-Department.</p>
         </div>
         <div className="d-flex flex-wrap align-items-center justify-content-end gap-2">
           <span className={`small ${hasPendingChanges ? "text-warning-emphasis fw-semibold" : "text-muted"}`}>
-            {(isSavingCompanyBatch || isSavingDepartmentBatch || isMutatingAction)
+            {isMutatingAction || isSavingBatch
               ? "Saving batch..."
-              : (hasPendingChanges
-                ? `${companyChangeCount + departmentChangeCount} staged change(s)`
-                : "No changes")}
+              : (hasPendingChanges ? `${pendingSummary.total} staged change(s)` : "No changes")}
           </span>
-          {companyChangeCount > 0 ? (
-            <span className="psb-batch-chip psb-batch-chip-edited">Companies: {companyChangeCount}</span>
+          {hasPendingChanges ? (
+            <>
+              {pendingSummary.companyAdded + pendingSummary.departmentAdded > 0 ? (
+                <span className="psb-batch-chip psb-batch-chip-added">
+                  +{pendingSummary.companyAdded + pendingSummary.departmentAdded} Added
+                </span>
+              ) : null}
+              {pendingSummary.companyEdited + pendingSummary.departmentEdited > 0 ? (
+                <span className="psb-batch-chip psb-batch-chip-edited">
+                  ~{pendingSummary.companyEdited + pendingSummary.departmentEdited} Edited
+                </span>
+              ) : null}
+              {pendingSummary.companyDeactivated + pendingSummary.departmentDeactivated > 0 ? (
+                <span className="psb-batch-chip psb-batch-chip-deleted">
+                  -{pendingSummary.companyDeactivated + pendingSummary.departmentDeactivated} Deactivated
+                </span>
+              ) : null}
+            </>
           ) : null}
-          {departmentChangeCount > 0 ? (
-            <span className="psb-batch-chip psb-batch-chip-added">Departments: {departmentChangeCount}</span>
-          ) : null}
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            loading={isSavingBatch}
+            disabled={!hasPendingChanges || isSavingBatch || isMutatingAction}
+            onClick={handleSaveBatch}
+          >
+            Save Batch
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            disabled={!hasPendingChanges || isSavingBatch || isMutatingAction}
+            onClick={handleCancelBatch}
+          >
+            Cancel Batch
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="primary"
+            disabled={isSavingBatch || isMutatingAction}
+            onClick={openAddCompanyDialog}
+          >
+            Add Company
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="primary"
+            disabled={isSavingBatch || isMutatingAction || !selectedCompany?.comp_id || isSelectedCompanyPendingDeactivation}
+            onClick={openAddDepartmentDialog}
+          >
+            Add Department
+          </Button>
         </div>
       </div>
 
       <div className="row g-3 align-items-start">
         <div className="col-12 col-xl-6">
-          <Card header={companyHeader}>
+          <Card title="Companies" subtitle="Master company records.">
             <SetupTable
               columns={companyColumns}
               rows={decoratedCompanies}
               rowIdKey="comp_id"
               selectedRowId={selectedCompany?.comp_id ?? null}
               onRowClick={handleCompanyRowClick}
-              renderActions={renderCompanyActions}
+              actions={companyActions}
               emptyMessage="No companies found."
             />
           </Card>
         </div>
 
         <div className="col-12 col-xl-6">
-          <Card header={departmentHeader}>
+          <Card
+            title={selectedCompany ? `Departments for: ${selectedCompany.comp_name}` : "Departments"}
+            subtitle={selectedCompany ? "Company-scoped departments" : "Click a company row to view its departments."}
+          >
             {selectedCompany ? (
               <SetupTable
                 columns={departmentColumns}
                 rows={decoratedDepartments}
                 rowIdKey="dept_id"
-                renderActions={renderDepartmentActions}
+                actions={departmentActions}
                 emptyMessage="No departments found for this company."
               />
             ) : (
-              <div className="notice-banner notice-banner-info mb-0">Select a company to view departments</div>
+              <div className="notice-banner notice-banner-info mb-0">Click a company row to view its departments.</div>
             )}
           </Card>
         </div>
@@ -1948,3 +1817,4 @@ export default function CompanyDepartmentSetupClient({
     </main>
   );
 }
+

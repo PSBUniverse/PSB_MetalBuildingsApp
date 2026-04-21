@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-export function middleware(req) {
+export function proxy(req) {
   const url = req.nextUrl.clone();
   const isLoginPage = url.pathname === "/login";
   const token = String(req.cookies.get("sb-access-token")?.value || "").trim();

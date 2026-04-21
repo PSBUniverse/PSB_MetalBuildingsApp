@@ -203,3 +203,140 @@ Before opening a pull request:
 6. Filter visible cards by role mapping.
 
 Following this sequence keeps module development safe, predictable, and architecture-compliant.
+
+_______________________________________________________________________________________________________________
+
+PURPOSE OF MODULAR SUBAPPS (CORE ARCHITECTURE)
+🎯 OBJECTIVE
+Understand the architectural purpose of separating the system into:
+•	Core App (PSB Universe Core) 
+•	Sub Applications (Modules like Gutter Calculator, OHD Calculator, etc.) 
+This is a modular SaaS architecture, not a monolithic app.
+________________________________________
+🧱 CORE IDEA (READ THIS FIRST)
+We are building a system where:
+The Core App is the platform, and
+Sub Apps are independent modules that plug into it
+If you treat everything as one app → you will destroy scalability, versioning, and maintainability.
+________________________________________
+🧩 WHY THIS EXISTS (NON-NEGOTIABLE REASONS)
+1. 🔄 INDEPENDENT VERSIONING
+Each sub app must:
+•	Be deployable independently 
+•	Be updatable without touching the core 
+•	Not break other modules when changed 
+Example:
+•	Update Gutter Calculator v2 
+•	Core remains untouched 
+•	OHD Calculator unaffected 
+If changing one module breaks another → your architecture is trash.
+________________________________________
+2. 🧱 ISOLATION OF RESPONSIBILITY
+Each sub app:
+•	Owns its own logic 
+•	Owns its own UI 
+•	Owns its own workflows 
+Core should NOT:
+•	Contain business logic of modules 
+•	Be aware of internal implementation of sub apps 
+Core only manages:
+•	Authentication 
+•	User management 
+•	Role assignments 
+•	Application registry 
+•	Navigation 
+________________________________________
+3. 👥 ROLE-BASED ACCESS (PER APPLICATION)
+Roles are:
+•	Scoped per application (not global) 
+Example:
+User can be:
+•	ADMIN in PSB Universe 
+•	USER in Gutter Calculator 
+•	No access in OHD Calculator 
+This is why:
+→ Applications and Roles are linked
+________________________________________
+4. 🧩 PLUG-AND-PLAY SYSTEM
+New sub apps should:
+•	Be registerable via Application Setup 
+•	Appear automatically in the system 
+•	Not require core modification 
+If adding a new app requires changing core code → you failed.
+________________________________________
+5. 🛠️ TEAM SCALABILITY (CRITICAL FOR YOUR JR DEVS)
+Different teams can:
+•	Work on different sub apps 
+•	Deploy independently 
+•	Not step on each other 
+Without modularization:
+→ everyone edits the same codebase → chaos
+________________________________________
+6. 🔐 STABILITY OF CORE (LOCKED CORE PRINCIPLE)
+Core must be:
+•	Stable 
+•	Rarely changed 
+•	Treated as infrastructure 
+Once core is “locked”:
+•	Sub apps evolve around it 
+•	Core does NOT constantly adjust for module needs 
+If core keeps changing → you built it wrong.
+________________________________________
+🧠 HOW THIS AFFECTS YOUR CURRENT SYSTEM
+Application Setup Page
+This is:
+The registry of sub apps
+It defines:
+•	What apps exist 
+•	Their order 
+•	Their activation state 
+________________________________________
+Roles per Application
+This is:
+Access control layer per module
+________________________________________
+Company / Department Setup
+This is:
+Organizational structure shared across modules
+But:
+•	Modules consume this data 
+•	Core owns it 
+________________________________________
+⚙️ DEVELOPMENT RULES (STRICT)
+🔒 Core Rules
+•	Core must NOT depend on any sub app 
+•	Core must NOT contain module-specific logic 
+•	Core exposes shared services only 
+________________________________________
+🧩 Sub App Rules
+Each sub app:
+•	Can depend on core 
+•	Must NOT affect other sub apps 
+•	Must be self-contained 
+________________________________________
+🔄 Versioning Rules
+•	Each sub app versioned independently 
+•	Breaking changes must NOT affect core 
+•	Backward compatibility must be considered 
+________________________________________
+❌ WHAT NOT TO DO (THIS WILL BREAK YOUR SYSTEM)
+•	❌ Hardcoding module logic inside core 
+•	❌ Sharing UI components without proper abstraction 
+•	❌ Creating cross-module dependencies 
+•	❌ Letting one module directly access another module’s data 
+•	❌ Treating roles as global instead of per app 
+________________________________________
+🧪 MENTAL MODEL (USE THIS)
+Think of:
+•	Core = Operating System 
+•	Sub Apps = Installed Applications 
+Windows doesn’t break when you update Chrome.
+That’s the level of isolation expected.
+________________________________________
+✅ SUCCESS CRITERIA
+You understand this system correctly if:
+•	You can add a new sub app WITHOUT touching core 
+•	You can update a sub app WITHOUT affecting others 
+•	You can assign roles PER application 
+•	Core remains stable across changes
+

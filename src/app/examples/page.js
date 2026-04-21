@@ -1419,6 +1419,7 @@ function PlaygroundTab() {
   const [lastEvent,      setLastEvent]      = useState({ type: "�" });
   const [showTableLog,   setShowTableLog]   = useState(false);
   const [workflowKey,    setWorkflowKey]    = useState("");
+  const [pendingWorkflowAction, setPendingWorkflowAction] = useState(null);
   const [tableSearch,    setTableSearch]    = useState("");
   const [inputValue,     setInputValue]     = useState("Jordan Carter");
   const [inputInvalid,   setInputInvalid]   = useState(false);
@@ -1543,10 +1544,28 @@ function PlaygroundTab() {
     }
   }, [pageSize]);
 
-  const runWorkflow = (action) => {
-    if (action.critical && !window.confirm(`Continue with ${action.label}?`)) return;
+  const startWorkflowAction = (action) => {
+    if (!action) {
+      return;
+    }
+
     setWorkflowKey(action.key);
     window.setTimeout(() => { setWorkflowKey(""); toastSuccess(`${action.label} complete.`, "Workflow"); }, 900);
+  };
+
+  const runWorkflow = (action) => {
+    if (action?.critical) {
+      setPendingWorkflowAction(action);
+      return;
+    }
+
+    startWorkflowAction(action);
+  };
+
+  const confirmWorkflowAction = () => {
+    const action = pendingWorkflowAction;
+    setPendingWorkflowAction(null);
+    startWorkflowAction(action);
   };
 
   const runModalSave = () => {
@@ -1568,6 +1587,26 @@ function PlaygroundTab() {
               </Button>
             ))}
           </div>
+
+          <Modal
+            show={Boolean(pendingWorkflowAction)}
+            onHide={() => setPendingWorkflowAction(null)}
+            title={`Confirm: ${pendingWorkflowAction?.label || "Action"}`}
+            footer={(
+              <>
+                <Button variant="secondary" onClick={() => setPendingWorkflowAction(null)}>
+                  Cancel
+                </Button>
+                <Button variant={toButtonVariantByType(pendingWorkflowAction?.type)} onClick={confirmWorkflowAction}>
+                  Yes, {pendingWorkflowAction?.label || "Continue"}
+                </Button>
+              </>
+            )}
+          >
+            <p style={{ margin: 0, fontSize: 14 }}>
+              Continue with {pendingWorkflowAction?.label || "this action"}?
+            </p>
+          </Modal>
         </div>
       ),
     },
@@ -1800,7 +1839,7 @@ function BonusWorkflowModal() {
   return (
     <div className={styles.playBody}>
       <p className={styles.playLabel}>
-        Critical workflow actions USE a modal instead of <code>window.confirm</code>.
+        Critical workflow actions USE shared modal confirmation instead of browser-native prompts.
         Developers remain free to define what happens on click � this is just a pattern example.
       </p>
       <div className={styles.toolbarRow}>

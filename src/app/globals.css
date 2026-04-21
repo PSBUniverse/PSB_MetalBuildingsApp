@@ -450,28 +450,46 @@
   border: 1px solid #f5c6c6;
 }
 
+.psb-row-created td,
 .psb-batch-row-new td {
   background: #eefaf4 !important;
 }
 
+.psb-row-updated td,
 .psb-batch-row-edited td {
-  background: #f2f8ff !important;
+  background: #fff8e6 !important;
 }
 
+.psb-row-created:hover td,
 .psb-batch-row-new:hover td {
   background: #e2f4ea !important;
 }
 
+.psb-row-updated:hover td,
 .psb-batch-row-edited:hover td {
-  background: #e6f2ff !important;
+  background: #fff3cf !important;
 }
 
+.psb-row-deleted td,
 .psb-batch-row-deleted td {
   background: #fff1f1 !important;
+  color: #8f2323 !important;
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
 }
 
+.psb-row-deleted:hover td,
 .psb-batch-row-deleted:hover td {
   background: #ffe6e6 !important;
+}
+
+.psb-row-deleted td .btn,
+.psb-row-deleted td .badge,
+.psb-row-deleted td i,
+.psb-batch-row-deleted td .btn,
+.psb-batch-row-deleted td .badge,
+.psb-batch-row-deleted td i {
+  text-decoration: none;
 }
 
 .psb-ui-card {
@@ -694,6 +712,7 @@
 .psb-ui-table-actions-cell {
   white-space: nowrap;
   text-align: center;
+  vertical-align: middle;
 }
 
 .table-actions {
@@ -703,7 +722,11 @@
   white-space: nowrap;
 }
 
-.table-actions-toggle {
+.table-actions-inline-btn {
+  white-space: nowrap;
+}
+
+.table-actions-inline-btn-icon {
   width: 2rem;
   min-width: 2rem;
   height: 2rem;
@@ -714,12 +737,53 @@
   justify-content: center;
 }
 
+.table-actions-inline-btn-icon .bi {
+  font-size: 1rem;
+}
+
+.table-actions-toggle {
+  width: 1.6rem;
+  min-width: 1.6rem;
+  height: 1.6rem;
+  line-height: 1;
+  padding: 0;
+  border-radius: 0.5rem;
+  border: 1px solid #d6e1ea;
+  background: #f8fbfd;
+  color: #5a6f83;
+  box-shadow: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.table-actions-toggle.btn-secondary {
+  border-color: #d6e1ea;
+  background: #f8fbfd;
+  color: #5a6f83;
+}
+
+.table-actions-toggle.btn-secondary:hover,
+.table-actions-toggle.btn-secondary:focus,
+.table-actions-toggle.btn-secondary:active,
+.table-actions-toggle.btn-secondary.show {
+  border-color: #c7d5e1;
+  background: #edf3f8;
+  color: #344b5f;
+  box-shadow: 0 0 0 0.12rem rgba(38, 97, 146, 0.12);
+}
+
 .table-actions-toggle.dropdown-toggle::after {
   display: none;
 }
 
 .table-actions-toggle .bi {
-  font-size: 1rem;
+  font-size: 0.72rem;
+  line-height: 1;
+}
+
+.table-actions-item {
+  white-space: nowrap;
 }
 
 .table-actions-empty {

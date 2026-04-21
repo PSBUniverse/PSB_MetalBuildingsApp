@@ -296,31 +296,27 @@ export default function ApplicationSetupClient({
       if (deactivatedIds.has(id)) {
         return {
           ...row,
-          __batchState: "deactivated",
-          __batchClassName: "psb-batch-row-deleted",
+          __batchState: "deleted",
         };
       }
 
       if (createdIds.has(id)) {
         return {
           ...row,
-          __batchState: "new",
-          __batchClassName: "psb-batch-row-new",
+          __batchState: "created",
         };
       }
 
       if (updatedIds.has(id)) {
         return {
           ...row,
-          __batchState: "edited",
-          __batchClassName: "psb-batch-row-edited",
+          __batchState: "updated",
         };
       }
 
       return {
         ...row,
-        __batchState: "",
-        __batchClassName: "",
+        __batchState: "none",
       };
     });
   }, [orderedApplications, pendingBatch.appCreates, pendingBatch.appDeactivations, pendingBatch.appUpdates]);
@@ -336,31 +332,27 @@ export default function ApplicationSetupClient({
       if (deactivatedIds.has(id)) {
         return {
           ...row,
-          __batchState: "deactivated",
-          __batchClassName: "psb-batch-row-deleted",
+          __batchState: "deleted",
         };
       }
 
       if (createdIds.has(id)) {
         return {
           ...row,
-          __batchState: "new",
-          __batchClassName: "psb-batch-row-new",
+          __batchState: "created",
         };
       }
 
       if (updatedIds.has(id)) {
         return {
           ...row,
-          __batchState: "edited",
-          __batchClassName: "psb-batch-row-edited",
+          __batchState: "updated",
         };
       }
 
       return {
         ...row,
-        __batchState: "",
-        __batchClassName: "",
+        __batchState: "none",
       };
     });
   }, [pendingBatch.roleCreates, pendingBatch.roleDeactivations, pendingBatch.roleUpdates, selectedAppRoles]);
@@ -1247,18 +1239,18 @@ export default function ApplicationSetupClient({
         render: (row) => {
           const batchState = String(row?.__batchState || "");
           const markerText =
-            batchState === "deactivated"
+            batchState === "deleted"
               ? "Deactivated"
-              : (batchState === "new" ? "New" : (batchState === "edited" ? "Edited" : ""));
+              : (batchState === "created" ? "New" : (batchState === "updated" ? "Edited" : ""));
           const markerClass =
-            batchState === "deactivated"
+            batchState === "deleted"
               ? "psb-batch-marker psb-batch-marker-deleted"
-              : (batchState === "new"
+              : (batchState === "created"
                 ? "psb-batch-marker psb-batch-marker-new"
-                : (batchState === "edited" ? "psb-batch-marker psb-batch-marker-edited" : ""));
+                : (batchState === "updated" ? "psb-batch-marker psb-batch-marker-edited" : ""));
           const textClassName = [
             isSameId(row?.app_id, selectedApp?.app_id) ? "fw-semibold text-primary" : "",
-            batchState === "deactivated" ? "text-decoration-line-through" : "",
+            batchState === "deleted" ? "text-decoration-line-through" : "",
           ].filter(Boolean).join(" ");
 
           return (
@@ -1300,18 +1292,18 @@ export default function ApplicationSetupClient({
         render: (row) => {
           const batchState = String(row?.__batchState || "");
           const markerText =
-            batchState === "deactivated"
+            batchState === "deleted"
               ? "Deactivated"
-              : (batchState === "new" ? "New" : (batchState === "edited" ? "Edited" : ""));
+              : (batchState === "created" ? "New" : (batchState === "updated" ? "Edited" : ""));
           const markerClass =
-            batchState === "deactivated"
+            batchState === "deleted"
               ? "psb-batch-marker psb-batch-marker-deleted"
-              : (batchState === "new"
+              : (batchState === "created"
                 ? "psb-batch-marker psb-batch-marker-new"
-                : (batchState === "edited" ? "psb-batch-marker psb-batch-marker-edited" : ""));
+                : (batchState === "updated" ? "psb-batch-marker psb-batch-marker-edited" : ""));
 
           return (
-            <span className={batchState === "deactivated" ? "text-decoration-line-through" : ""}>
+            <span className={batchState === "deleted" ? "text-decoration-line-through" : ""}>
               {row?.role_name || "--"}
               {markerText ? <span className={markerClass}>{markerText}</span> : null}
             </span>
@@ -1334,135 +1326,121 @@ export default function ApplicationSetupClient({
     [],
   );
 
-  const renderApplicationActions = useCallback(
-    (row) => {
-      const isPendingDeactivation = pendingDeactivatedAppIds.has(String(row?.app_id ?? ""));
-      const actionDisabled = isSavingOrder || isMutatingAction || isPendingDeactivation;
-      const isActive = Boolean(row?.is_active_bool);
-
-      return (
-        <>
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            className="px-2 psb-setup-action-btn psb-setup-action-edit"
-            disabled={actionDisabled}
-            title="Edit application"
-            aria-label={`Edit ${row?.app_name || "application"}`}
-            onClick={(event) => {
-              event.stopPropagation();
-              openEditApplicationDialog(row);
-            }}
-          >
-            <i className="bi bi-pencil-square" aria-hidden="true" />
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            className={`px-2 psb-setup-action-btn ${isActive ? "psb-setup-action-toggle-disable" : "psb-setup-action-toggle-enable"}`}
-            disabled={actionDisabled}
-            title={isActive ? "Disable application" : "Enable application"}
-            aria-label={isActive ? "Disable application" : "Enable application"}
-            onClick={(event) => {
-              event.stopPropagation();
-              openToggleApplicationDialog(row);
-            }}
-          >
-            <i className={`bi ${isActive ? "bi-slash-circle" : "bi-check-circle"}`} aria-hidden="true" />
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            className="px-2 psb-setup-action-btn psb-setup-action-delete"
-            disabled={actionDisabled}
-            title="Deactivate application"
-            aria-label="Deactivate application"
-            onClick={(event) => {
-              event.stopPropagation();
-              openDeactivateApplicationDialog(row);
-            }}
-          >
-            <i className="bi bi-trash" aria-hidden="true" />
-          </Button>
-        </>
-      );
-    },
+  const applicationActions = useMemo(
+    () => [
+      {
+        key: "edit-application",
+        label: "Edit",
+        type: "secondary",
+        icon: "pencil-square",
+        disabled: (row) => {
+          const isPendingDeactivation = pendingDeactivatedAppIds.has(String(row?.app_id ?? ""));
+          return isSavingOrder || isMutatingAction || isPendingDeactivation;
+        },
+        onClick: (row) => openEditApplicationDialog(row),
+      },
+      {
+        key: "disable-application",
+        label: "Disable",
+        type: "secondary",
+        icon: "slash-circle",
+        visible: (row) => Boolean(row?.is_active_bool),
+        disabled: (row) => {
+          const isPendingDeactivation = pendingDeactivatedAppIds.has(String(row?.app_id ?? ""));
+          return isSavingOrder || isMutatingAction || isPendingDeactivation;
+        },
+        onClick: (row) => openToggleApplicationDialog(row),
+      },
+      {
+        key: "enable-application",
+        label: "Enable",
+        type: "secondary",
+        icon: "check-circle",
+        visible: (row) => !Boolean(row?.is_active_bool),
+        disabled: (row) => {
+          const isPendingDeactivation = pendingDeactivatedAppIds.has(String(row?.app_id ?? ""));
+          return isSavingOrder || isMutatingAction || isPendingDeactivation;
+        },
+        onClick: (row) => openToggleApplicationDialog(row),
+      },
+      {
+        key: "deactivate-application",
+        label: "Deactivate",
+        type: "danger",
+        icon: "trash",
+        disabled: (row) => {
+          const isPendingDeactivation = pendingDeactivatedAppIds.has(String(row?.app_id ?? ""));
+          return isSavingOrder || isMutatingAction || isPendingDeactivation;
+        },
+        onClick: (row) => openDeactivateApplicationDialog(row),
+      },
+    ],
     [
       isMutatingAction,
       isSavingOrder,
-      pendingDeactivatedAppIds,
       openDeactivateApplicationDialog,
       openEditApplicationDialog,
       openToggleApplicationDialog,
+      pendingDeactivatedAppIds,
     ],
   );
 
-  const renderRoleActions = useCallback(
-    (row) => {
-      const isPendingDeactivation = pendingDeactivatedRoleIds.has(String(row?.role_id ?? ""));
-      const actionDisabled = isSavingOrder || isMutatingAction || isPendingDeactivation;
-      const isActive = Boolean(row?.is_active_bool);
-
-      return (
-        <>
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            className="px-2 psb-setup-action-btn psb-setup-action-edit"
-            disabled={actionDisabled}
-            title="Edit role"
-            aria-label={`Edit ${row?.role_name || "role"}`}
-            onClick={(event) => {
-              event.stopPropagation();
-              openEditRoleDialog(row);
-            }}
-          >
-            <i className="bi bi-pencil-square" aria-hidden="true" />
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            className={`px-2 psb-setup-action-btn ${isActive ? "psb-setup-action-toggle-disable" : "psb-setup-action-toggle-enable"}`}
-            disabled={actionDisabled}
-            title={isActive ? "Disable role" : "Enable role"}
-            aria-label={isActive ? "Disable role" : "Enable role"}
-            onClick={(event) => {
-              event.stopPropagation();
-              openToggleRoleDialog(row);
-            }}
-          >
-            <i className={`bi ${isActive ? "bi-slash-circle" : "bi-check-circle"}`} aria-hidden="true" />
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            className="px-2 psb-setup-action-btn psb-setup-action-delete"
-            disabled={actionDisabled}
-            title="Deactivate role"
-            aria-label="Deactivate role"
-            onClick={(event) => {
-              event.stopPropagation();
-              openDeactivateRoleDialog(row);
-            }}
-          >
-            <i className="bi bi-trash" aria-hidden="true" />
-          </Button>
-        </>
-      );
-    },
+  const roleActions = useMemo(
+    () => [
+      {
+        key: "edit-role",
+        label: "Edit",
+        type: "secondary",
+        icon: "pencil-square",
+        disabled: (row) => {
+          const isPendingDeactivation = pendingDeactivatedRoleIds.has(String(row?.role_id ?? ""));
+          return isSavingOrder || isMutatingAction || isPendingDeactivation;
+        },
+        onClick: (row) => openEditRoleDialog(row),
+      },
+      {
+        key: "disable-role",
+        label: "Disable",
+        type: "secondary",
+        icon: "slash-circle",
+        visible: (row) => Boolean(row?.is_active_bool),
+        disabled: (row) => {
+          const isPendingDeactivation = pendingDeactivatedRoleIds.has(String(row?.role_id ?? ""));
+          return isSavingOrder || isMutatingAction || isPendingDeactivation;
+        },
+        onClick: (row) => openToggleRoleDialog(row),
+      },
+      {
+        key: "enable-role",
+        label: "Enable",
+        type: "secondary",
+        icon: "check-circle",
+        visible: (row) => !Boolean(row?.is_active_bool),
+        disabled: (row) => {
+          const isPendingDeactivation = pendingDeactivatedRoleIds.has(String(row?.role_id ?? ""));
+          return isSavingOrder || isMutatingAction || isPendingDeactivation;
+        },
+        onClick: (row) => openToggleRoleDialog(row),
+      },
+      {
+        key: "deactivate-role",
+        label: "Deactivate",
+        type: "danger",
+        icon: "trash",
+        disabled: (row) => {
+          const isPendingDeactivation = pendingDeactivatedRoleIds.has(String(row?.role_id ?? ""));
+          return isSavingOrder || isMutatingAction || isPendingDeactivation;
+        },
+        onClick: (row) => openDeactivateRoleDialog(row),
+      },
+    ],
     [
       isMutatingAction,
       isSavingOrder,
-      pendingDeactivatedRoleIds,
       openDeactivateRoleDialog,
       openEditRoleDialog,
       openToggleRoleDialog,
+      pendingDeactivatedRoleIds,
     ],
   );
 
@@ -1569,7 +1547,7 @@ export default function ApplicationSetupClient({
               rowIdKey="app_id"
               selectedRowId={selectedApp?.app_id ?? null}
               onRowClick={handleApplicationRowClick}
-              renderActions={renderApplicationActions}
+              actions={applicationActions}
               draggable={!isSavingOrder && !isMutatingAction}
               onReorder={handleApplicationReorder}
               emptyMessage="No applications found."
@@ -1587,7 +1565,7 @@ export default function ApplicationSetupClient({
                 columns={roleColumns}
                 rows={decoratedSelectedAppRoles}
                 rowIdKey="role_id"
-                renderActions={renderRoleActions}
+                actions={roleActions}
                 emptyMessage="No roles assigned to this application."
               />
             ) : (

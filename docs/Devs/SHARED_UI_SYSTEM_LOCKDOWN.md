@@ -135,6 +135,22 @@ Rules:
 - Uses current table state/context
 - CSV and Excel only
 
+## SetupTable vs Table
+
+
+1.	## SetupTable in SetupTable.js is a lightweight setup-grid:
+	•	simple rows + columns rendering
+	•	optional row click selection
+	•	custom per-row actions via renderActions
+	•	optional drag reorder
+	•	supports batch row styling with __batchClassName
+2.	## Table in Table.js is a full data-table system:
+	•	controlled state + onChange contract
+	•	filters, search, sorting, pagination
+	•	column resize/visibility
+	•	context menu + side panel + export
+	•	standardized action config via actions
+
 ---
 
 ## Design System (Locked)

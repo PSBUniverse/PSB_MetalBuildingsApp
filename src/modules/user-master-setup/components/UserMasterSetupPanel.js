@@ -6,6 +6,7 @@ import {
   Button,
   Card,
   Input,
+  Modal,
   SetupTable,
   toastError,
   toastInfo,
@@ -460,6 +461,11 @@ export function UserMasterSetupPanel({ users = [], totalUsers = 0 }) {
   const [enableNewPassword, setEnableNewPassword] = useState(false);
   const [newPasswordValue, setNewPasswordValue] = useState("");
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
+  const [showCancelBatchModal, setShowCancelBatchModal] = useState(false);
+  const [showDiscardDraftModal, setShowDiscardDraftModal] = useState(false);
+  const [pendingDiscardDraftAction, setPendingDiscardDraftAction] = useState(null);
+  const [pendingAccessDeactivateRow, setPendingAccessDeactivateRow] = useState(null);
+  const [showDeactivateUserModal, setShowDeactivateUserModal] = useState(false);
 
   const [accessEditor, setAccessEditor] = useState({
     mode: null,
@@ -525,6 +531,47 @@ export function UserMasterSetupPanel({ users = [], totalUsers = 0 }) {
 
     return (lookups?.roles || []).filter((row) => String(row?.app_id) === String(accessEditor.app_id));
   }, [accessEditor?.app_id, lookups?.roles]);
+
+  const accessTableActions = useMemo(
+    () => [
+      {
+        key: "edit-access",
+        label: "Edit Access",
+        type: "secondary",
+        icon: "pencil-square",
+        visible: () => panelEditable,
+        onClick: (row) => {
+          if (!panelEditable) {
+            return;
+          }
+
+          setAccessEditor({
+            mode: "edit",
+            access_key: row?.access_key,
+            original_app_id: normalizeText(row?.app_id),
+            original_role_id: normalizeText(row?.role_id),
+            app_id: normalizeText(row?.app_id),
+            role_id: normalizeText(row?.role_id),
+          });
+        },
+      },
+      {
+        key: "deactivate-access",
+        label: "Deactivate Access",
+        type: "danger",
+        icon: "slash-circle",
+        visible: () => panelEditable,
+        onClick: (row) => {
+          if (!panelEditable) {
+            return;
+          }
+
+          setPendingAccessDeactivateRow(row || null);
+        },
+      },
+    ],
+    [panelEditable],
+  );
 
   const userColumns = useMemo(
     () => [
@@ -617,7 +664,7 @@ export function UserMasterSetupPanel({ users = [], totalUsers = 0 }) {
 
       const payload = await parseJsonResponse(response, "Failed to load users.");
       const nextRows = Array.isArray(payload?.users) ? payload.users : [];
-      setTableRows(nextRows.map((row) => ({ ...row, __batchClassName: "" })));
+      setTableRows(nextRows.map((row) => ({ ...row, __batchState: "none" })));
 
       if (!silent) {
         toastSuccess("User list refreshed.", "User Master Setup");
@@ -725,16 +772,29 @@ export function UserMasterSetupPanel({ users = [], totalUsers = 0 }) {
     };
   }, [closeUserHeaderMenu, userHeaderMenuState.open]);
 
-  function confirmDiscardDraft() {
+  function requestDiscardDraftConfirmation(onConfirm) {
     if (!panelDirty) {
-      return true;
+      onConfirm();
+      return;
     }
 
-    if (typeof window === "undefined") {
-      return false;
-    }
+    setPendingDiscardDraftAction(() => onConfirm);
+    setShowDiscardDraftModal(true);
+  }
 
-    return window.confirm("You have unsaved panel changes. Discard them?");
+  function closeDiscardDraftModal() {
+    setShowDiscardDraftModal(false);
+    setPendingDiscardDraftAction(null);
+  }
+
+  function confirmDiscardDraft() {
+    const onConfirm = pendingDiscardDraftAction;
+    setShowDiscardDraftModal(false);
+    setPendingDiscardDraftAction(null);
+
+    if (typeof onConfirm === "function") {
+      onConfirm();
+    }
   }
 
   function resetPanelState() {
@@ -768,7 +828,7 @@ export function UserMasterSetupPanel({ users = [], totalUsers = 0 }) {
     setIsPanelLoading(false);
   }
 
-  async function openExistingUserPanel(row, mode) {
+  function openExistingUserPanel(row, mode) {
     const userId = rowIdOf(row);
 
     if (!userId) {
@@ -781,42 +841,83 @@ export function UserMasterSetupPanel({ users = [], totalUsers = 0 }) {
       return;
     }
 
-    if (!confirmDiscardDraft()) {
-      return;
-    }
+    requestDiscardDraftConfirmation(() => {
+      const loadPanel = async () => {
+        setPanelOpen(true);
+        setPanelMode(mode);
+        setPanelUserId(userId);
+        setActiveTab("profile");
+        setIsPanelLoading(true);
 
-    setPanelOpen(true);
-    setPanelMode(mode);
-    setPanelUserId(userId);
-    setActiveTab("profile");
-    setIsPanelLoading(true);
+        try {
+          const [detailResponse, accessResponse] = await Promise.all([
+            fetch(`/api/user-master-setup/users/${encodeURIComponent(userId)}`, {
+              method: "GET",
+              cache: "no-store",
+            }),
+            fetch(`/api/user-master-setup/users/${encodeURIComponent(userId)}/access`, {
+              method: "GET",
+              cache: "no-store",
+            }),
+          ]);
 
-    try {
-      const [detailResponse, accessResponse] = await Promise.all([
-        fetch(`/api/user-master-setup/users/${encodeURIComponent(userId)}`, {
-          method: "GET",
-          cache: "no-store",
-        }),
-        fetch(`/api/user-master-setup/users/${encodeURIComponent(userId)}/access`, {
-          method: "GET",
-          cache: "no-store",
-        }),
-      ]);
+          const detailPayload = await parseJsonResponse(detailResponse, "Failed to load user detail.");
+          const accessPayload = await parseJsonResponse(accessResponse, "Failed to load user access.");
 
-      const detailPayload = await parseJsonResponse(detailResponse, "Failed to load user detail.");
-      const accessPayload = await parseJsonResponse(accessResponse, "Failed to load user access.");
+          const fallbackStatusId = lookups?.statuses?.[0]?.status_id ?? null;
+          const nextForm = createFormFromUser(detailPayload?.user || {}, fallbackStatusId, lookups?.statuses || []);
+          const nextAccessRows = Array.isArray(accessPayload?.accessRows) ? accessPayload.accessRows : [];
 
+          setForm(nextForm);
+          setBaselineForm(cloneForm(nextForm));
+
+          setAccessRows(cloneAccessRows(nextAccessRows));
+          setBaselineAccessRows(cloneAccessRows(nextAccessRows));
+
+          setEnableNewPassword(false);
+          setNewPasswordValue("");
+          setConfirmNewPassword("");
+
+          setAccessEditor({
+            mode: null,
+            access_key: null,
+            original_app_id: "",
+            original_role_id: "",
+            app_id: "",
+            role_id: "",
+          });
+
+          setBaselineSnapshot(buildPanelSnapshot(nextForm, nextAccessRows, false, "", ""));
+        } catch (error) {
+          toastError(error?.message || "Failed to load selected user.", "User Master Setup");
+          resetPanelState();
+        } finally {
+          setIsPanelLoading(false);
+        }
+      };
+
+      void loadPanel();
+    });
+  }
+
+  function openAddUserPanel() {
+    requestDiscardDraftConfirmation(() => {
       const fallbackStatusId = lookups?.statuses?.[0]?.status_id ?? null;
-      const nextForm = createFormFromUser(detailPayload?.user || {}, fallbackStatusId, lookups?.statuses || []);
-      const nextAccessRows = Array.isArray(accessPayload?.accessRows) ? accessPayload.accessRows : [];
+      const nextForm = createEmptyForm(fallbackStatusId, lookups?.statuses || []);
+
+      setPanelOpen(true);
+      setPanelMode("add");
+      setPanelUserId(null);
+      setActiveTab("profile");
+      setIsPanelLoading(false);
 
       setForm(nextForm);
       setBaselineForm(cloneForm(nextForm));
 
-      setAccessRows(cloneAccessRows(nextAccessRows));
-      setBaselineAccessRows(cloneAccessRows(nextAccessRows));
+      setAccessRows([]);
+      setBaselineAccessRows([]);
 
-      setEnableNewPassword(false);
+      setEnableNewPassword(true);
       setNewPasswordValue("");
       setConfirmNewPassword("");
 
@@ -829,57 +930,14 @@ export function UserMasterSetupPanel({ users = [], totalUsers = 0 }) {
         role_id: "",
       });
 
-      setBaselineSnapshot(buildPanelSnapshot(nextForm, nextAccessRows, false, "", ""));
-    } catch (error) {
-      toastError(error?.message || "Failed to load selected user.", "User Master Setup");
-      resetPanelState();
-    } finally {
-      setIsPanelLoading(false);
-    }
-  }
-
-  function openAddUserPanel() {
-    if (!confirmDiscardDraft()) {
-      return;
-    }
-
-    const fallbackStatusId = lookups?.statuses?.[0]?.status_id ?? null;
-    const nextForm = createEmptyForm(fallbackStatusId, lookups?.statuses || []);
-
-    setPanelOpen(true);
-    setPanelMode("add");
-    setPanelUserId(null);
-    setActiveTab("profile");
-    setIsPanelLoading(false);
-
-    setForm(nextForm);
-    setBaselineForm(cloneForm(nextForm));
-
-    setAccessRows([]);
-    setBaselineAccessRows([]);
-
-    setEnableNewPassword(true);
-    setNewPasswordValue("");
-    setConfirmNewPassword("");
-
-    setAccessEditor({
-      mode: null,
-      access_key: null,
-      original_app_id: "",
-      original_role_id: "",
-      app_id: "",
-      role_id: "",
+      setBaselineSnapshot(buildPanelSnapshot(nextForm, [], true, "", ""));
     });
-
-    setBaselineSnapshot(buildPanelSnapshot(nextForm, [], true, "", ""));
   }
 
   function closePanel() {
-    if (!confirmDiscardDraft()) {
-      return;
-    }
-
-    resetPanelState();
+    requestDiscardDraftConfirmation(() => {
+      resetPanelState();
+    });
   }
 
   function updateTableRow(nextRow, { prepend = false } = {}) {
@@ -945,31 +1003,16 @@ export function UserMasterSetupPanel({ users = [], totalUsers = 0 }) {
     });
   }
 
-  function startAccessEdit(row) {
-    if (!panelEditable) {
-      return;
-    }
-
-    setAccessEditor({
-      mode: "edit",
-      access_key: row?.access_key,
-      original_app_id: normalizeText(row?.app_id),
-      original_role_id: normalizeText(row?.role_id),
-      app_id: normalizeText(row?.app_id),
-      role_id: normalizeText(row?.role_id),
-    });
+  function closeAccessDeactivateModal() {
+    setPendingAccessDeactivateRow(null);
   }
 
-  function removeAccessRow(row) {
-    if (!panelEditable) {
-      return;
-    }
+  function confirmRemoveAccessRow() {
+    const row = pendingAccessDeactivateRow;
+    setPendingAccessDeactivateRow(null);
 
-    if (typeof window !== "undefined") {
-      const confirmed = window.confirm(`Deactivate access ${row?.application_name || "Application"} / ${row?.role_name || "Role"}?`);
-      if (!confirmed) {
-        return;
-      }
+    if (!row) {
+      return;
     }
 
     setAccessRows((previous) => previous.filter((entry) => String(entry?.access_key) !== String(row?.access_key)));
@@ -1079,7 +1122,7 @@ export function UserMasterSetupPanel({ users = [], totalUsers = 0 }) {
         const previewRow = summarizeUserRow(form, lookups, {
           id: tempId,
           user_id: tempId,
-          __batchClassName: "table-info",
+          __batchState: "created",
         });
 
         updateTableRow(previewRow, { prepend: true });
@@ -1111,7 +1154,7 @@ export function UserMasterSetupPanel({ users = [], totalUsers = 0 }) {
         ...(selectedUserRow || {}),
         id: userId,
         user_id: userId,
-        __batchClassName: "table-warning",
+        __batchState: "updated",
       });
 
       updateTableRow(previewRow);
@@ -1277,18 +1320,17 @@ export function UserMasterSetupPanel({ users = [], totalUsers = 0 }) {
     }
   }
 
-  async function cancelBatch() {
+  function cancelBatch() {
     if (!hasPendingChanges) {
       toastInfo("There are no staged changes to cancel.", "User Master Setup");
       return;
     }
 
-    if (typeof window !== "undefined") {
-      const confirmed = window.confirm("Cancel all staged batch changes?");
-      if (!confirmed) {
-        return;
-      }
-    }
+    setShowCancelBatchModal(true);
+  }
+
+  async function confirmCancelBatch() {
+    setShowCancelBatchModal(false);
 
     setPendingBatch(createEmptyPendingBatch());
     await refreshUsers({ silent: true });
@@ -1300,7 +1342,7 @@ export function UserMasterSetupPanel({ users = [], totalUsers = 0 }) {
     toastSuccess("Staged batch changes canceled.", "User Master Setup");
   }
 
-  async function deactivateCurrentUser() {
+  function deactivateCurrentUser() {
     const userId = normalizeText(panelUserId);
 
     if (!userId || isTemporaryId(userId)) {
@@ -1308,14 +1350,17 @@ export function UserMasterSetupPanel({ users = [], totalUsers = 0 }) {
       return;
     }
 
-    if (typeof window !== "undefined") {
-      const confirmed = window.confirm(
-        "Deactivate this user? This is a soft delete and will revoke all system access.",
-      );
+    setShowDeactivateUserModal(true);
+  }
 
-      if (!confirmed) {
-        return;
-      }
+  async function confirmDeactivateCurrentUser() {
+    setShowDeactivateUserModal(false);
+
+    const userId = normalizeText(panelUserId);
+
+    if (!userId || isTemporaryId(userId)) {
+      toastError("Invalid user selected for deactivation.", "User Master Setup");
+      return;
     }
 
     setIsDeactivatingUser(true);
@@ -1613,42 +1658,7 @@ export function UserMasterSetupPanel({ users = [], totalUsers = 0 }) {
           rowIdKey="access_key"
           selectedRowId={null}
           emptyMessage="No access mappings assigned."
-          renderActions={(row) =>
-            panelEditable ? (
-              <>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="px-2 psb-setup-action-btn"
-                  aria-label="Edit access"
-                  title="Edit access"
-                  onClick={(event) => {
-                    event.preventDefault();
-                    event.stopPropagation();
-                    startAccessEdit(row);
-                  }}
-                >
-                  <i className="bi bi-pencil-square" aria-hidden="true" />
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="px-2 psb-setup-action-btn"
-                  aria-label="Deactivate access"
-                  title="Deactivate access"
-                  onClick={(event) => {
-                    event.preventDefault();
-                    event.stopPropagation();
-                    removeAccessRow(row);
-                  }}
-                >
-                  <i className="bi bi-slash-circle" aria-hidden="true" />
-                </Button>
-              </>
-            ) : null
-          }
+          actions={accessTableActions}
         />
       </>
     );
@@ -1898,6 +1908,102 @@ export function UserMasterSetupPanel({ users = [], totalUsers = 0 }) {
           </>
         )}
       </aside>
+
+      <Modal
+        show={showDiscardDraftModal}
+        onHide={closeDiscardDraftModal}
+        title="Discard Unsaved Changes"
+        footer={(
+          <>
+            <Button type="button" variant="ghost" onClick={closeDiscardDraftModal}>
+              Keep Editing
+            </Button>
+            <Button type="button" variant="danger" onClick={confirmDiscardDraft}>
+              Discard Changes
+            </Button>
+          </>
+        )}
+      >
+        <p className="mb-0">You have unsaved panel changes. Discard them?</p>
+      </Modal>
+
+      <Modal
+        show={Boolean(pendingAccessDeactivateRow)}
+        onHide={closeAccessDeactivateModal}
+        title="Deactivate Access"
+        footer={(
+          <>
+            <Button type="button" variant="ghost" onClick={closeAccessDeactivateModal}>
+              Keep Access
+            </Button>
+            <Button type="button" variant="danger" onClick={confirmRemoveAccessRow}>
+              Deactivate Access
+            </Button>
+          </>
+        )}
+      >
+        <p className="mb-0">
+          Deactivate access {pendingAccessDeactivateRow?.application_name || "Application"}
+          {" / "}
+          {pendingAccessDeactivateRow?.role_name || "Role"}?
+        </p>
+      </Modal>
+
+      <Modal
+        show={showDeactivateUserModal}
+        onHide={() => setShowDeactivateUserModal(false)}
+        title="Deactivate User"
+        footer={(
+          <>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setShowDeactivateUserModal(false)}
+              disabled={isDeactivatingUser || isSavingBatch || isRefreshing}
+            >
+              Keep User Active
+            </Button>
+            <Button
+              type="button"
+              variant="danger"
+              onClick={confirmDeactivateCurrentUser}
+              disabled={isDeactivatingUser || isSavingBatch || isRefreshing}
+            >
+              {isDeactivatingUser ? "Deactivating..." : "Deactivate User"}
+            </Button>
+          </>
+        )}
+      >
+        <p className="mb-0">Deactivate this user? This is a soft delete and will revoke all system access.</p>
+      </Modal>
+
+      <Modal
+        show={showCancelBatchModal}
+        onHide={() => setShowCancelBatchModal(false)}
+        title="Cancel Batch"
+        footer={(
+          <>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setShowCancelBatchModal(false)}
+              disabled={isSavingBatch || isRefreshing}
+            >
+              Keep Staged Changes
+            </Button>
+            <Button
+              type="button"
+              variant="danger"
+              onClick={confirmCancelBatch}
+              disabled={isSavingBatch || isRefreshing}
+            >
+              Cancel Batch
+            </Button>
+          </>
+        )}
+      >
+        <p className="mb-0">Cancel all staged batch changes?</p>
+      </Modal>
     </main>
   );
 }

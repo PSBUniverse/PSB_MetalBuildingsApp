@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import Button from "@/shared/components/ui/controls/Button";
 import Dropdown from "@/shared/components/ui/controls/Dropdown";
+import Modal from "@/shared/components/ui/overlay/Modal";
 
 const ACTION_TYPE_ORDER = Object.freeze({
   primary: 1,
@@ -87,77 +88,101 @@ function isDisabled(action, row) {
   return action.disabled === true;
 }
 
-function passConfirmation(action, row) {
+function requiresConfirmation(action) {
   const actionType = normalizeActionType(action.type);
-  const requiresConfirmation = actionType === "danger" || action.confirm === true;
+  return actionType === "danger" || action.confirm === true;
+}
 
-  if (!requiresConfirmation) {
-    return true;
-  }
-
-  if (typeof window === "undefined") {
-    return false;
-  }
-
+function resolveConfirmationMessage(action, row) {
   const label = String(action.label || "this action").trim();
   const fallbackMessage = `Confirm ${label}?`;
+
   const customMessage =
     typeof action.confirmMessage === "function"
       ? action.confirmMessage(row, action)
       : action.confirmMessage;
 
-  const message = String(customMessage || fallbackMessage).trim() || fallbackMessage;
-  return window.confirm(message);
+  return String(customMessage || fallbackMessage).trim() || fallbackMessage;
 }
 
 export default function ActionColumn({ row, actions = [], onAction }) {
+  const [pendingConfirmation, setPendingConfirmation] = useState(null);
+
   const visibleActions = useMemo(
     () => resolveVisibleActions(Array.isArray(actions) ? actions : [], row),
     [actions, row],
   );
+
+  const emitActionDirectly = (action) => {
+    if (typeof onAction === "function") {
+      onAction({ action, row });
+    }
+  };
 
   const emitAction = (action) => {
     if (!action || isDisabled(action, row)) {
       return;
     }
 
-    if (!passConfirmation(action, row)) {
+    if (requiresConfirmation(action)) {
+      setPendingConfirmation({
+        action,
+        message: resolveConfirmationMessage(action, row),
+      });
       return;
     }
 
-    if (typeof onAction === "function") {
-      onAction({ action, row });
+    emitActionDirectly(action);
+  };
+
+  const closeConfirmation = () => {
+    setPendingConfirmation(null);
+  };
+
+  const confirmPendingAction = () => {
+    const action = pendingConfirmation?.action;
+    setPendingConfirmation(null);
+
+    if (!action || isDisabled(action, row)) {
+      return;
     }
+
+    emitActionDirectly(action);
   };
 
   if (visibleActions.length === 0) {
-    return <span className="table-actions-empty">-</span>;
+    return null;
   }
+
+  let actionContent = null;
 
   if (visibleActions.length === 1) {
     const action = visibleActions[0];
     const iconClassName = resolveIconClassName(action.icon);
+    const useIconOnlyMode = Boolean(iconClassName);
 
-    return (
-      <div className="table-actions">
-        <Button
-          size="sm"
-          variant={resolveButtonVariant(action.type)}
-          disabled={isDisabled(action, row)}
-          onClick={() => emitAction(action)}
-        >
-          {iconClassName ? <i className={`${iconClassName} me-1`} aria-hidden="true" /> : null}
-          {action.label}
-        </Button>
-      </div>
+    actionContent = (
+      <Button
+        size="sm"
+        variant={resolveButtonVariant(action.type)}
+        className={[
+          "table-actions-inline-btn",
+          useIconOnlyMode ? "table-actions-inline-btn-icon" : "",
+        ].filter(Boolean).join(" ")}
+        disabled={isDisabled(action, row)}
+        onClick={() => emitAction(action)}
+        title={String(action.label || "").trim() || undefined}
+        aria-label={String(action.label || "").trim() || undefined}
+      >
+        {iconClassName ? <i className={iconClassName} aria-hidden="true" /> : null}
+        {useIconOnlyMode ? <span className="visually-hidden">{action.label}</span> : action.label}
+      </Button>
     );
-  }
+  } else {
+    const nonDangerActions = visibleActions.filter((action) => action.type !== "danger");
+    const dangerActions = visibleActions.filter((action) => action.type === "danger");
 
-  const nonDangerActions = visibleActions.filter((action) => action.type !== "danger");
-  const dangerActions = visibleActions.filter((action) => action.type === "danger");
-
-  return (
-    <div className="table-actions">
+    actionContent = (
       <Dropdown align="end">
         <Dropdown.Toggle variant="secondary" size="sm" className="table-actions-toggle" aria-label="Open actions">
           <i className="bi bi-three-dots-vertical" aria-hidden="true" />
@@ -170,6 +195,7 @@ export default function ActionColumn({ row, actions = [], onAction }) {
             return (
               <Dropdown.Item
                 key={String(action.key || action.label)}
+                className="table-actions-item"
                 disabled={isDisabled(action, row)}
                 onClick={() => emitAction(action)}
               >
@@ -187,7 +213,7 @@ export default function ActionColumn({ row, actions = [], onAction }) {
             return (
               <Dropdown.Item
                 key={String(action.key || action.label)}
-                className="table-actions-danger-item"
+                className="table-actions-item table-actions-danger-item"
                 disabled={isDisabled(action, row)}
                 onClick={() => emitAction(action)}
               >
@@ -198,6 +224,35 @@ export default function ActionColumn({ row, actions = [], onAction }) {
           })}
         </Dropdown.Menu>
       </Dropdown>
-    </div>
+    );
+  }
+
+  const confirmAction = pendingConfirmation?.action || null;
+  const confirmActionType = normalizeActionType(confirmAction?.type);
+  const confirmButtonVariant = confirmActionType === "danger" ? "danger" : "primary";
+  const confirmButtonLabel = String(confirmAction?.label || "Confirm").trim() || "Confirm";
+
+  return (
+    <>
+      {actionContent}
+
+      <Modal
+        show={Boolean(pendingConfirmation)}
+        onHide={closeConfirmation}
+        title="Confirm Action"
+        footer={(
+          <>
+            <Button type="button" variant="ghost" onClick={closeConfirmation}>
+              Cancel
+            </Button>
+            <Button type="button" variant={confirmButtonVariant} onClick={confirmPendingAction}>
+              {confirmButtonLabel}
+            </Button>
+          </>
+        )}
+      >
+        <p className="mb-0">{pendingConfirmation?.message || "Are you sure you want to continue?"}</p>
+      </Modal>
+    </>
   );
 }
