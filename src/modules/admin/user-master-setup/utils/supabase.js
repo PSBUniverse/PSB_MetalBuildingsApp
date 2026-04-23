@@ -26,7 +26,7 @@ export async function getSupabase() {
     return getModuleSupabaseAdmin();
   }
 
-  const mod = await import("../../../core/supabase/client.js");
+  const mod = await import("../../../../core/supabase/client.js");
 
   try {
     return mod.getSupabase();
