@@ -27,7 +27,10 @@ export default function CompanyDepartmentSetupView({ companies, departments, ini
             isSaving={h.isSaving} isMutatingAction={h.isMutatingAction}
             pendingDeactivatedCompanyIds={h.pendingDeactivatedCompanyIds}
             handleCompanyRowClick={h.handleCompanyRowClick}
-            openEditCompanyDialog={h.openEditCompanyDialog}
+            editingCompanyId={h.editingCompanyId}
+            onStartEditing={h.startEditingCompany}
+            onStopEditing={h.stopEditingCompany}
+            onInlineEdit={h.handleInlineEditCompany}
             openToggleCompanyDialog={h.openToggleCompanyDialog}
             openDeactivateCompanyDialog={h.openDeactivateCompanyDialog}
           />
@@ -37,7 +40,10 @@ export default function CompanyDepartmentSetupView({ companies, departments, ini
             selectedCompany={h.selectedCompany} decoratedDepartments={h.decoratedDepartments}
             isSaving={h.isSaving} isMutatingAction={h.isMutatingAction}
             pendingDeactivatedDepartmentIds={h.pendingDeactivatedDepartmentIds}
-            openEditDepartmentDialog={h.openEditDepartmentDialog}
+            editingDeptId={h.editingDeptId}
+            onStartEditing={h.startEditingDept}
+            onStopEditing={h.stopEditingDept}
+            onInlineEdit={h.handleInlineEditDepartment}
             openToggleDepartmentDialog={h.openToggleDepartmentDialog}
             openDeactivateDepartmentDialog={h.openDeactivateDepartmentDialog}
           />

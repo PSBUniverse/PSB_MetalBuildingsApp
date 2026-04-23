@@ -6,7 +6,7 @@ import { toastError, toastSuccess } from "@/shared/components/ui";
 import {
   parseAppId, isSameId, compareText, buildOrderSignature,
   mapApplicationRow, mapRoleRow, removeObjectKey, mergeUpdatePatch, appendUniqueId,
-  EMPTY_DIALOG, TEMP_APP_PREFIX, createTempId, isTempApplicationId,
+  EMPTY_DIALOG, TEMP_APP_PREFIX, createTempId, isTempApplicationId, isTempRoleId,
   createEmptyBatchState, executeBatchSave,
 } from "../utils/applicationHelpers";
 import { useRoleActions } from "./useRoleActions";
@@ -40,6 +40,8 @@ export function useApplicationSetup({ applications = [], roles = [], initialSele
   const [dialog, setDialog] = useState(EMPTY_DIALOG);
   const [applicationDraft, setApplicationDraft] = useState({ name: "", desc: "" });
   const [roleDraft, setRoleDraft] = useState({ name: "", desc: "" });
+  const [editingAppId, setEditingAppId] = useState(null);
+  const [editingRoleId, setEditingRoleId] = useState(null);
 
   useEffect(() => {
     setOrderedApplications(seedApplications); setAllRoles(seedRoles);
@@ -47,6 +49,7 @@ export function useApplicationSetup({ applications = [], roles = [], initialSele
     setIsSavingOrder(false); setIsMutatingAction(false);
     setPendingBatch(createEmptyBatchState()); setDialog(EMPTY_DIALOG);
     setApplicationDraft({ name: "", desc: "" }); setRoleDraft({ name: "", desc: "" });
+    setEditingAppId(null); setEditingRoleId(null);
   }, [seedApplications, seedRoles]);
 
   const currentOrderSig = useMemo(() => buildOrderSignature(orderedApplications), [orderedApplications]);
@@ -151,6 +154,7 @@ export function useApplicationSetup({ applications = [], roles = [], initialSele
     setOrderedApplications(seedApplications); setAllRoles(seedRoles);
     setPendingBatch(createEmptyBatchState()); setPersistedOrderSig(buildOrderSignature(seedApplications));
     setDialog(EMPTY_DIALOG); setApplicationDraft({ name: "", desc: "" }); setRoleDraft({ name: "", desc: "" });
+    setEditingAppId(null); setEditingRoleId(null);
     updateSelectedApplicationInQuery(seedApplications[0]?.app_id ?? null);
   }, [isMutatingAction, isSavingOrder, seedApplications, seedRoles, updateSelectedApplicationInQuery]);
 
@@ -170,7 +174,7 @@ export function useApplicationSetup({ applications = [], roles = [], initialSele
       toastSuccess(`Saved ${pendingSummary.total} batched change(s).`, "Save Batch");
     } catch (error) {
       toastError(error?.message || "Failed to save batched changes.");
-    } finally { setIsMutatingAction(false); setIsSavingOrder(false); }
+    } finally { setIsMutatingAction(false); setIsSavingOrder(false); setEditingAppId(null); setEditingRoleId(null); }
   }, [currentOrderSig, hasPendingChanges, isMutatingAction, isSavingOrder, orderedApplications,
     pendingBatch, pendingSummary.total, router, selectedApp?.app_id, updateSelectedApplicationInQuery]);
 
@@ -318,6 +322,81 @@ export function useApplicationSetup({ applications = [], roles = [], initialSele
     dialog, roleDraft, setAllRoles, setPendingBatch, setDialog, setRoleDraft,
   });
 
+  // -- row editing mode
+  const startEditingApp = useCallback((row) => {
+    if (isSavingOrder || isMutatingAction) return;
+    const id = String(row?.app_id ?? "");
+    setEditingAppId((prev) => prev === id ? null : id);
+  }, [isMutatingAction, isSavingOrder]);
+
+  const stopEditingApp = useCallback(() => { setEditingAppId(null); }, []);
+
+  const startEditingRole = useCallback((row) => {
+    if (isSavingOrder || isMutatingAction) return;
+    const id = String(row?.role_id ?? "");
+    setEditingRoleId((prev) => prev === id ? null : id);
+  }, [isMutatingAction, isSavingOrder]);
+
+  const stopEditingRole = useCallback(() => { setEditingRoleId(null); }, []);
+
+  // -- inline edit: applications
+  const handleInlineEditApplication = useCallback((row, key, value) => {
+    const appId = row?.app_id;
+    if (!appId || isSavingOrder || isMutatingAction) return;
+    if (pendingDeactivatedAppIds.has(String(appId))) return;
+
+    setOrderedApplications((prev) =>
+      prev.map((a, i) => isSameId(a?.app_id, appId)
+        ? mapApplicationRow({ ...a, [key]: value || null }, i) : a),
+    );
+
+    setPendingBatch((prev) => {
+      if (isTempApplicationId(appId)) {
+        return {
+          ...prev,
+          appCreates: prev.appCreates.map((e) => isSameId(e?.tempId, appId)
+            ? { ...e, payload: { ...e.payload, [key]: value || null } } : e),
+        };
+      }
+      return {
+        ...prev,
+        appUpdates: {
+          ...prev.appUpdates,
+          [String(appId)]: mergeUpdatePatch(prev.appUpdates?.[String(appId)], { [key]: value || null }),
+        },
+      };
+    });
+  }, [isMutatingAction, isSavingOrder, pendingDeactivatedAppIds]);
+
+  // -- inline edit: roles
+  const handleInlineEditRole = useCallback((row, key, value) => {
+    const roleId = row?.role_id;
+    if (!roleId || isSavingOrder || isMutatingAction) return;
+    if (pendingDeactivatedRoleIds.has(String(roleId))) return;
+
+    setAllRoles((prev) =>
+      prev.map((r, i) => isSameId(r?.role_id, roleId)
+        ? mapRoleRow({ ...r, [key]: value || null }, i) : r),
+    );
+
+    setPendingBatch((prev) => {
+      if (isTempRoleId(roleId)) {
+        return {
+          ...prev,
+          roleCreates: prev.roleCreates.map((e) => isSameId(e?.tempId, roleId)
+            ? { ...e, payload: { ...e.payload, [key]: value || null } } : e),
+        };
+      }
+      return {
+        ...prev,
+        roleUpdates: {
+          ...prev.roleUpdates,
+          [String(roleId)]: mergeUpdatePatch(prev.roleUpdates?.[String(roleId)], { [key]: value || null }),
+        },
+      };
+    });
+  }, [isMutatingAction, isSavingOrder, pendingDeactivatedRoleIds]);
+
   return {
     decoratedApplications, decoratedSelectedAppRoles, dialog, applicationDraft, roleDraft,
     isSavingOrder, isMutatingAction, pendingSummary, hasPendingChanges,
@@ -328,6 +407,9 @@ export function useApplicationSetup({ applications = [], roles = [], initialSele
     closeDialog, openEditApplicationDialog, openToggleApplicationDialog,
     openDeactivateApplicationDialog, openAddApplicationDialog,
     submitAddApplication, submitEditApplication, submitToggleApplication, submitDeactivateApplication,
+    handleInlineEditApplication, handleInlineEditRole,
+    editingAppId, startEditingApp, stopEditingApp,
+    editingRoleId, startEditingRole, stopEditingRole,
     ...roleActions,
   };
 }

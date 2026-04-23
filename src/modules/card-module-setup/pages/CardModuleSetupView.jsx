@@ -29,7 +29,10 @@ export default function CardModuleSetupView({ applications, cardGroups, cards, i
             isSaving={h.isSaving} isMutatingAction={h.isMutatingAction}
             pendingDeactivatedGroupIds={h.pendingDeactivatedGroupIds}
             handleGroupRowClick={h.handleGroupRowClick} handleGroupReorder={h.handleGroupReorder}
-            openEditGroupDialog={h.openEditGroupDialog}
+            editingGroupId={h.editingGroupId}
+            onStartEditing={h.startEditingGroup}
+            onStopEditing={h.stopEditingGroup}
+            onInlineEdit={h.handleInlineEditGroup}
             openToggleGroupDialog={h.openToggleGroupDialog}
             openDeactivateGroupDialog={h.openDeactivateGroupDialog}
           />
@@ -40,7 +43,10 @@ export default function CardModuleSetupView({ applications, cardGroups, cards, i
             isSaving={h.isSaving} isMutatingAction={h.isMutatingAction}
             pendingDeactivatedCardIds={h.pendingDeactivatedCardIds}
             handleCardReorder={h.handleCardReorder}
-            openEditCardDialog={h.openEditCardDialog}
+            editingCardId={h.editingCardId}
+            onStartEditing={h.startEditingCard}
+            onStopEditing={h.stopEditingCard}
+            onInlineEdit={h.handleInlineEditCard}
             openToggleCardDialog={h.openToggleCardDialog}
             openDeactivateCardDialog={h.openDeactivateCardDialog}
           />

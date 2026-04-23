@@ -1,9 +1,9 @@
 import { useMemo } from "react";
-import { Badge, Card, TableZ } from "@/shared/components/ui";
+import { Badge, Card, InlineEditCell, TableZ } from "@/shared/components/ui";
 
 function StatusBadge({ isActive }) {
   return (
-    <Badge bg={isActive ? "success" : "primary"} text="light">
+    <Badge bg={isActive ? "success" : "danger"} text="light">
       {isActive ? "Active" : "Inactive"}
     </Badge>
   );
@@ -14,7 +14,10 @@ export function StatusTable({
   isMutatingAction,
   isSavingBatch,
   pendingDeactivatedStatusIds,
-  openEditStatusDialog,
+  editingStatusId,
+  onStartEditing,
+  onStopEditing,
+  onInlineEdit,
   openToggleStatusDialog,
   openDeactivateStatusDialog,
 }) {
@@ -27,6 +30,8 @@ export function StatusTable({
         sortable: true,
         render: (row) => {
           const batchState = String(row?.__batchState || "");
+          const isEditing = String(row?.status_id ?? "") === String(editingStatusId ?? "");
+          const editDisabled = !isEditing || isMutatingAction || isSavingBatch;
 
           let markerText = "";
           let markerClass = "";
@@ -56,11 +61,13 @@ export function StatusTable({
               break;
           }
 
-          const textClassName = batchState === "deleted" ? "text-decoration-line-through" : "";
-
           return (
-            <span className={textClassName}>
-              {row?.sts_name || "--"}
+            <span>
+              <InlineEditCell
+                value={row?.sts_name || ""}
+                onCommit={(val) => onInlineEdit?.(row, "sts_name", val)}
+                disabled={editDisabled}
+              />
               {markerText ? <span className={markerClass}>{markerText}</span> : null}
             </span>
           );
@@ -71,6 +78,17 @@ export function StatusTable({
         label: "Description",
         width: "48%",
         sortable: true,
+        render: (row) => {
+          const isEditing = String(row?.status_id ?? "") === String(editingStatusId ?? "");
+          const editDisabled = !isEditing || isMutatingAction || isSavingBatch;
+          return (
+            <InlineEditCell
+              value={row?.sts_desc === "--" ? "" : (row?.sts_desc || "")}
+              onCommit={(val) => onInlineEdit?.(row, "sts_desc", val)}
+              disabled={editDisabled}
+            />
+          );
+        },
       },
       {
         key: "is_active_bool",
@@ -81,7 +99,7 @@ export function StatusTable({
         render: (row) => <StatusBadge isActive={Boolean(row?.is_active_bool)} />,
       },
     ],
-    [],
+    [editingStatusId, isMutatingAction, isSavingBatch, onInlineEdit],
   );
 
   const actions = useMemo(
@@ -91,11 +109,20 @@ export function StatusTable({
         label: "Edit",
         type: "secondary",
         icon: "pencil-square",
+        visible: (row) => String(row?.status_id ?? "") !== String(editingStatusId ?? ""),
         disabled: (row) => {
           const isPendingDeactivation = pendingDeactivatedStatusIds.has(String(row?.status_id ?? ""));
           return isMutatingAction || isSavingBatch || isPendingDeactivation;
         },
-        onClick: (row) => openEditStatusDialog(row),
+        onClick: (row) => onStartEditing(row),
+      },
+      {
+        key: "done-edit-status",
+        label: "Done",
+        type: "success",
+        icon: "check-circle",
+        visible: (row) => String(row?.status_id ?? "") === String(editingStatusId ?? ""),
+        onClick: () => onStopEditing(),
       },
       {
         key: "disable-status",
@@ -134,10 +161,12 @@ export function StatusTable({
       },
     ],
     [
+      editingStatusId,
       isMutatingAction,
       isSavingBatch,
+      onStartEditing,
+      onStopEditing,
       openDeactivateStatusDialog,
-      openEditStatusDialog,
       openToggleStatusDialog,
       pendingDeactivatedStatusIds,
     ],

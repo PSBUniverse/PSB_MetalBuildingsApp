@@ -27,7 +27,10 @@ export default function ApplicationSetupView({ applications, roles, initialSelec
             pendingDeactivatedAppIds={h.pendingDeactivatedAppIds}
             handleApplicationRowClick={h.handleApplicationRowClick}
             handleApplicationReorder={h.handleApplicationReorder}
-            openEditApplicationDialog={h.openEditApplicationDialog}
+            editingAppId={h.editingAppId}
+            onStartEditing={h.startEditingApp}
+            onStopEditing={h.stopEditingApp}
+            onInlineEdit={h.handleInlineEditApplication}
             openToggleApplicationDialog={h.openToggleApplicationDialog}
             openDeactivateApplicationDialog={h.openDeactivateApplicationDialog}
           />
@@ -37,7 +40,10 @@ export default function ApplicationSetupView({ applications, roles, initialSelec
             selectedApp={h.selectedApp} decoratedSelectedAppRoles={h.decoratedSelectedAppRoles}
             isSavingOrder={h.isSavingOrder} isMutatingAction={h.isMutatingAction}
             pendingDeactivatedRoleIds={h.pendingDeactivatedRoleIds}
-            openEditRoleDialog={h.openEditRoleDialog}
+            editingRoleId={h.editingRoleId}
+            onStartEditing={h.startEditingRole}
+            onStopEditing={h.stopEditingRole}
+            onInlineEdit={h.handleInlineEditRole}
             openToggleRoleDialog={h.openToggleRoleDialog}
             openDeactivateRoleDialog={h.openDeactivateRoleDialog}
           />

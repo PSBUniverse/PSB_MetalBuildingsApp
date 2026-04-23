@@ -38,6 +38,7 @@ export function useStatusSetup({ statuses = [] }) {
   const [isSavingBatch, setIsSavingBatch] = useState(false);
   const [dialog, setDialog] = useState(EMPTY_DIALOG);
   const [statusDraft, setStatusDraft] = useState({ name: "", desc: "" });
+  const [editingStatusId, setEditingStatusId] = useState(null);
 
   // -- reset on prop change
   useEffect(() => {
@@ -47,6 +48,7 @@ export function useStatusSetup({ statuses = [] }) {
     setStatusDraft({ name: "", desc: "" });
     setIsMutatingAction(false);
     setIsSavingBatch(false);
+    setEditingStatusId(null);
   }, [seedStatuses]);
 
   // -- computed
@@ -131,6 +133,7 @@ export function useStatusSetup({ statuses = [] }) {
     setStatusChanges(createEmptyStatusChanges());
     setDialog(EMPTY_DIALOG);
     setStatusDraft({ name: "", desc: "" });
+    setEditingStatusId(null);
     toastSuccess("Batch changes canceled.", "Batching");
   }, [hasPendingChanges, isMutatingAction, isSavingBatch, seedStatuses]);
 
@@ -150,6 +153,7 @@ export function useStatusSetup({ statuses = [] }) {
     } finally {
       setIsMutatingAction(false);
       setIsSavingBatch(false);
+      setEditingStatusId(null);
     }
   }, [
     hasPendingChanges,
@@ -293,6 +297,52 @@ export function useStatusSetup({ statuses = [] }) {
     toastSuccess("Status deactivation staged for Save Batch.", "Batching");
   }, [dialog?.target]);
 
+  // -- row editing mode
+  const startEditingStatus = useCallback((row) => {
+    if (isMutatingAction || isSavingBatch) return;
+    const id = String(row?.status_id ?? "");
+    setEditingStatusId((prev) => prev === id ? null : id);
+  }, [isMutatingAction, isSavingBatch]);
+
+  const stopEditingStatus = useCallback(() => {
+    setEditingStatusId(null);
+  }, []);
+
+  // -- inline edit
+  const handleInlineEdit = useCallback((row, key, value) => {
+    const statusId = row?.status_id;
+    if (!statusId) return;
+
+    const isPendingDeactivation = pendingDeactivatedStatusIds.has(String(statusId));
+    if (isPendingDeactivation || isMutatingAction || isSavingBatch) return;
+
+    setOrderedStatuses((previous) =>
+      previous.map((status, index) => {
+        if (!isSameId(status?.status_id, statusId)) return status;
+        return mapStatusRow({ ...status, [key]: value || null }, index);
+      }),
+    );
+
+    setStatusChanges((previous) => {
+      if (isTempStatusId(statusId)) {
+        return {
+          ...previous,
+          creates: previous.creates.map((entry) => {
+            if (!isSameId(entry?.tempId, statusId)) return entry;
+            return { ...entry, payload: { ...entry.payload, [key]: value || null } };
+          }),
+        };
+      }
+      return {
+        ...previous,
+        updates: {
+          ...previous.updates,
+          [String(statusId)]: mergeUpdatePatch(previous.updates?.[String(statusId)], { [key]: value || null }),
+        },
+      };
+    });
+  }, [isMutatingAction, isSavingBatch, pendingDeactivatedStatusIds]);
+
   return {
     // state
     decoratedStatuses,
@@ -324,5 +374,11 @@ export function useStatusSetup({ statuses = [] }) {
     submitEditStatus,
     submitToggleStatus,
     submitDeactivateStatus,
+
+    // inline edit
+    editingStatusId,
+    startEditingStatus,
+    stopEditingStatus,
+    handleInlineEdit,
   };
 }

@@ -5,8 +5,9 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { toastError, toastSuccess } from "@/shared/components/ui";
 import {
   parseId, isSameId, compareText, buildOrderSignature,
-  mapGroupRow, mapCardRow,
+  mapGroupRow, mapCardRow, mergeUpdatePatch,
   EMPTY_DIALOG, createEmptyBatchState, executeBatchSave,
+  isTempGroupId, isTempCardId,
 } from "../utils/cardModuleHelpers";
 import { useGroupActions } from "./useGroupActions";
 import { useCardActions } from "./useCardActions";
@@ -56,6 +57,8 @@ export function useCardModuleSetup({ applications = [], cardGroups = [], cards =
   const [dialog, setDialog] = useState(EMPTY_DIALOG);
   const [groupDraft, setGroupDraft] = useState({ name: "", desc: "", icon: "" });
   const [cardDraft, setCardDraft] = useState({ name: "", desc: "", route_path: "", icon: "" });
+  const [editingGroupId, setEditingGroupId] = useState(null);
+  const [editingCardId, setEditingCardId] = useState(null);
 
   useEffect(() => {
     setOrderedGroups(seedCardGroups); setAllCards(seedCards);
@@ -65,6 +68,7 @@ export function useCardModuleSetup({ applications = [], cardGroups = [], cards =
     setIsSaving(false); setIsMutatingAction(false);
     setPendingBatch(createEmptyBatchState()); setDialog(EMPTY_DIALOG);
     setGroupDraft({ name: "", desc: "", icon: "" }); setCardDraft({ name: "", desc: "", route_path: "", icon: "" });
+    setEditingGroupId(null); setEditingCardId(null);
   }, [seedCardGroups, seedCards, initialAppId]);
 
   const selectedAppId = useMemo(() => {
@@ -195,6 +199,7 @@ export function useCardModuleSetup({ applications = [], cardGroups = [], cards =
     setPersistedGroupOrderSig(buildOrderSignature(cancelGroups, "group_id"));
     setPersistedCardOrderSigs(buildCardSigMap(cancelGroups, seedCards));
     setDialog(EMPTY_DIALOG); setGroupDraft({ name: "", desc: "", icon: "" }); setCardDraft({ name: "", desc: "", route_path: "", icon: "" });
+    setEditingGroupId(null); setEditingCardId(null);
     updateQueryParams({ group: cancelGroups[0]?.group_id ?? null });
   }, [isMutatingAction, isSaving, seedCardGroups, seedCards, selectedApp?.app_id, updateQueryParams]);
 
@@ -221,7 +226,7 @@ export function useCardModuleSetup({ applications = [], cardGroups = [], cards =
       toastSuccess(`Saved ${pendingSummary.total} batched change(s).`, "Save Batch");
     } catch (error) {
       toastError(error?.message || "Failed to save batched changes.");
-    } finally { setIsMutatingAction(false); setIsSaving(false); }
+    } finally { setIsMutatingAction(false); setIsSaving(false); setEditingGroupId(null); setEditingCardId(null); }
   }, [allCards, appGroups, currentGroupOrderSig, hasPendingChanges, isMutatingAction, isSaving,
     pendingBatch, pendingSummary.total, persistedCardOrderSigs, router, selectedGroup?.group_id, updateQueryParams]);
 
@@ -239,6 +244,81 @@ export function useCardModuleSetup({ applications = [], cardGroups = [], cards =
     dialog, cardDraft, setAllCards, setPendingBatch, setDialog, setCardDraft,
   });
 
+  // -- row editing mode
+  const startEditingGroup = useCallback((row) => {
+    if (isSaving || isMutatingAction) return;
+    const id = String(row?.group_id ?? "");
+    setEditingGroupId((prev) => prev === id ? null : id);
+  }, [isMutatingAction, isSaving]);
+
+  const stopEditingGroup = useCallback(() => { setEditingGroupId(null); }, []);
+
+  const startEditingCard = useCallback((row) => {
+    if (isSaving || isMutatingAction) return;
+    const id = String(row?.card_id ?? "");
+    setEditingCardId((prev) => prev === id ? null : id);
+  }, [isMutatingAction, isSaving]);
+
+  const stopEditingCard = useCallback(() => { setEditingCardId(null); }, []);
+
+  // -- inline edit: groups
+  const handleInlineEditGroup = useCallback((row, key, value) => {
+    const groupId = row?.group_id;
+    if (!groupId || isSaving || isMutatingAction) return;
+    if (pendingDeactivatedGroupIds.has(String(groupId))) return;
+
+    setOrderedGroups((prev) =>
+      prev.map((g, i) => isSameId(g?.group_id, groupId)
+        ? mapGroupRow({ ...g, [key]: value || null }, i) : g),
+    );
+
+    setPendingBatch((prev) => {
+      if (isTempGroupId(groupId)) {
+        return {
+          ...prev,
+          groupCreates: prev.groupCreates.map((e) => isSameId(e?.tempId, groupId)
+            ? { ...e, payload: { ...e.payload, [key]: value || null } } : e),
+        };
+      }
+      return {
+        ...prev,
+        groupUpdates: {
+          ...prev.groupUpdates,
+          [String(groupId)]: mergeUpdatePatch(prev.groupUpdates?.[String(groupId)], { [key]: value || null }),
+        },
+      };
+    });
+  }, [isMutatingAction, isSaving, pendingDeactivatedGroupIds]);
+
+  // -- inline edit: cards
+  const handleInlineEditCard = useCallback((row, key, value) => {
+    const cardId = row?.card_id;
+    if (!cardId || isSaving || isMutatingAction) return;
+    if (pendingDeactivatedCardIds.has(String(cardId))) return;
+
+    setAllCards((prev) =>
+      prev.map((c, i) => isSameId(c?.card_id, cardId)
+        ? mapCardRow({ ...c, [key]: value || null }, i) : c),
+    );
+
+    setPendingBatch((prev) => {
+      if (isTempCardId(cardId)) {
+        return {
+          ...prev,
+          cardCreates: prev.cardCreates.map((e) => isSameId(e?.tempId, cardId)
+            ? { ...e, payload: { ...e.payload, [key]: value || null } } : e),
+        };
+      }
+      return {
+        ...prev,
+        cardUpdates: {
+          ...prev.cardUpdates,
+          [String(cardId)]: mergeUpdatePatch(prev.cardUpdates?.[String(cardId)], { [key]: value || null }),
+        },
+      };
+    });
+  }, [isMutatingAction, isSaving, pendingDeactivatedCardIds]);
+
   return {
     safeApplications, decoratedGroups, decoratedSelectedGroupCards,
     dialog, groupDraft, cardDraft, isSaving, isMutatingAction,
@@ -249,6 +329,9 @@ export function useCardModuleSetup({ applications = [], cardGroups = [], cards =
     handleApplicationChange, handleGroupRowClick,
     handleGroupReorder, handleCardReorder, handleCancelBatch, handleSaveBatch,
     closeDialog,
+    handleInlineEditGroup, handleInlineEditCard,
+    editingGroupId, startEditingGroup, stopEditingGroup,
+    editingCardId, startEditingCard, stopEditingCard,
     ...groupActions,
     ...cardActions,
   };

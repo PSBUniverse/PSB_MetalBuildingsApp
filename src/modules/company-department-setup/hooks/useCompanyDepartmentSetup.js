@@ -7,6 +7,7 @@ import {
   parseCompanyId, isSameId, compareText, mapCompanyRow, mapDepartmentRow,
   EMPTY_DIALOG, createEmptyCompanyChanges, createEmptyDepartmentChanges,
   executeBatchSave, remapDepartmentsByCompanyId,
+  isTempCompanyId, isTempDepartmentId, mergeUpdatePatch,
 } from "../utils/companyDeptHelpers";
 import { useCompanyActions } from "./useCompanyActions";
 import { useDepartmentActions } from "./useDepartmentActions";
@@ -33,6 +34,8 @@ export function useCompanyDepartmentSetup({ companies = [], departments = [], in
   const [dialog, setDialog] = useState(EMPTY_DIALOG);
   const [companyDraft, setCompanyDraft] = useState({ name: "", shortName: "", email: "", phone: "" });
   const [departmentDraft, setDepartmentDraft] = useState({ name: "", shortName: "" });
+  const [editingCompanyId, setEditingCompanyId] = useState(null);
+  const [editingDeptId, setEditingDeptId] = useState(null);
 
   const [selectedCompanyId, setSelectedCompanyId] = useState(() => {
     const fromQ = parseCompanyId(searchParams?.get("company"));
@@ -46,6 +49,7 @@ export function useCompanyDepartmentSetup({ companies = [], departments = [], in
     setCompanyChanges(createEmptyCompanyChanges()); setDepartmentChanges(createEmptyDepartmentChanges());
     setDialog(EMPTY_DIALOG); setCompanyDraft({ name: "", shortName: "", email: "", phone: "" }); setDepartmentDraft({ name: "", shortName: "" });
     setIsMutatingAction(false); setIsSaving(false);
+    setEditingCompanyId(null); setEditingDeptId(null);
     const qId = parseCompanyId(searchParams?.get("company"));
     setSelectedCompanyId(qId ?? initialSelectedCompanyId ?? seedCompanies[0]?.comp_id ?? null);
   }, [initialSelectedCompanyId, searchParams, seedCompanies, seedDepartments]);
@@ -121,6 +125,7 @@ export function useCompanyDepartmentSetup({ companies = [], departments = [], in
     setOrderedCompanies(seedCompanies); setAllDepartments(seedDepartments);
     setCompanyChanges(createEmptyCompanyChanges()); setDepartmentChanges(createEmptyDepartmentChanges());
     setDialog(EMPTY_DIALOG); setCompanyDraft({ name: "", shortName: "", email: "", phone: "" }); setDepartmentDraft({ name: "", shortName: "" });
+    setEditingCompanyId(null); setEditingDeptId(null);
     updateSelectedCompanyInQuery(seedCompanies[0]?.comp_id ?? null);
     toastSuccess("Batch changes canceled.", "Batching");
   }, [hasPendingChanges, isMutatingAction, isSaving, seedCompanies, seedDepartments, updateSelectedCompanyInQuery]);
@@ -138,7 +143,7 @@ export function useCompanyDepartmentSetup({ companies = [], departments = [], in
       toastSuccess(`Saved ${pendingSummary.total} batched change(s).`, "Save Batch");
     } catch (error) {
       toastError(error?.message || "Failed to save batched changes.");
-    } finally { setIsMutatingAction(false); setIsSaving(false); }
+    } finally { setIsMutatingAction(false); setIsSaving(false); setEditingCompanyId(null); setEditingDeptId(null); }
   }, [companyChanges, departmentChanges, hasPendingChanges, isMutatingAction, isSaving,
     orderedCompanies, pendingSummary.total, router, selectedCompany?.comp_id, updateSelectedCompanyInQuery]);
 
@@ -155,6 +160,81 @@ export function useCompanyDepartmentSetup({ companies = [], departments = [], in
     setAllDepartments, setDepartmentChanges, setDialog, setDepartmentDraft,
   });
 
+  // -- row editing mode
+  const startEditingCompany = useCallback((row) => {
+    if (isSaving || isMutatingAction) return;
+    const id = String(row?.comp_id ?? "");
+    setEditingCompanyId((prev) => prev === id ? null : id);
+  }, [isMutatingAction, isSaving]);
+
+  const stopEditingCompany = useCallback(() => { setEditingCompanyId(null); }, []);
+
+  const startEditingDept = useCallback((row) => {
+    if (isSaving || isMutatingAction) return;
+    const id = String(row?.dept_id ?? "");
+    setEditingDeptId((prev) => prev === id ? null : id);
+  }, [isMutatingAction, isSaving]);
+
+  const stopEditingDept = useCallback(() => { setEditingDeptId(null); }, []);
+
+  // -- inline edit: companies
+  const handleInlineEditCompany = useCallback((row, key, value) => {
+    const compId = row?.comp_id;
+    if (!compId || isSaving || isMutatingAction) return;
+    if (pendingDeactivatedCompanyIds.has(String(compId))) return;
+
+    setOrderedCompanies((prev) =>
+      prev.map((c, i) => isSameId(c?.comp_id, compId)
+        ? mapCompanyRow({ ...c, [key]: value || null }, i) : c),
+    );
+
+    setCompanyChanges((prev) => {
+      if (isTempCompanyId(compId)) {
+        return {
+          ...prev,
+          creates: prev.creates.map((e) => isSameId(e?.tempId, compId)
+            ? { ...e, payload: { ...e.payload, [key]: value || null } } : e),
+        };
+      }
+      return {
+        ...prev,
+        updates: {
+          ...prev.updates,
+          [String(compId)]: mergeUpdatePatch(prev.updates?.[String(compId)], { [key]: value || null }),
+        },
+      };
+    });
+  }, [isMutatingAction, isSaving, pendingDeactivatedCompanyIds]);
+
+  // -- inline edit: departments
+  const handleInlineEditDepartment = useCallback((row, key, value) => {
+    const deptId = row?.dept_id;
+    if (!deptId || isSaving || isMutatingAction) return;
+    if (pendingDeactivatedDepartmentIds.has(String(deptId))) return;
+
+    setAllDepartments((prev) =>
+      prev.map((d, i) => isSameId(d?.dept_id, deptId)
+        ? mapDepartmentRow({ ...d, [key]: value || null }, i) : d),
+    );
+
+    setDepartmentChanges((prev) => {
+      if (isTempDepartmentId(deptId)) {
+        return {
+          ...prev,
+          creates: prev.creates.map((e) => isSameId(e?.tempId, deptId)
+            ? { ...e, payload: { ...e.payload, [key]: value || null } } : e),
+        };
+      }
+      return {
+        ...prev,
+        updates: {
+          ...prev.updates,
+          [String(deptId)]: mergeUpdatePatch(prev.updates?.[String(deptId)], { [key]: value || null }),
+        },
+      };
+    });
+  }, [isMutatingAction, isSaving, pendingDeactivatedDepartmentIds]);
+
   return {
     decoratedCompanies, decoratedDepartments,
     dialog, companyDraft, departmentDraft, isSaving, isMutatingAction,
@@ -163,6 +243,9 @@ export function useCompanyDepartmentSetup({ companies = [], departments = [], in
     selectedCompany, isSelectedCompanyPendingDeactivation,
     setDialog, setCompanyDraft, setDepartmentDraft,
     handleCompanyRowClick, handleCancelBatch, handleSaveBatch, closeDialog,
+    handleInlineEditCompany, handleInlineEditDepartment,
+    editingCompanyId, startEditingCompany, stopEditingCompany,
+    editingDeptId, startEditingDept, stopEditingDept,
     ...companyActions, ...deptActions,
   };
 }

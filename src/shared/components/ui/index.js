@@ -5,6 +5,7 @@ export { default as Modal } from "@/shared/components/ui/overlay/Modal";
 export { default as TableZ } from "@/shared/components/ui/table/TableZ";
 export { default as TableX } from "@/shared/components/ui/table/TableX";
 export { default as ActionColumn } from "@/shared/components/ui/table/ActionColumn";
+export { default as InlineEditCell } from "@/shared/components/ui/table/InlineEditCell";
 export { default as Badge } from "@/shared/components/ui/feedback/Badge";
 export { default as Input } from "@/shared/components/ui/controls/Input";
 export { default as SearchBar } from "@/shared/components/ui/controls/SearchBar";
