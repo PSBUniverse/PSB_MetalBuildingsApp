@@ -78,3 +78,17 @@ export async function deleteStatusById(supabase, statusId) {
     throw new Error(err.message || "Failed to deactivate status");
   }
 }
+
+export async function hardDeleteStatusById(supabase, statusId) {
+  try {
+    const { error } = await supabase
+      .from("psb_s_status")
+      .delete()
+      .eq("status_id", statusId);
+
+    if (error) throw error;
+    return { statusId };
+  } catch (err) {
+    throw new Error(err.message || "Failed to permanently delete status");
+  }
+}

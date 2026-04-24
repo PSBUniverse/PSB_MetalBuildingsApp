@@ -9,7 +9,8 @@ import {
 
 export function useRoleActions({
   isSavingOrder, isMutatingAction, isSelectedAppPendingDeactivation, selectedApp,
-  dialog, roleDraft, setAllRoles, setPendingBatch, setDialog, setRoleDraft,
+  dialog, roleDraft, pendingDeactivatedRoleIds,
+  setAllRoles, setPendingBatch, setDialog, setRoleDraft,
 }) {
   const openEditRoleDialog = useCallback((row) => {
     if (isSavingOrder || isMutatingAction) return;
@@ -19,8 +20,17 @@ export function useRoleActions({
 
   const openToggleRoleDialog = useCallback((row) => {
     if (isSavingOrder || isMutatingAction) return;
+    const roleId = String(row?.role_id ?? "");
+    if (pendingDeactivatedRoleIds.has(roleId)) {
+      setPendingBatch((prev) => ({
+        ...prev,
+        roleDeactivations: (prev.roleDeactivations || []).filter((id) => !isSameId(id, roleId)),
+      }));
+      toastSuccess("Role deactivation un-staged.", "Batching");
+      return;
+    }
     setDialog({ kind: "toggle-role", target: row, nextIsActive: !Boolean(row?.is_active_bool) });
-  }, [isMutatingAction, isSavingOrder, setDialog]);
+  }, [isMutatingAction, isSavingOrder, pendingDeactivatedRoleIds, setDialog, setPendingBatch]);
 
   const openDeactivateRoleDialog = useCallback((row) => {
     if (isSavingOrder || isMutatingAction) return;
@@ -167,8 +177,32 @@ export function useRoleActions({
     toastSuccess("Role staged for Save Batch.", "Batching");
   }, [dialog, roleDraft, setAllRoles, setDialog, setPendingBatch, setRoleDraft]);
 
+  const stageHardDeleteRole = useCallback((row) => {
+    const roleId = String(row?.role_id ?? "");
+    if (!roleId || isSavingOrder || isMutatingAction) return;
+
+    if (isTempRoleId(roleId)) {
+      setAllRoles((prev) => prev.filter((r) => !isSameId(r?.role_id, roleId)));
+      setPendingBatch((prev) => ({
+        ...prev,
+        roleCreates: prev.roleCreates.filter((e) => !isSameId(e?.tempId, roleId)),
+        roleUpdates: removeObjectKey(prev.roleUpdates, roleId),
+      }));
+      toastSuccess("Staged role removed.", "Batching");
+      return;
+    }
+
+    setPendingBatch((prev) => ({
+      ...prev,
+      roleDeactivations: (prev.roleDeactivations || []).filter((id) => !isSameId(id, roleId)),
+      roleUpdates: removeObjectKey(prev.roleUpdates, roleId),
+      roleHardDeletes: appendUniqueId(prev.roleHardDeletes || [], roleId),
+    }));
+    toastSuccess("Role deletion staged for Save Batch.", "Batching");
+  }, [isMutatingAction, isSavingOrder, setAllRoles, setPendingBatch]);
+
   return {
     openEditRoleDialog, openToggleRoleDialog, openDeactivateRoleDialog, openAddRoleDialog,
-    submitEditRole, submitToggleRole, submitDeactivateRole, submitAddRole,
+    submitEditRole, submitToggleRole, submitDeactivateRole, submitAddRole, stageHardDeleteRole,
   };
 }

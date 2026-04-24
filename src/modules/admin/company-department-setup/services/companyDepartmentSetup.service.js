@@ -6,6 +6,7 @@
 import {
   createCompany,
   deleteCompanyById,
+  hardDeleteCompanyById,
   fetchCompanies,
   fetchCompanyById,
   updateCompanyById,
@@ -13,6 +14,7 @@ import {
 import {
   createDepartment,
   deleteDepartmentById,
+  hardDeleteDepartmentById,
   fetchAllDepartments,
   fetchDepartmentsByCompanyId,
   updateDepartmentById,
@@ -266,6 +268,31 @@ export async function deleteDepartmentRecord(supabase, departmentId) {
     departmentId,
     deactivated: true,
     deleted: true,
+  };
+}
+
+export async function hardDeleteCompanyRecord(supabase, companyId) {
+  const departments = await fetchDepartmentsByCompanyId(supabase, companyId);
+
+  for (const department of departments) {
+    await hardDeleteDepartmentById(supabase, department.dept_id);
+  }
+
+  await hardDeleteCompanyById(supabase, companyId);
+
+  return {
+    companyId,
+    deletedDepartmentCount: departments.length,
+    permanentlyDeleted: true,
+  };
+}
+
+export async function hardDeleteDepartmentRecord(supabase, departmentId) {
+  await hardDeleteDepartmentById(supabase, departmentId);
+
+  return {
+    departmentId,
+    permanentlyDeleted: true,
   };
 }
 

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getSupabase } from "@/modules/admin/application-setup/utils/supabase.js";
 import {
   deleteRoleRecord,
+  hardDeleteRoleRecord,
   updateRoleRecord,
 } from "@/modules/admin/application-setup/services/applicationSetup.service.js";
 
@@ -84,8 +85,13 @@ export async function DELETE(request, context) {
       throw new Error("Invalid role id.");
     }
 
+    const url = new URL(request.url);
+    const permanent = url.searchParams.get("permanent") === "true";
+
     const supabase = await getSupabase();
-    const result = await deleteRoleRecord(supabase, roleId);
+    const result = permanent
+      ? await hardDeleteRoleRecord(supabase, roleId)
+      : await deleteRoleRecord(supabase, roleId);
 
     return NextResponse.json(
       {
@@ -98,7 +104,7 @@ export async function DELETE(request, context) {
     return NextResponse.json(
       {
         ok: false,
-        error: error?.message || "Failed to deactivate role.",
+        error: error?.message || "Failed to delete role.",
       },
       { status: 500, headers: noStoreHeaders() },
     );

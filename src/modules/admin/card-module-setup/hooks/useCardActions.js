@@ -9,7 +9,7 @@ import {
 
 export function useCardActions({
   isSaving, isMutatingAction, isSelectedGroupPendingDeactivation,
-  selectedGroup, selectedApp, selectedGroupCards,
+  selectedGroup, selectedApp, selectedGroupCards, pendingDeactivatedCardIds,
   dialog, cardDraft, setAllCards, setPendingBatch, setDialog, setCardDraft,
 }) {
   const openAddCardDialog = useCallback(() => {
@@ -37,8 +37,17 @@ export function useCardActions({
 
   const openToggleCardDialog = useCallback((row) => {
     if (isSaving || isMutatingAction) return;
+    const cardId = String(row?.card_id ?? "");
+    if (pendingDeactivatedCardIds.has(cardId)) {
+      setPendingBatch((prev) => ({
+        ...prev,
+        cardDeactivations: (prev.cardDeactivations || []).filter((id) => !isSameId(id, cardId)),
+      }));
+      toastSuccess("Card deactivation un-staged.", "Batching");
+      return;
+    }
     setDialog({ kind: "toggle-card", target: row, nextIsActive: !Boolean(row?.is_active_bool) });
-  }, [isMutatingAction, isSaving, setDialog]);
+  }, [isMutatingAction, isSaving, pendingDeactivatedCardIds, setDialog, setPendingBatch]);
 
   const openDeactivateCardDialog = useCallback((row) => {
     if (isSaving || isMutatingAction) return;
@@ -151,8 +160,32 @@ export function useCardActions({
     toastSuccess("Card deactivation staged for Save Batch.", "Batching");
   }, [dialog, setAllCards, setDialog, setPendingBatch]);
 
+  const stageHardDeleteCard = useCallback((row) => {
+    const cardId = String(row?.card_id ?? "");
+    if (!cardId || isSaving || isMutatingAction) return;
+
+    if (isTempCardId(cardId)) {
+      setAllCards((prev) => prev.filter((c) => !isSameId(c?.card_id, cardId)));
+      setPendingBatch((prev) => ({
+        ...prev,
+        cardCreates: prev.cardCreates.filter((e) => !isSameId(e?.tempId, cardId)),
+        cardUpdates: removeObjectKey(prev.cardUpdates, cardId),
+      }));
+      toastSuccess("Staged card removed.", "Batching");
+      return;
+    }
+
+    setPendingBatch((prev) => ({
+      ...prev,
+      cardDeactivations: (prev.cardDeactivations || []).filter((id) => !isSameId(id, cardId)),
+      cardUpdates: removeObjectKey(prev.cardUpdates, cardId),
+      cardHardDeletes: appendUniqueId(prev.cardHardDeletes || [], cardId),
+    }));
+    toastSuccess("Card deletion staged for Save Batch.", "Batching");
+  }, [isMutatingAction, isSaving, setAllCards, setPendingBatch]);
+
   return {
     openAddCardDialog, openEditCardDialog, openToggleCardDialog, openDeactivateCardDialog,
-    submitAddCard, submitEditCard, submitToggleCard, submitDeactivateCard,
+    submitAddCard, submitEditCard, submitToggleCard, submitDeactivateCard, stageHardDeleteCard,
   };
 }

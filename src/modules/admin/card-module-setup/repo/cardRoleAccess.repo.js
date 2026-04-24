@@ -42,3 +42,17 @@ export async function deactivateCardRoleAccessByCardId(supabase, cardId) {
     throw new Error(err.message || "Failed to deactivate card role access");
   }
 }
+
+export async function hardDeleteCardRoleAccessByCardId(supabase, cardId) {
+  try {
+    const { error } = await supabase
+      .from(TABLE)
+      .delete()
+      .eq("card_id", cardId);
+
+    if (error) throw error;
+    return { cardId };
+  } catch (err) {
+    throw new Error(err.message || "Failed to permanently delete card role access");
+  }
+}

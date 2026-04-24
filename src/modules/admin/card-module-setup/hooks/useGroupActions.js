@@ -4,12 +4,12 @@ import { useCallback } from "react";
 import { toastError, toastSuccess } from "@/shared/components/ui";
 import {
   isSameId, mapGroupRow, removeObjectKey, mergeUpdatePatch, appendUniqueId,
-  EMPTY_DIALOG, TEMP_GROUP_PREFIX, createTempId, isTempGroupId,
+  EMPTY_DIALOG, TEMP_GROUP_PREFIX, createTempId, isTempGroupId, isTempCardId,
 } from "../utils/cardModuleHelpers";
 
 export function useGroupActions({
   isSaving, isMutatingAction, selectedApp, appGroups, allCards, orderedGroups,
-  selectedGroup, dialog, groupDraft,
+  selectedGroup, dialog, groupDraft, pendingDeactivatedGroupIds,
   setOrderedGroups, setAllCards, setPendingBatch, setDialog, setGroupDraft, updateQueryParams,
 }) {
   const openAddGroupDialog = useCallback(() => {
@@ -27,8 +27,19 @@ export function useGroupActions({
 
   const openToggleGroupDialog = useCallback((row) => {
     if (isSaving || isMutatingAction) return;
+    const groupId = String(row?.group_id ?? "");
+    if (pendingDeactivatedGroupIds.has(groupId)) {
+      const linkedCardIds = allCards.filter((c) => isSameId(c?.group_id, groupId)).map((c) => String(c?.card_id ?? ""));
+      setPendingBatch((prev) => ({
+        ...prev,
+        groupDeactivations: (prev.groupDeactivations || []).filter((id) => !isSameId(id, groupId)),
+        cardDeactivations: (prev.cardDeactivations || []).filter((id) => !linkedCardIds.some((lr) => isSameId(lr, id))),
+      }));
+      toastSuccess("Card group deactivation un-staged.", "Batching");
+      return;
+    }
     setDialog({ kind: "toggle-group", target: row, nextIsActive: !Boolean(row?.is_active_bool) });
-  }, [isMutatingAction, isSaving, setDialog]);
+  }, [allCards, isMutatingAction, isSaving, pendingDeactivatedGroupIds, setDialog, setPendingBatch]);
 
   const openDeactivateGroupDialog = useCallback((row) => {
     if (isSaving || isMutatingAction) return;
@@ -139,8 +150,50 @@ export function useGroupActions({
     setDialog(EMPTY_DIALOG); toastSuccess("Card group deactivation staged for Save Batch.", "Batching");
   }, [allCards, dialog, orderedGroups, selectedApp?.app_id, selectedGroup?.group_id, setAllCards, setDialog, setOrderedGroups, setPendingBatch, updateQueryParams]);
 
+  const stageHardDeleteGroup = useCallback((row) => {
+    const groupId = String(row?.group_id ?? "");
+    if (!groupId || isSaving || isMutatingAction) return;
+    const linkedCardIds = allCards.filter((c) => isSameId(c?.group_id, groupId)).map((c) => String(c?.card_id ?? ""));
+
+    if (isTempGroupId(groupId)) {
+      const nextGroups = orderedGroups.filter((g) => !isSameId(g?.group_id, groupId)).map((g, i) => ({ ...g, display_order: i + 1 }));
+      setOrderedGroups(nextGroups);
+      setAllCards((prev) => prev.filter((c) => !isSameId(c?.group_id, groupId)));
+      setPendingBatch((prev) => ({
+        ...prev,
+        groupCreates: prev.groupCreates.filter((e) => !isSameId(e?.tempId, groupId)),
+        groupUpdates: removeObjectKey(prev.groupUpdates, groupId),
+        cardCreates: prev.cardCreates.filter((e) => !isSameId(e?.payload?.group_id, groupId)),
+        cardUpdates: linkedCardIds.reduce((m, id) => removeObjectKey(m, id), prev.cardUpdates),
+        cardDeactivations: (prev.cardDeactivations || []).filter((id) => !linkedCardIds.some((lr) => isSameId(lr, id))),
+        cardHardDeletes: (prev.cardHardDeletes || []).filter((id) => !linkedCardIds.some((lr) => isSameId(lr, id))),
+      }));
+      if (isSameId(selectedGroup?.group_id, groupId)) {
+        const remaining = nextGroups.filter((g) => isSameId(g?.app_id, selectedApp?.app_id));
+        updateQueryParams({ group: remaining[0]?.group_id ?? null });
+      }
+      toastSuccess("Staged card group removed.", "Batching");
+      return;
+    }
+
+    setPendingBatch((prev) => ({
+      ...prev,
+      groupUpdates: removeObjectKey(prev.groupUpdates, groupId),
+      groupDeactivations: (prev.groupDeactivations || []).filter((id) => !isSameId(id, groupId)),
+      groupHardDeletes: appendUniqueId(prev.groupHardDeletes || [], groupId),
+      cardCreates: prev.cardCreates.filter((e) => !isSameId(e?.payload?.group_id, groupId)),
+      cardUpdates: linkedCardIds.reduce((m, id) => removeObjectKey(m, id), prev.cardUpdates),
+      cardDeactivations: (prev.cardDeactivations || []).filter((id) => !linkedCardIds.some((lr) => isSameId(lr, id))),
+      cardHardDeletes: linkedCardIds.reduce(
+        (ids, id) => isTempCardId(id) ? ids : appendUniqueId(ids, id),
+        (prev.cardHardDeletes || []).filter((id) => !linkedCardIds.some((lr) => isSameId(lr, id))),
+      ),
+    }));
+    toastSuccess("Card group deletion staged for Save Batch.", "Batching");
+  }, [allCards, isMutatingAction, isSaving, orderedGroups, selectedApp?.app_id, selectedGroup?.group_id, setAllCards, setOrderedGroups, setPendingBatch, updateQueryParams]);
+
   return {
     openAddGroupDialog, openEditGroupDialog, openToggleGroupDialog, openDeactivateGroupDialog,
-    submitAddGroup, submitEditGroup, submitToggleGroup, submitDeactivateGroup,
+    submitAddGroup, submitEditGroup, submitToggleGroup, submitDeactivateGroup, stageHardDeleteGroup,
   };
 }

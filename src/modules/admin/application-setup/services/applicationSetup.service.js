@@ -6,6 +6,7 @@
 import {
   createApplication,
   deleteApplicationById,
+  hardDeleteApplicationById,
   fetchApplicationById,
   fetchApplications,
   updateApplicationById,
@@ -14,6 +15,7 @@ import {
 import {
   createRole,
   deleteRoleById,
+  hardDeleteRoleById,
   fetchAllRoles,
   fetchRolesByAppId,
   updateRoleById,
@@ -222,6 +224,30 @@ export async function deleteRoleRecord(supabase, roleId) {
     roleId,
     deactivated: true,
     deleted: true,
+  };
+}
+
+export async function hardDeleteApplicationRecord(supabase, appId) {
+  const roles = await fetchRolesByAppId(supabase, appId);
+
+  for (const role of roles) {
+    await hardDeleteRoleById(supabase, role.role_id);
+  }
+
+  await hardDeleteApplicationById(supabase, appId);
+
+  return {
+    appId,
+    deletedRoleCount: roles.length,
+    permanentlyDeleted: true,
+  };
+}
+
+export async function hardDeleteRoleRecord(supabase, roleId) {
+  await hardDeleteRoleById(supabase, roleId);
+  return {
+    roleId,
+    permanentlyDeleted: true,
   };
 }
 

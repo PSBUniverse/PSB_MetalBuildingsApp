@@ -56,7 +56,8 @@ export function useStatusSetup({ statuses = [] }) {
     const added = statusChanges.creates.length;
     const edited = Object.keys(statusChanges.updates || {}).length;
     const deactivated = statusChanges.deactivations.length;
-    return { added, edited, deactivated, total: added + edited + deactivated };
+    const hardDeleted = (statusChanges.hardDeletes || []).length;
+    return { added, edited, deactivated, hardDeleted, total: added + edited + deactivated + hardDeleted };
   }, [statusChanges]);
 
   const hasPendingChanges = pendingSummary.total > 0;
@@ -66,14 +67,21 @@ export function useStatusSetup({ statuses = [] }) {
     [statusChanges.deactivations],
   );
 
+  const pendingHardDeletedStatusIds = useMemo(
+    () => new Set((statusChanges.hardDeletes || []).map((id) => String(id ?? ""))),
+    [statusChanges.hardDeletes],
+  );
+
   const decoratedStatuses = useMemo(() => {
     const createdIds = new Set((statusChanges.creates || []).map((entry) => String(entry?.tempId ?? "")));
     const updatesMap = statusChanges.updates || {};
     const deactivatedIds = new Set((statusChanges.deactivations || []).map((entry) => String(entry ?? "")));
+    const hardDeletedIds = new Set((statusChanges.hardDeletes || []).map((entry) => String(entry ?? "")));
 
     return orderedStatuses.map((row) => {
       const id = String(row?.status_id ?? "");
 
+      if (hardDeletedIds.has(id)) return { ...row, __batchState: "hardDeleted" };
       if (deactivatedIds.has(id)) return { ...row, __batchState: "deleted" };
       if (createdIds.has(id)) return { ...row, __batchState: "created" };
 
@@ -93,7 +101,7 @@ export function useStatusSetup({ statuses = [] }) {
 
       return { ...row, __batchState: "none" };
     });
-  }, [statusChanges.creates, statusChanges.deactivations, statusChanges.updates, orderedStatuses]);
+  }, [statusChanges.creates, statusChanges.deactivations, statusChanges.hardDeletes, statusChanges.updates, orderedStatuses]);
 
   // -- dialog actions
   const closeDialog = useCallback(() => {
@@ -118,12 +126,45 @@ export function useStatusSetup({ statuses = [] }) {
 
   const openToggleStatusDialog = useCallback((row) => {
     if (isMutatingAction || isSavingBatch) return;
+    const statusId = String(row?.status_id ?? "");
+    if (pendingDeactivatedStatusIds.has(statusId)) {
+      setStatusChanges((prev) => ({
+        ...prev,
+        deactivations: (prev.deactivations || []).filter((id) => !isSameId(id, statusId)),
+      }));
+      toastSuccess("Status deactivation un-staged.", "Batching");
+      return;
+    }
     setDialog({ kind: "toggle-status", target: row, nextIsActive: !Boolean(row?.is_active_bool) });
-  }, [isMutatingAction, isSavingBatch]);
+  }, [isMutatingAction, isSavingBatch, pendingDeactivatedStatusIds]);
 
   const openDeactivateStatusDialog = useCallback((row) => {
     if (isMutatingAction || isSavingBatch) return;
     setDialog({ kind: "deactivate-status", target: row, nextIsActive: null });
+  }, [isMutatingAction, isSavingBatch]);
+
+  const stageHardDeleteStatus = useCallback((row) => {
+    const statusId = String(row?.status_id ?? "");
+    if (!statusId || isMutatingAction || isSavingBatch) return;
+
+    if (isTempStatusId(statusId)) {
+      setOrderedStatuses((prev) => prev.filter((s) => !isSameId(s?.status_id, statusId)));
+      setStatusChanges((prev) => ({
+        ...prev,
+        creates: prev.creates.filter((e) => !isSameId(e?.tempId, statusId)),
+        updates: removeObjectKey(prev.updates, statusId),
+      }));
+      toastSuccess("Staged status removed.", "Batching");
+      return;
+    }
+
+    setStatusChanges((prev) => ({
+      ...prev,
+      deactivations: (prev.deactivations || []).filter((id) => !isSameId(id, statusId)),
+      updates: removeObjectKey(prev.updates, String(statusId)),
+      hardDeletes: appendUniqueId(prev.hardDeletes || [], statusId),
+    }));
+    toastSuccess("Status deletion staged for Save Batch.", "Batching");
   }, [isMutatingAction, isSavingBatch]);
 
   // -- batch actions
@@ -313,8 +354,7 @@ export function useStatusSetup({ statuses = [] }) {
     const statusId = row?.status_id;
     if (!statusId) return;
 
-    const isPendingDeactivation = pendingDeactivatedStatusIds.has(String(statusId));
-    if (isPendingDeactivation || isMutatingAction || isSavingBatch) return;
+    if (isMutatingAction || isSavingBatch) return;
 
     setOrderedStatuses((previous) =>
       previous.map((status, index) => {
@@ -341,7 +381,7 @@ export function useStatusSetup({ statuses = [] }) {
         },
       };
     });
-  }, [isMutatingAction, isSavingBatch, pendingDeactivatedStatusIds]);
+  }, [isMutatingAction, isSavingBatch]);
 
   return {
     // state
@@ -353,6 +393,7 @@ export function useStatusSetup({ statuses = [] }) {
     pendingSummary,
     hasPendingChanges,
     pendingDeactivatedStatusIds,
+    pendingHardDeletedStatusIds,
 
     // setters
     setDialog,
@@ -364,6 +405,7 @@ export function useStatusSetup({ statuses = [] }) {
     openEditStatusDialog,
     openToggleStatusDialog,
     openDeactivateStatusDialog,
+    stageHardDeleteStatus,
 
     // batch actions
     handleCancelBatch,

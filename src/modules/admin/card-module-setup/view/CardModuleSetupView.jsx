@@ -28,6 +28,7 @@ export default function CardModuleSetupView({ applications, cardGroups, cards, i
             decoratedGroups={h.decoratedGroups} selectedGroup={h.selectedGroup}
             isSaving={h.isSaving} isMutatingAction={h.isMutatingAction}
             pendingDeactivatedGroupIds={h.pendingDeactivatedGroupIds}
+          pendingHardDeletedGroupIds={h.pendingHardDeletedGroupIds}
             handleGroupRowClick={h.handleGroupRowClick} handleGroupReorder={h.handleGroupReorder}
             editingGroupId={h.editingGroupId}
             onStartEditing={h.startEditingGroup}
@@ -35,6 +36,7 @@ export default function CardModuleSetupView({ applications, cardGroups, cards, i
             onInlineEdit={h.handleInlineEditGroup}
             openToggleGroupDialog={h.openToggleGroupDialog}
             openDeactivateGroupDialog={h.openDeactivateGroupDialog}
+          stageHardDeleteGroup={h.stageHardDeleteGroup}
           />
         </div>
         <div className="col-12 col-xl-7">
@@ -42,6 +44,7 @@ export default function CardModuleSetupView({ applications, cardGroups, cards, i
             selectedGroup={h.selectedGroup} decoratedSelectedGroupCards={h.decoratedSelectedGroupCards}
             isSaving={h.isSaving} isMutatingAction={h.isMutatingAction}
             pendingDeactivatedCardIds={h.pendingDeactivatedCardIds}
+          pendingHardDeletedCardIds={h.pendingHardDeletedCardIds}
             handleCardReorder={h.handleCardReorder}
             editingCardId={h.editingCardId}
             onStartEditing={h.startEditingCard}
@@ -49,6 +52,7 @@ export default function CardModuleSetupView({ applications, cardGroups, cards, i
             onInlineEdit={h.handleInlineEditCard}
             openToggleCardDialog={h.openToggleCardDialog}
             openDeactivateCardDialog={h.openDeactivateCardDialog}
+          stageHardDeleteCard={h.stageHardDeleteCard}
           />
         </div>
       </div>

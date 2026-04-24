@@ -4,6 +4,9 @@ import { useMemo } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { Card, Col, Container, Row } from "react-bootstrap";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faEnvelope, faPhone } from "@fortawesome/free-solid-svg-icons";
+import AppIcon from "@/shared/components/ui/AppIcon";
 import { useAuth } from "@/core/auth/useAuth";
 import { hasAppAccess } from "@/core/auth/access";
 import psbLogo from "@/styles/psb_logo_notitle.png";
@@ -19,21 +22,6 @@ const ORG_BANNER = {
 
 function hasValue(value) {
   return value !== undefined && value !== null && String(value).trim() !== "";
-}
-
-function toIconClass(iconValue, fallbackIcon) {
-  const raw = String(iconValue || "").trim();
-  if (!raw) return `bi ${fallbackIcon}`;
-
-  if (raw.includes(" ")) {
-    return raw;
-  }
-
-  if (raw.startsWith("bi-")) {
-    return `bi ${raw}`;
-  }
-
-  return `bi ${raw}`;
 }
 
 function resolveCardTarget(path) {
@@ -161,11 +149,11 @@ export default function DashboardModules({ modules }) {
                 <p className="my-apps-org-name mb-1">{ORG_BANNER.name}</p>
                 <p className="my-apps-org-tagline mb-2">{ORG_BANNER.tagline}</p>
                 <p className="my-apps-org-contact-row mb-1">
-                  <i className="bi bi-envelope-at-fill" aria-hidden="true" />
+                  <FontAwesomeIcon icon={faEnvelope} aria-hidden="true" />
                   <span>{ORG_BANNER.email}</span>
                 </p>
                 <p className="my-apps-org-contact-row mb-0">
-                  <i className="bi bi-telephone-fill" aria-hidden="true" />
+                  <FontAwesomeIcon icon={faPhone} aria-hidden="true" />
                   <span>{ORG_BANNER.phone}</span>
                 </p>
               </Card.Body>
@@ -177,7 +165,7 @@ export default function DashboardModules({ modules }) {
       {groupedModules.map((group) => (
         <div key={`group-${group.group_id || group.group_name}`} className="mb-4">
           <div className="my-apps-group-heading">
-            <i className={toIconClass(group.group_icon, DEFAULT_GROUP_ICON)} aria-hidden="true" />
+            <AppIcon icon={group.group_icon || DEFAULT_GROUP_ICON} aria-hidden="true" />
             <div>
               <p className="text-uppercase fw-bold mb-0 tile-badge">{group.group_name}</p>
               {hasValue(group.group_desc) ? (
@@ -194,7 +182,7 @@ export default function DashboardModules({ modules }) {
               const cardContent = (
                 <>
                   <div className="my-app-card-icon">
-                    <i className={toIconClass(card.icon, DEFAULT_CARD_ICON)} aria-hidden="true" />
+                    <AppIcon icon={card.icon || DEFAULT_CARD_ICON} aria-hidden="true" />
                   </div>
                   <h5 className="mt-2 mb-2">{card.card_name}</h5>
                   <p className="text-muted my-app-card-copy">{card.card_desc || "Open module."}</p>

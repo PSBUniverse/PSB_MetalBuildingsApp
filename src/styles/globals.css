@@ -901,16 +901,16 @@ h6,
   pointer-events: none;
 }
 
-.setup-row-icon-btn .bi {
+.setup-row-icon-btn .svg-inline--fa {
   font-size: 11px;
   line-height: 1;
 }
 
-.setup-row-icon-btn .bi-trash {
+.setup-row-icon-btn .fa-trash {
   font-size: 12px;
 }
 
-.setup-row-icon-btn .bi-pencil {
+.setup-row-icon-btn .fa-pen {
   font-size: 12px;
 }
 

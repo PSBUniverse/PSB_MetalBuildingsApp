@@ -14,6 +14,18 @@ const nextConfig = {
     maxInactiveAge: 60 * 60 * 1000,
     pagesBufferLength: 8,
   },
+  async rewrites() {
+    return [
+      { source: "/dashboard", destination: "/psbpages/dashboard" },
+      { source: "/dashboard/:path*", destination: "/psbpages/dashboard/:path*" },
+      { source: "/examples", destination: "/psbpages/examples" },
+      { source: "/examples/:path*", destination: "/psbpages/examples/:path*" },
+      { source: "/login", destination: "/psbpages/login" },
+      { source: "/login/:path*", destination: "/psbpages/login/:path*" },
+      { source: "/profile", destination: "/psbpages/profile" },
+      { source: "/profile/:path*", destination: "/psbpages/profile/:path*" },
+    ];
+  },
 };
 
 export default nextConfig;

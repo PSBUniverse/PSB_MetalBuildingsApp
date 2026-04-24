@@ -2,6 +2,9 @@
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { Form, Spinner, Table as BootstrapTable } from "react-bootstrap";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faSort, faSortUp, faSortDown, faChevronUp, faChevronDown, faXmark } from "@fortawesome/free-solid-svg-icons";
+import { faFloppyDisk } from "@fortawesome/free-regular-svg-icons";
 import SearchBar from "@/shared/components/ui/controls/SearchBar";
 import { TableContextMenuWrapper } from "@/shared/components/ui/table/TableContextMenu";
 import { TableSidePanelWrapper } from "@/shared/components/ui/table/TableSidePanel";
@@ -33,7 +36,7 @@ import {
   toIntegerOrFallback,
 } from "@/shared/components/ui/table/tableUtils";
 
-const ACTION_COLUMN_WIDTH = 96;
+const ACTION_COLUMN_WIDTH = 140;
 
 function normalizeSortDirection(direction) {
   return String(direction || "").toLowerCase() === "desc" ? "desc" : "asc";
@@ -539,11 +542,11 @@ export default function TableZ({
       <div className="psb-ui-table-batch-controls-actions">
         <button
           type="button"
-          className="btn btn-primary btn-sm"
+          className="btn btn-success btn-sm"
           onClick={handleSaveBatch}
           disabled={!batch.hasPendingChanges || isBatchSubmitting}
         >
-          {isBatchSubmitting ? "Saving..." : "Save Batch"}
+          {isBatchSubmitting ? "Saving..." : <><FontAwesomeIcon icon={faFloppyDisk} className="me-1" />Save Batch</>}
         </button>
         <button
           type="button"
@@ -551,7 +554,7 @@ export default function TableZ({
           onClick={handleCancelBatch}
           disabled={!batch.hasPendingChanges || isBatchSubmitting}
         >
-          Cancel Batch
+          <FontAwesomeIcon icon={faXmark} className="me-1" />Cancel Batch
         </button>
       </div>
     </div>
@@ -864,7 +867,7 @@ export default function TableZ({
       bordered
       hover
       className={tableClassName}
-      style={controlledMode ? undefined : { width: "100%", tableLayout: "fixed" }}
+      style={{ width: "100%", tableLayout: "fixed" }}
     >
       <colgroup>
         {actionColumnVisible ? (
@@ -903,10 +906,10 @@ export default function TableZ({
             const isSortedColumn = effectiveSorting.key === column.key;
             const sortIcon =
               !isSortedColumn
-                ? "bi-arrow-down-up"
+                ? faSort
                 : effectiveSorting.direction === "asc"
-                  ? "bi-sort-up"
-                  : "bi-sort-down";
+                  ? faSortUp
+                  : faSortDown;
 
             return (
               <th
@@ -931,7 +934,7 @@ export default function TableZ({
                       aria-label={`Sort by ${column.label}`}
                     >
                       <span>{column.label}</span>
-                      <i className={`bi ${sortIcon}`} aria-hidden="true" />
+                      <FontAwesomeIcon icon={sortIcon} aria-hidden="true" />
                     </button>
                   ) : (
                     <span className="psb-ui-table-header-label" onContextMenu={(event) => handleHeaderContextMenu(event, column)}>
@@ -991,7 +994,7 @@ export default function TableZ({
             onClick={() => setFiltersExpanded((current) => !current)}
           >
             <span>Filters</span>
-            <i className={`bi ${filtersExpanded ? "bi-chevron-up" : "bi-chevron-down"}`} aria-hidden="true" />
+            <FontAwesomeIcon icon={filtersExpanded ? faChevronUp : faChevronDown} aria-hidden="true" />
           </button>
 
           {filtersExpanded ? (

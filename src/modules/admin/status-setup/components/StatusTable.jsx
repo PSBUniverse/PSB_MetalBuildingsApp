@@ -14,12 +14,14 @@ export function StatusTable({
   isMutatingAction,
   isSavingBatch,
   pendingDeactivatedStatusIds,
+  pendingHardDeletedStatusIds,
   editingStatusId,
   onStartEditing,
   onStopEditing,
   onInlineEdit,
   openToggleStatusDialog,
   openDeactivateStatusDialog,
+  stageHardDeleteStatus,
 }) {
   const columns = useMemo(
     () => [
@@ -37,6 +39,10 @@ export function StatusTable({
           let markerClass = "";
 
           switch (batchState) {
+            case "hardDeleted":
+              markerText = "Deleted";
+              markerClass = "psb-batch-marker psb-batch-marker-deleted";
+              break;
             case "deleted":
               markerText = "Deactivated";
               markerClass = "psb-batch-marker psb-batch-marker-deleted";
@@ -66,6 +72,7 @@ export function StatusTable({
               <InlineEditCell
                 value={row?.sts_name || ""}
                 onCommit={(val) => onInlineEdit?.(row, "sts_name", val)}
+                onCancel={onStopEditing}
                 disabled={editDisabled}
               />
               {markerText ? <span className={markerClass}>{markerText}</span> : null}
@@ -85,6 +92,7 @@ export function StatusTable({
             <InlineEditCell
               value={row?.sts_desc === "--" ? "" : (row?.sts_desc || "")}
               onCommit={(val) => onInlineEdit?.(row, "sts_desc", val)}
+              onCancel={onStopEditing}
               disabled={editDisabled}
             />
           );
@@ -99,7 +107,7 @@ export function StatusTable({
         render: (row) => <StatusBadge isActive={Boolean(row?.is_active_bool)} />,
       },
     ],
-    [editingStatusId, isMutatingAction, isSavingBatch, onInlineEdit],
+    [editingStatusId, isMutatingAction, isSavingBatch, onInlineEdit, onStopEditing],
   );
 
   const actions = useMemo(
@@ -108,56 +116,47 @@ export function StatusTable({
         key: "edit-status",
         label: "Edit",
         type: "secondary",
-        icon: "pencil-square",
-        visible: (row) => String(row?.status_id ?? "") !== String(editingStatusId ?? ""),
-        disabled: (row) => {
-          const isPendingDeactivation = pendingDeactivatedStatusIds.has(String(row?.status_id ?? ""));
-          return isMutatingAction || isSavingBatch || isPendingDeactivation;
-        },
+        icon: "pen",
+        visible: (row) => row?.__batchState !== "hardDeleted" && String(row?.status_id ?? "") !== String(editingStatusId ?? ""),
+        disabled: () => isMutatingAction || isSavingBatch,
         onClick: (row) => onStartEditing(row),
       },
       {
-        key: "done-edit-status",
-        label: "Done",
-        type: "success",
-        icon: "check-circle",
+        key: "cancel-edit-status",
+        label: "Cancel",
+        type: "secondary",
+        icon: "xmark",
         visible: (row) => String(row?.status_id ?? "") === String(editingStatusId ?? ""),
         onClick: () => onStopEditing(),
       },
       {
-        key: "disable-status",
-        label: "Disable",
+        key: "restore-status",
+        label: "Restore",
         type: "secondary",
-        icon: "slash-circle",
-        visible: (row) => Boolean(row?.is_active_bool),
-        disabled: (row) => {
-          const isPendingDeactivation = pendingDeactivatedStatusIds.has(String(row?.status_id ?? ""));
-          return isMutatingAction || isSavingBatch || isPendingDeactivation;
-        },
-        onClick: (row) => openToggleStatusDialog(row),
-      },
-      {
-        key: "enable-status",
-        label: "Enable",
-        type: "secondary",
-        icon: "check-circle",
-        visible: (row) => !Boolean(row?.is_active_bool),
-        disabled: (row) => {
-          const isPendingDeactivation = pendingDeactivatedStatusIds.has(String(row?.status_id ?? ""));
-          return isMutatingAction || isSavingBatch || isPendingDeactivation;
-        },
+        icon: "rotate-left",
+        visible: (row) => row?.__batchState !== "hardDeleted" && (!Boolean(row?.is_active_bool) || pendingDeactivatedStatusIds.has(String(row?.status_id ?? ""))) && String(row?.status_id ?? "") !== String(editingStatusId ?? ""),
+        disabled: () => isMutatingAction || isSavingBatch,
         onClick: (row) => openToggleStatusDialog(row),
       },
       {
         key: "deactivate-status",
         label: "Deactivate",
+        type: "secondary",
+        icon: "ban",
+        visible: (row) => row?.__batchState !== "hardDeleted" && Boolean(row?.is_active_bool) && !pendingDeactivatedStatusIds.has(String(row?.status_id ?? "")) && String(row?.status_id ?? "") !== String(editingStatusId ?? ""),
+        disabled: () => isMutatingAction || isSavingBatch,
+        onClick: (row) => openDeactivateStatusDialog(row),
+      },
+      {
+        key: "delete-status",
+        label: "Delete",
         type: "danger",
         icon: "trash",
-        disabled: (row) => {
-          const isPendingDeactivation = pendingDeactivatedStatusIds.has(String(row?.status_id ?? ""));
-          return isMutatingAction || isSavingBatch || isPendingDeactivation;
-        },
-        onClick: (row) => openDeactivateStatusDialog(row),
+        visible: (row) => row?.__batchState !== "hardDeleted" && String(row?.status_id ?? "") !== String(editingStatusId ?? ""),
+        confirm: true,
+        confirmMessage: (row) => `Permanently delete ${row?.status_name || "this status"}? This action cannot be undone.`,
+        disabled: () => isMutatingAction || isSavingBatch,
+        onClick: (row) => stageHardDeleteStatus(row),
       },
     ],
     [
@@ -169,6 +168,7 @@ export function StatusTable({
       openDeactivateStatusDialog,
       openToggleStatusDialog,
       pendingDeactivatedStatusIds,
+      stageHardDeleteStatus,
     ],
   );
 

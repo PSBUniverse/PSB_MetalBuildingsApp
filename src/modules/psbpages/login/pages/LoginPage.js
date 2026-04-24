@@ -2,6 +2,8 @@
 
 import Image from "next/image";
 import { Button, Form } from "react-bootstrap";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faEye, faEyeSlash } from "@fortawesome/free-solid-svg-icons";
 import psbLogo from "@/styles/psb_logo.png";
 import { useLogin } from "../hooks/useLogin";
 
@@ -56,7 +58,7 @@ export default function LoginPage() {
                   <button type="button" className="portal-password-toggle" onClick={h.handlePasswordToggle}
                     onMouseDown={(e) => e.preventDefault()}
                     aria-label={h.showPassword ? "Hide password" : "Show password"} aria-pressed={h.showPassword}>
-                    <i className={`bi ${h.showPassword ? "bi-eye-slash" : "bi-eye"}`} aria-hidden="true" />
+                    <FontAwesomeIcon icon={h.showPassword ? faEyeSlash : faEye} aria-hidden="true" />
                     <span>{h.showPassword ? "Hide" : "Show"}</span>
                   </button>
                 </div>

@@ -25,17 +25,14 @@ export default function StatusSetupView({ statuses }) {
         isMutatingAction={hook.isMutatingAction}
         isSavingBatch={hook.isSavingBatch}
         pendingDeactivatedStatusIds={hook.pendingDeactivatedStatusIds}
-        editingStatusId={hook.editingStatusId}
-        onStartEditing={hook.startEditingStatus}
-        onStopEditing={hook.stopEditingStatus}
-        onInlineEdit={hook.handleInlineEdit}
-        openToggleStatusDialog={hook.openToggleStatusDialog}
-        openDeactivateStatusDialog={hook.openDeactivateStatusDialog}
-      />
-
-      <StatusDialog
-        dialog={hook.dialog}
-        statusDraft={hook.statusDraft}
+          pendingHardDeletedStatusIds={hook.pendingHardDeletedStatusIds}
+          editingStatusId={hook.editingStatusId}
+          onStartEditing={hook.startEditingStatus}
+          onStopEditing={hook.stopEditingStatus}
+          onInlineEdit={hook.handleInlineEdit}
+          openToggleStatusDialog={hook.openToggleStatusDialog}
+          openDeactivateStatusDialog={hook.openDeactivateStatusDialog}
+          stageHardDeleteStatus={hook.stageHardDeleteStatus}
         isMutatingAction={hook.isMutatingAction}
         isSavingBatch={hook.isSavingBatch}
         setStatusDraft={hook.setStatusDraft}

@@ -86,8 +86,8 @@ export function createTempId(prefix) {
 export function isTempCompanyId(value) { return String(value ?? "").startsWith(TEMP_COMPANY_PREFIX); }
 export function isTempDepartmentId(value) { return String(value ?? "").startsWith(TEMP_DEPARTMENT_PREFIX); }
 
-export function createEmptyCompanyChanges() { return { creates: [], updates: {}, deactivations: [] }; }
-export function createEmptyDepartmentChanges() { return { creates: [], updates: {}, deactivations: [] }; }
+export function createEmptyCompanyChanges() { return { creates: [], updates: {}, deactivations: [], hardDeletes: [] }; }
+export function createEmptyDepartmentChanges() { return { creates: [], updates: {}, deactivations: [], hardDeletes: [] }; }
 
 function remapDepartmentCreatesByCompanyId(creates, companyIdMap) {
   return (Array.isArray(creates) ? creates : []).map((entry) => {
@@ -114,8 +114,12 @@ async function requestJson(url, options, fallbackMessage) {
 
 export async function executeBatchSave(companyChanges, departmentChanges, orderedCompanies, selectedCompanyId) {
   const companyIdMap = new Map();
-  const deactivatedCompanySet = new Set((companyChanges.deactivations || []).map((id) => String(id ?? "")));
-  const deactivatedDepartmentSet = new Set((departmentChanges.deactivations || []).map((id) => String(id ?? "")));
+  const deactivatedCompanySet = new Set(
+    [...(companyChanges.deactivations || []), ...(companyChanges.hardDeletes || [])].map((id) => String(id ?? "")),
+  );
+  const deactivatedDepartmentSet = new Set(
+    [...(departmentChanges.deactivations || []), ...(departmentChanges.hardDeletes || [])].map((id) => String(id ?? "")),
+  );
 
   for (const createEntry of companyChanges.creates || []) {
     const payload = await requestJson("/api/admin/company-department-setup/companies",
@@ -171,6 +175,19 @@ export async function executeBatchSave(companyChanges, departmentChanges, ordere
     if (isTempDepartmentId(deptId)) continue;
     await requestJson(`/api/admin/company-department-setup/departments/${encodeURIComponent(String(deptId))}`,
       { method: "DELETE" }, "Failed to deactivate department.");
+  }
+
+  for (const deptId of departmentChanges.hardDeletes || []) {
+    if (isTempDepartmentId(deptId)) continue;
+    await requestJson(`/api/admin/company-department-setup/departments/${encodeURIComponent(String(deptId))}?permanent=true`,
+      { method: "DELETE" }, "Failed to permanently delete department.");
+  }
+
+  for (const companyId of companyChanges.hardDeletes || []) {
+    const resolvedId = companyIdMap.get(String(companyId)) ?? companyId;
+    if (isTempCompanyId(resolvedId)) continue;
+    await requestJson(`/api/admin/company-department-setup/companies/${encodeURIComponent(String(resolvedId))}?permanent=true`,
+      { method: "DELETE" }, "Failed to permanently delete company.");
   }
 
   const orderedPersistedCompanyIds = orderedCompanies

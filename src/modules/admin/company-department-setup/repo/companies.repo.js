@@ -78,3 +78,17 @@ export async function deleteCompanyById(supabase, compId) {
     throw new Error(err.message || "Failed to deactivate company");
   }
 }
+
+export async function hardDeleteCompanyById(supabase, compId) {
+  try {
+    const { error } = await supabase
+      .from("psb_s_company")
+      .delete()
+      .eq("comp_id", compId);
+
+    if (error) throw error;
+    return { compId };
+  } catch (err) {
+    throw new Error(err.message || "Failed to permanently delete company");
+  }
+}

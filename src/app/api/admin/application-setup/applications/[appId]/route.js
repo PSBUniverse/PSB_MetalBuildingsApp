@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getSupabase } from "@/modules/admin/application-setup/utils/supabase.js";
 import {
   deleteApplicationRecord,
+  hardDeleteApplicationRecord,
   updateApplicationRecord,
 } from "@/modules/admin/application-setup/services/applicationSetup.service.js";
 
@@ -84,8 +85,13 @@ export async function DELETE(request, context) {
       throw new Error("Invalid application id.");
     }
 
+    const url = new URL(request.url);
+    const permanent = url.searchParams.get("permanent") === "true";
+
     const supabase = await getSupabase();
-    const result = await deleteApplicationRecord(supabase, appId);
+    const result = permanent
+      ? await hardDeleteApplicationRecord(supabase, appId)
+      : await deleteApplicationRecord(supabase, appId);
 
     return NextResponse.json(
       {
@@ -98,7 +104,7 @@ export async function DELETE(request, context) {
     return NextResponse.json(
       {
         ok: false,
-        error: error?.message || "Failed to deactivate application.",
+        error: error?.message || "Failed to delete application.",
       },
       { status: 500, headers: noStoreHeaders() },
     );

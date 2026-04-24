@@ -93,3 +93,17 @@ export async function deleteDepartmentById(supabase, deptId) {
     throw new Error(err.message || "Failed to deactivate department");
   }
 }
+
+export async function hardDeleteDepartmentById(supabase, deptId) {
+  try {
+    const { error } = await supabase
+      .from("psb_s_department")
+      .delete()
+      .eq("dept_id", deptId);
+
+    if (error) throw error;
+    return { deptId };
+  } catch (err) {
+    throw new Error(err.message || "Failed to permanently delete department");
+  }
+}

@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faPlus, faChevronUp, faChevronDown } from "@fortawesome/free-solid-svg-icons";
 import {
   Badge,
   Button,
@@ -320,7 +322,7 @@ const groupActions = useMemo(() => [
     key: "edit",
     label: "Edit",
     type: "primary",           // primary | secondary | danger
-    icon: "pencil-square",     // Bootstrap Icons class (without "bi-" prefix)
+    icon: "pen",              // Font Awesome icon name
     onClick: (row) => {
       // Open edit dialog pre-filled with this group's data
       setDialog({ kind: "edit-group", groupId: row.group_id });
@@ -335,7 +337,7 @@ const groupActions = useMemo(() => [
     key: "deactivate",
     label: "Deactivate",
     type: "danger",
-    icon: "x-octagon",
+    icon: "trash",
     // Only show for active, non-pending groups
     visible: (row) => row.is_active && !isTempGroupId(row.group_id),
     // Confirm dialog before executing
@@ -821,7 +823,7 @@ const SNIPPET_CARD_SURFACE = `import { Card } from "@/shared/components/ui";
   subtitle="Drag rows to reorder groups"
   toolbar={
     <Button size="sm" variant="primary" onClick={() => setDialog({ kind: "add-group" })}>
-      <i className="bi bi-plus-lg" /> Add Group
+      <FontAwesomeIcon icon={faPlus} /> Add Group
     </Button>
   }
 >
@@ -1380,7 +1382,7 @@ function Accordion({ items }) {
               aria-expanded={isOpen}
             >
               <span>{item.title}</span>
-              <i className={`bi ${isOpen ? "bi-chevron-up" : "bi-chevron-down"}`} aria-hidden="true" />
+              <FontAwesomeIcon icon={isOpen ? faChevronUp : faChevronDown} aria-hidden="true" />
             </button>
             {isOpen ? <div className={styles.accordionBody}>{item.content}</div> : null}
           </div>
@@ -2061,12 +2063,12 @@ function PlaygroundTab() {
       onClick: (row) => toastInfo(`Preview: ${row.employee_code}`, "Row Action"),
     },
     {
-      key: "edit", label: "Edit", type: "secondary", icon: "pencil-square",
+      key: "edit", label: "Edit", type: "secondary", icon: "pen",
       visible: (row) => row.status === "active",
       onClick: (row) => toastSuccess(`Edit: ${row.full_name}`, "Row Action"),
     },
     {
-      key: "deactivate", label: "Deactivate", type: "danger", icon: "x-octagon",
+      key: "deactivate", label: "Deactivate", type: "secondary", icon: "ban",
       visible: (row) => row.status === "active",
       confirm: true,
       confirmMessage: (row) => `Deactivate ${row.full_name}?`,
@@ -2323,7 +2325,7 @@ function PlaygroundTab() {
           />
           <div className={styles.eventLogWrap} style={{ marginTop: 16 }}>
             <button type="button" className={styles.eventLogToggle} onClick={() => setShowTableLog((v) => !v)}>
-              <i className={`bi ${showTableLog ? "bi-chevron-up" : "bi-chevron-down"}`} aria-hidden="true" />
+              <FontAwesomeIcon icon={showTableLog ? faChevronUp : faChevronDown} aria-hidden="true" />
               {showTableLog ? "Hide" : "Show"} table events
             </button>
             {showTableLog ? <pre className={styles.eventPre}>{JSON.stringify(lastEvent, null, 2)}</pre> : null}
@@ -2526,7 +2528,7 @@ function BonusRealWorldTable() {
       onClick: (row) => setConfirm({ action: "approve", row }),
     },
     {
-      key: "reject", label: "Reject", type: "danger", icon: "x-circle",
+      key: "reject", label: "Reject", type: "danger", icon: "trash",
       visible: (row) => row.status === "pending",
       onClick: (row) => setConfirm({ action: "reject", row }),
     },
@@ -3218,7 +3220,7 @@ const userActions = [
     key: "edit",
     label: "Edit",
     type: "primary",            // blue button
-    icon: "pencil-square",      // Bootstrap icon (without "bi-")
+    icon: "pen",               // Font Awesome icon name
     onClick: (row) => {
       console.log("Edit user:", row);
     },
@@ -3226,7 +3228,8 @@ const userActions = [
   {
     key: "deactivate",
     label: "Deactivate",
-    type: "danger",             // red button
+    type: "secondary",          // amber button
+    icon: "ban",                // ban icon (soft delete)
     confirm: true,              // shows "Are you sure?" popup
     confirmMessage: (row) => \`Deactivate \${row.first_name}?\`,
     onClick: (row) => {
@@ -3285,7 +3288,7 @@ const userActions = [
     key: "edit",
     label: "Edit",
     type: "primary",
-    icon: "pencil-square",
+    icon: "pen",
     onClick: (row) => openEditDialog(row),
   },
   {
@@ -3293,7 +3296,7 @@ const userActions = [
     label: "Delete",
     type: "danger",
     confirm: true,
-    confirmMessage: (row) => \`Delete \${row.first_name} \${row.last_name}?\`,
+    confirmMessage: (row) => \`Permanently delete \${row.first_name} \${row.last_name}? This action cannot be undone.\`,
     onClick: (row) => deleteUser(row.user_id),
   },
 ];
@@ -3411,7 +3414,7 @@ function TableXTab() {
                 <RefPropRow prop="label" required type="string" desc="Button text" />
                 <RefPropRow prop="type" required type="string" desc="primary | secondary | danger" />
                 <RefPropRow prop="onClick" required type="function" desc="What happens when clicked. Receives the row data." />
-                <RefPropRow prop="icon" required={false} type="string" desc="Bootstrap icon name (without bi- prefix)" />
+                <RefPropRow prop="icon" required={false} type="string" desc="Font Awesome icon name (e.g. pen, trash, eye)" />
                 <RefPropRow prop="confirm" required={false} type="boolean" desc="Show confirmation popup before running onClick" />
                 <RefPropRow prop="confirmMessage" required={false} type="function" desc="Custom confirmation text. Receives row." />
                 <RefPropRow prop="visible" required={false} type="function" desc="Show/hide per row. (row) => boolean" />
@@ -3573,7 +3576,7 @@ const actions = [
     key: "edit",
     label: "Edit",
     type: "primary",
-    icon: "pencil-square",
+    icon: "pen",
     onClick: (row) => openEditDialog(row),
   },
 ];
@@ -3732,7 +3735,7 @@ const actions = [
     key: "edit",                    // (required) unique name
     label: "Edit",                  // (required) button text
     type: "primary",                // (required) primary | secondary | danger
-    icon: "pencil-square",          // Bootstrap icon (without "bi-")
+    icon: "pen",                   // Font Awesome icon name
     onClick: (row) => {},           // (required) what happens on click
     visible: (row) => true,         // show/hide per row
     disabled: (row) => false,       // enable/disable per row

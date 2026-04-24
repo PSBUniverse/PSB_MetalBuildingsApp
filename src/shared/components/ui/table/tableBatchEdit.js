@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-/* eslint-disable react-hooks/set-state-in-effect */
+// /* eslint-disable react-hooks/set-state-in-effect */
 import {
   BATCH_STATE_NONE,
   normalizeBatchState,

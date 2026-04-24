@@ -25,6 +25,7 @@ export default function ApplicationSetupView({ applications, roles, initialSelec
             decoratedApplications={h.decoratedApplications} selectedApp={h.selectedApp}
             isSavingOrder={h.isSavingOrder} isMutatingAction={h.isMutatingAction}
             pendingDeactivatedAppIds={h.pendingDeactivatedAppIds}
+          pendingHardDeletedAppIds={h.pendingHardDeletedAppIds}
             handleApplicationRowClick={h.handleApplicationRowClick}
             handleApplicationReorder={h.handleApplicationReorder}
             editingAppId={h.editingAppId}
@@ -33,6 +34,7 @@ export default function ApplicationSetupView({ applications, roles, initialSelec
             onInlineEdit={h.handleInlineEditApplication}
             openToggleApplicationDialog={h.openToggleApplicationDialog}
             openDeactivateApplicationDialog={h.openDeactivateApplicationDialog}
+          stageHardDeleteApplication={h.stageHardDeleteApplication}
           />
         </div>
         <div className="col-12 col-xl-6">
@@ -40,12 +42,14 @@ export default function ApplicationSetupView({ applications, roles, initialSelec
             selectedApp={h.selectedApp} decoratedSelectedAppRoles={h.decoratedSelectedAppRoles}
             isSavingOrder={h.isSavingOrder} isMutatingAction={h.isMutatingAction}
             pendingDeactivatedRoleIds={h.pendingDeactivatedRoleIds}
+          pendingHardDeletedRoleIds={h.pendingHardDeletedRoleIds}
             editingRoleId={h.editingRoleId}
             onStartEditing={h.startEditingRole}
             onStopEditing={h.stopEditingRole}
             onInlineEdit={h.handleInlineEditRole}
             openToggleRoleDialog={h.openToggleRoleDialog}
             openDeactivateRoleDialog={h.openDeactivateRoleDialog}
+          stageHardDeleteRole={h.stageHardDeleteRole}
           />
         </div>
       </div>

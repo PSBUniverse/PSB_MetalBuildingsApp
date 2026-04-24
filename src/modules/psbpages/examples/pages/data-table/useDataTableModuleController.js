@@ -411,7 +411,7 @@ export function useDataTableModuleController({ userScope }) {
         key: "edit",
         label: "Edit",
         type: "secondary",
-        icon: "pencil-square",
+        icon: "pen",
         visible: (row) => row.status === "active",
         disabled: (row) => row.role === "admin",
         onClick: (row) => {
@@ -421,8 +421,8 @@ export function useDataTableModuleController({ userScope }) {
       {
         key: "deactivate",
         label: "Deactivate",
-        type: "danger",
-        icon: "x-octagon",
+        type: "secondary",
+        icon: "ban",
         visible: (row) => row.status === "active",
         disabled: (row) => row.role === "admin",
         confirm: true,

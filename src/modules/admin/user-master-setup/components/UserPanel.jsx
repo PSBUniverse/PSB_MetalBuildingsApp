@@ -1,4 +1,6 @@
 import { useMemo } from "react";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faXmark, faCheck } from "@fortawesome/free-solid-svg-icons";
 import { Badge, Button, Input, TableZ } from "@/shared/components/ui";
 import { TABS, normalizeText, normalizeOptionalText, asChoiceValue, formatDateTime } from "../utils/userMasterHelpers";
 
@@ -25,10 +27,10 @@ export function UserPanel({
   ], []);
 
   const accessTableActions = useMemo(() => [
-    { key: "edit-access", label: "Edit Access", type: "secondary", icon: "pencil-square",
+    { key: "edit-access", label: "Edit Access", type: "secondary", icon: "pen",
       visible: () => panelEditable,
       onClick: (r) => { if (!panelEditable) return; setAccessEditor({ mode: "edit", access_key: r?.access_key, original_app_id: normalizeText(r?.app_id), original_role_id: normalizeText(r?.role_id), app_id: normalizeText(r?.app_id), role_id: normalizeText(r?.role_id) }); } },
-    { key: "deactivate-access", label: "Deactivate Access", type: "danger", icon: "slash-circle",
+    { key: "deactivate-access", label: "Deactivate Access", type: "secondary", icon: "ban",
       visible: () => panelEditable, onClick: (r) => { if (panelEditable) setPendingAccessDeactivateRow(r || null); } },
   ], [panelEditable, setAccessEditor, setPendingAccessDeactivateRow]);
 
@@ -45,7 +47,7 @@ export function UserPanel({
             {panelDirty ? <span className="small text-danger fw-semibold">Unsaved changes</span> : <span className="small text-muted">All changes staged</span>}
           </div>
         </div>
-        <Button type="button" variant="ghost" size="sm" className="umsp-close-btn" onClick={closePanel}><i className="bi bi-x-lg" aria-hidden="true" /></Button>
+        <Button type="button" variant="ghost" size="sm" className="umsp-close-btn" onClick={closePanel}><FontAwesomeIcon icon={faXmark} aria-hidden="true" /></Button>
       </div>
 
       {isPanelLoading ? (
@@ -128,7 +130,7 @@ export function UserPanel({
                         </Input></div>
                     </div>
                     <div className="umsp-access-editor-actions">
-                      <Button type="button" variant="primary" size="sm" onClick={submitAccessEditor} disabled={!accessEditorReady}><i className="bi bi-check2 me-1" aria-hidden="true" />Save</Button>
+                      <Button type="button" variant="primary" size="sm" onClick={submitAccessEditor} disabled={!accessEditorReady}><FontAwesomeIcon icon={faCheck} className="me-1" aria-hidden="true" />Save</Button>
                       <Button type="button" variant="ghost" size="sm" onClick={cancelAccessEditor}>Cancel</Button>
                     </div>
                   </div>

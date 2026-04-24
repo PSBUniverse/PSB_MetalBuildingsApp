@@ -1,5 +1,7 @@
 import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faGripVertical } from "@fortawesome/free-solid-svg-icons";
 import Button from "@/shared/components/ui/controls/Button";
 import ActionColumn from "@/shared/components/ui/table/ActionColumn";
 import { getNestedValue, resolveBatchClassName, resolveBatchDiffClassName, resolveCellDiffClassName, toRowId } from "@/shared/components/ui/table/tableUtils";
@@ -47,7 +49,7 @@ function ActionCell({
             }}
             {...dragHandleProps}
           >
-            <i className="bi bi-grip-vertical" aria-hidden="true" />
+            <FontAwesomeIcon icon={faGripVertical} aria-hidden="true" />
           </Button>
           <ActionColumn
             row={row}

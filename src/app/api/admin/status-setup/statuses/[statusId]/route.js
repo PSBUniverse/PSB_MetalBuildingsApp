@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getSupabase } from "@/modules/admin/status-setup/utils/supabase.js";
 import {
   deleteStatusRecord,
+  hardDeleteStatusRecord,
   updateStatusRecord,
 } from "@/modules/admin/status-setup/services/statusSetup.service.js";
 
@@ -84,8 +85,13 @@ export async function DELETE(request, context) {
       throw new Error("Invalid status id.");
     }
 
+    const url = new URL(request.url);
+    const permanent = url.searchParams.get("permanent") === "true";
+
     const supabase = await getSupabase();
-    const result = await deleteStatusRecord(supabase, statusId);
+    const result = permanent
+      ? await hardDeleteStatusRecord(supabase, statusId)
+      : await deleteStatusRecord(supabase, statusId);
 
     return NextResponse.json(
       {
@@ -98,7 +104,7 @@ export async function DELETE(request, context) {
     return NextResponse.json(
       {
         ok: false,
-        error: error?.message || "Failed to deactivate status.",
+        error: error?.message || "Failed to delete status.",
       },
       { status: 500, headers: noStoreHeaders() },
     );

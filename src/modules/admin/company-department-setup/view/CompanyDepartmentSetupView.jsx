@@ -26,6 +26,7 @@ export default function CompanyDepartmentSetupView({ companies, departments, ini
             decoratedCompanies={h.decoratedCompanies} selectedCompany={h.selectedCompany}
             isSaving={h.isSaving} isMutatingAction={h.isMutatingAction}
             pendingDeactivatedCompanyIds={h.pendingDeactivatedCompanyIds}
+          pendingHardDeletedCompanyIds={h.pendingHardDeletedCompanyIds}
             handleCompanyRowClick={h.handleCompanyRowClick}
             editingCompanyId={h.editingCompanyId}
             onStartEditing={h.startEditingCompany}
@@ -33,6 +34,7 @@ export default function CompanyDepartmentSetupView({ companies, departments, ini
             onInlineEdit={h.handleInlineEditCompany}
             openToggleCompanyDialog={h.openToggleCompanyDialog}
             openDeactivateCompanyDialog={h.openDeactivateCompanyDialog}
+          stageHardDeleteCompany={h.stageHardDeleteCompany}
           />
         </div>
         <div className="col-12 col-xl-6">
@@ -40,12 +42,14 @@ export default function CompanyDepartmentSetupView({ companies, departments, ini
             selectedCompany={h.selectedCompany} decoratedDepartments={h.decoratedDepartments}
             isSaving={h.isSaving} isMutatingAction={h.isMutatingAction}
             pendingDeactivatedDepartmentIds={h.pendingDeactivatedDepartmentIds}
+          pendingHardDeletedDepartmentIds={h.pendingHardDeletedDepartmentIds}
             editingDeptId={h.editingDeptId}
             onStartEditing={h.startEditingDept}
             onStopEditing={h.stopEditingDept}
             onInlineEdit={h.handleInlineEditDepartment}
             openToggleDepartmentDialog={h.openToggleDepartmentDialog}
             openDeactivateDepartmentDialog={h.openDeactivateDepartmentDialog}
+          stageHardDeleteDepartment={h.stageHardDeleteDepartment}
           />
         </div>
       </div>

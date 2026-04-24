@@ -93,3 +93,17 @@ export async function deleteRoleById(supabase, roleId) {
     throw new Error(err.message || "Failed to deactivate role");
   }
 }
+
+export async function hardDeleteRoleById(supabase, roleId) {
+  try {
+    const { error } = await supabase
+      .from("psb_s_role")
+      .delete()
+      .eq("role_id", roleId);
+
+    if (error) throw error;
+    return { roleId };
+  } catch (err) {
+    throw new Error(err.message || "Failed to permanently delete role");
+  }
+}

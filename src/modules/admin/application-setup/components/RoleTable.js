@@ -3,6 +3,8 @@
  * Displays roles in table format with status
  */
 
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faPen, faBan, faTrash } from '@fortawesome/free-solid-svg-icons';
 import { getRoleDisplayName, getRoleDescription, isRoleActive } from '../model/role.model.js';
 import { getStatusBadgeColor, getStatusLabel } from '../utils/status.js';
 
@@ -59,51 +61,24 @@ export function RoleTable({ selectedApp, appRoles }) {
               </td>
               <td style={{ padding: '12px', whiteSpace: 'nowrap' }}>
                 <span
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    minWidth: '30px',
-                    height: '30px',
-                    border: '1px solid #adb5bd',
-                    borderRadius: '4px',
-                    color: '#adb5bd',
-                    marginRight: '6px',
-                  }}
+                  className="table-actions-icon-btn action-color-edit action-btn-disabled"
+                  style={{ marginRight: '6px' }}
                   title="Edit action available in full admin setup"
                 >
-                  <i className="bi bi-pencil-square" aria-hidden="true" />
+                  <FontAwesomeIcon icon={faPen} aria-hidden="true" />
                 </span>
                 <span
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    minWidth: '30px',
-                    height: '30px',
-                    border: '1px solid #adb5bd',
-                    borderRadius: '4px',
-                    color: '#adb5bd',
-                    marginRight: '6px',
-                  }}
+                  className="table-actions-icon-btn action-color-deactivate action-btn-disabled"
+                  style={{ marginRight: '6px' }}
                   title="Status action available in full admin setup"
                 >
-                  <i className="bi bi-slash-circle" aria-hidden="true" />
+                  <FontAwesomeIcon icon={faBan} aria-hidden="true" />
                 </span>
                 <span
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    minWidth: '30px',
-                    height: '30px',
-                    border: '1px solid #adb5bd',
-                    borderRadius: '4px',
-                    color: '#adb5bd',
-                  }}
+                  className="table-actions-icon-btn action-color-delete action-btn-disabled"
                   title="Deactivate action available in full admin setup"
                 >
-                  <i className="bi bi-trash" aria-hidden="true" />
+                  <FontAwesomeIcon icon={faTrash} aria-hidden="true" />
                 </span>
               </td>
             </tr>

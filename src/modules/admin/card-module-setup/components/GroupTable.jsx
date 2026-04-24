@@ -8,6 +8,7 @@ function StatusBadge({ isActive }) {
 
 function batchMarker(bs) {
   const map = {
+    hardDeleted: { t: "Deleted", c: "psb-batch-marker psb-batch-marker-deleted" },
     deleted: { t: "Deactivated", c: "psb-batch-marker psb-batch-marker-deleted" },
     created: { t: "New", c: "psb-batch-marker psb-batch-marker-new" },
     updated: { t: "Edited", c: "psb-batch-marker psb-batch-marker-edited" },
@@ -18,9 +19,9 @@ function batchMarker(bs) {
 
 export function GroupTable({
   decoratedGroups, selectedGroup, isSaving, isMutatingAction,
-  pendingDeactivatedGroupIds, handleGroupRowClick, handleGroupReorder,
+  pendingDeactivatedGroupIds, pendingHardDeletedGroupIds, handleGroupRowClick, handleGroupReorder,
   editingGroupId, onStartEditing, onStopEditing, onInlineEdit,
-  openToggleGroupDialog, openDeactivateGroupDialog,
+  openToggleGroupDialog, openDeactivateGroupDialog, stageHardDeleteGroup,
 }) {
   const columns = useMemo(() => [
     {
@@ -47,6 +48,7 @@ export function GroupTable({
             <InlineEditCell
               value={row?.group_name || ""}
               onCommit={(val) => onInlineEdit?.(row, "group_name", val)}
+              onCancel={onStopEditing}
               disabled={editDisabled}
             />
             {m.t ? <span className={m.c}>{m.t}</span> : null}
@@ -63,6 +65,7 @@ export function GroupTable({
           <InlineEditCell
             value={row?.group_desc || ""}
             onCommit={(val) => onInlineEdit?.(row, "group_desc", val)}
+            onCancel={onStopEditing}
             disabled={editDisabled}
           />
         );
@@ -77,6 +80,7 @@ export function GroupTable({
           <InlineEditCell
             value={row?.group_icon || row?.icon || ""}
             onCommit={(val) => onInlineEdit?.(row, "icon", val)}
+            onCancel={onStopEditing}
             disabled={editDisabled}
             placeholder="bi-collection"
           />
@@ -87,29 +91,32 @@ export function GroupTable({
       key: "is_active_bool", label: "Active", width: "10%", sortable: true, align: "center",
       render: (row) => <StatusBadge isActive={Boolean(row?.is_active_bool)} />,
     },
-  ], [editingGroupId, isMutatingAction, isSaving, onInlineEdit, selectedGroup?.group_id]);
+  ], [editingGroupId, isMutatingAction, isSaving, onInlineEdit, onStopEditing, selectedGroup?.group_id]);
 
   const actions = useMemo(() => [
-    { key: "edit-group", label: "Edit", type: "secondary", icon: "pencil-square",
-      visible: (r) => String(r?.group_id ?? "") !== String(editingGroupId ?? ""),
-      disabled: (r) => isSaving || isMutatingAction || pendingDeactivatedGroupIds.has(String(r?.group_id ?? "")),
+    { key: "edit-group", label: "Edit", type: "secondary", icon: "pen",
+      visible: (r) => r?.__batchState !== "hardDeleted" && String(r?.group_id ?? "") !== String(editingGroupId ?? ""),
+      disabled: (r) => isSaving || isMutatingAction,
       onClick: (r) => onStartEditing(r) },
-    { key: "done-edit-group", label: "Done", type: "success", icon: "check-circle",
+    { key: "cancel-edit-group", label: "Cancel", type: "secondary", icon: "xmark",
       visible: (r) => String(r?.group_id ?? "") === String(editingGroupId ?? ""),
       onClick: () => onStopEditing() },
-    { key: "disable-group", label: "Disable", type: "secondary", icon: "slash-circle",
-      visible: (r) => Boolean(r?.is_active_bool),
-      disabled: (r) => isSaving || isMutatingAction || pendingDeactivatedGroupIds.has(String(r?.group_id ?? "")),
+    { key: "restore-group", label: "Restore", type: "secondary", icon: "rotate-left",
+      visible: (r) => r?.__batchState !== "hardDeleted" && (!Boolean(r?.is_active_bool) || pendingDeactivatedGroupIds.has(String(r?.group_id ?? ""))) && String(r?.group_id ?? "") !== String(editingGroupId ?? ""),
+      disabled: (r) => isSaving || isMutatingAction,
       onClick: (r) => openToggleGroupDialog(r) },
-    { key: "enable-group", label: "Enable", type: "secondary", icon: "check-circle",
-      visible: (r) => !Boolean(r?.is_active_bool),
-      disabled: (r) => isSaving || isMutatingAction || pendingDeactivatedGroupIds.has(String(r?.group_id ?? "")),
-      onClick: (r) => openToggleGroupDialog(r) },
-    { key: "deactivate-group", label: "Deactivate", type: "danger", icon: "trash",
-      disabled: (r) => isSaving || isMutatingAction || pendingDeactivatedGroupIds.has(String(r?.group_id ?? "")),
+    { key: "deactivate-group", label: "Deactivate", type: "secondary", icon: "ban",
+      visible: (r) => r?.__batchState !== "hardDeleted" && Boolean(r?.is_active_bool) && !pendingDeactivatedGroupIds.has(String(r?.group_id ?? "")) && String(r?.group_id ?? "") !== String(editingGroupId ?? ""),
+      disabled: (r) => isSaving || isMutatingAction,
       onClick: (r) => openDeactivateGroupDialog(r) },
+    { key: "delete-group", label: "Delete", type: "danger", icon: "trash",
+      visible: (r) => r?.__batchState !== "hardDeleted" && String(r?.group_id ?? "") !== String(editingGroupId ?? ""),
+      confirm: true,
+      confirmMessage: (r) => `Permanently delete ${r?.group_name || "this group"}? This action cannot be undone.`,
+      disabled: (r) => isSaving || isMutatingAction,
+      onClick: (r) => stageHardDeleteGroup(r) },
   ], [editingGroupId, isMutatingAction, isSaving, onStartEditing, onStopEditing,
-    openDeactivateGroupDialog, openToggleGroupDialog, pendingDeactivatedGroupIds]);
+    openDeactivateGroupDialog, openToggleGroupDialog, pendingDeactivatedGroupIds, stageHardDeleteGroup]);
 
   return (
     <Card title="Card Groups" subtitle="Drag the grip icon in Actions to reorder groups.">

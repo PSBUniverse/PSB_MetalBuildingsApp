@@ -5,29 +5,32 @@ import { useCallback, useEffect, useRef, useState } from "react";
 export default function InlineEditCell({
   value,
   onCommit,
+  onCancel,
   disabled = false,
   placeholder = "--",
   type = "text",
 }) {
-  const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(String(value ?? ""));
   const inputRef = useRef(null);
+  const prevDisabledRef = useRef(disabled);
 
+  // Sync draft when value changes externally (e.g. after save).
   useEffect(() => {
-    if (editing && inputRef.current) {
-      inputRef.current.focus();
-      inputRef.current.select();
-    }
-  }, [editing]);
-
-  const handleClick = useCallback(() => {
-    if (disabled) return;
     setDraft(String(value ?? ""));
-    setEditing(true);
-  }, [disabled, value]);
+  }, [value]);
+
+  // Auto-focus the first input in the row when transitioning from disabled→enabled.
+  useEffect(() => {
+    if (prevDisabledRef.current && !disabled && inputRef.current) {
+      requestAnimationFrame(() => {
+        inputRef.current?.focus();
+        inputRef.current?.select();
+      });
+    }
+    prevDisabledRef.current = disabled;
+  }, [disabled]);
 
   const handleCommit = useCallback(() => {
-    setEditing(false);
     const trimmed = String(draft ?? "").trim();
     const original = String(value ?? "").trim();
     if (trimmed !== original) {
@@ -43,14 +46,14 @@ export default function InlineEditCell({
       }
       if (event.key === "Escape") {
         event.preventDefault();
-        setEditing(false);
         setDraft(String(value ?? ""));
+        onCancel?.();
       }
     },
-    [handleCommit, value],
+    [handleCommit, onCancel, value],
   );
 
-  if (editing) {
+  if (!disabled) {
     return (
       <input
         ref={inputRef}
@@ -67,19 +70,7 @@ export default function InlineEditCell({
   const displayValue = String(value ?? "").trim() || placeholder;
 
   return (
-    <span
-      className={`psb-inline-edit-cell${disabled ? "" : " psb-inline-edit-cell-editable"}`}
-      onClick={disabled ? undefined : handleClick}
-      role={disabled ? undefined : "button"}
-      tabIndex={disabled ? undefined : 0}
-      onKeyDown={
-        disabled
-          ? undefined
-          : (event) => {
-              if (event.key === "Enter" || event.key === " ") handleClick();
-            }
-      }
-    >
+    <span className="psb-inline-edit-cell">
       {displayValue}
     </span>
   );

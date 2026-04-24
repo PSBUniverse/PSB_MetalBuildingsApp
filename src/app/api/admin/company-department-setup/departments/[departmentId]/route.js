@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getSupabase } from "@/modules/admin/company-department-setup/utils/supabase.js";
 import {
   deleteDepartmentRecord,
+  hardDeleteDepartmentRecord,
   updateDepartmentRecord,
 } from "@/modules/admin/company-department-setup/services/companyDepartmentSetup.service.js";
 
@@ -88,8 +89,13 @@ export async function DELETE(request, context) {
       throw new Error("Invalid department id.");
     }
 
+    const url = new URL(request.url);
+    const permanent = url.searchParams.get("permanent") === "true";
+
     const supabase = await getSupabase();
-    const result = await deleteDepartmentRecord(supabase, departmentId);
+    const result = permanent
+      ? await hardDeleteDepartmentRecord(supabase, departmentId)
+      : await deleteDepartmentRecord(supabase, departmentId);
 
     return NextResponse.json(
       {
@@ -102,7 +108,7 @@ export async function DELETE(request, context) {
     return NextResponse.json(
       {
         ok: false,
-        error: error?.message || "Failed to deactivate department.",
+        error: error?.message || "Failed to delete department.",
       },
       { status: 500, headers: noStoreHeaders() },
     );

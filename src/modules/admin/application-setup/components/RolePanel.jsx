@@ -6,6 +6,7 @@ function StatusBadge({ isActive }) {
 }
 
 function batchMarker(batchState) {
+  if (batchState === "hardDeleted") return { text: "Deleted", cls: "psb-batch-marker psb-batch-marker-deleted" };
   if (batchState === "deleted") return { text: "Deactivated", cls: "psb-batch-marker psb-batch-marker-deleted" };
   if (batchState === "created") return { text: "New", cls: "psb-batch-marker psb-batch-marker-new" };
   if (batchState === "updated") return { text: "Edited", cls: "psb-batch-marker psb-batch-marker-edited" };
@@ -14,8 +15,8 @@ function batchMarker(batchState) {
 
 export function RolePanel({
   selectedApp, decoratedSelectedAppRoles, isSavingOrder, isMutatingAction,
-  pendingDeactivatedRoleIds, editingRoleId, onStartEditing, onStopEditing, onInlineEdit,
-  openToggleRoleDialog, openDeactivateRoleDialog,
+  pendingDeactivatedRoleIds, pendingHardDeletedRoleIds, editingRoleId, onStartEditing, onStopEditing, onInlineEdit,
+  openToggleRoleDialog, openDeactivateRoleDialog, stageHardDeleteRole,
 }) {
   const columns = useMemo(() => [
     {
@@ -29,6 +30,7 @@ export function RolePanel({
             <InlineEditCell
               value={row?.role_name || ""}
               onCommit={(val) => onInlineEdit?.(row, "role_name", val)}
+              onCancel={onStopEditing}
               disabled={editDisabled}
             />
             {m.text ? <span className={m.cls}>{m.text}</span> : null}
@@ -45,6 +47,7 @@ export function RolePanel({
           <InlineEditCell
             value={row?.role_desc || ""}
             onCommit={(val) => onInlineEdit?.(row, "role_desc", val)}
+            onCancel={onStopEditing}
             disabled={editDisabled}
           />
         );
@@ -54,39 +57,42 @@ export function RolePanel({
       key: "is_active_bool", label: "Active", width: "16%", sortable: true, align: "center",
       render: (row) => <StatusBadge isActive={Boolean(row?.is_active_bool)} />,
     },
-  ], [editingRoleId, isMutatingAction, isSavingOrder, onInlineEdit]);
+  ], [editingRoleId, isMutatingAction, isSavingOrder, onInlineEdit, onStopEditing]);
 
   const actions = useMemo(() => [
     {
-      key: "edit-role", label: "Edit", type: "secondary", icon: "pencil-square",
-      visible: (r) => String(r?.role_id ?? "") !== String(editingRoleId ?? ""),
-      disabled: (r) => isSavingOrder || isMutatingAction || pendingDeactivatedRoleIds.has(String(r?.role_id ?? "")),
+      key: "edit-role", label: "Edit", type: "secondary", icon: "pen",
+      visible: (r) => r?.__batchState !== "hardDeleted" && String(r?.role_id ?? "") !== String(editingRoleId ?? ""),
+      disabled: (r) => isSavingOrder || isMutatingAction,
       onClick: (r) => onStartEditing(r),
     },
     {
-      key: "done-edit-role", label: "Done", type: "success", icon: "check-circle",
+      key: "cancel-edit-role", label: "Cancel", type: "secondary", icon: "xmark",
       visible: (r) => String(r?.role_id ?? "") === String(editingRoleId ?? ""),
       onClick: () => onStopEditing(),
     },
     {
-      key: "disable-role", label: "Disable", type: "secondary", icon: "slash-circle",
-      visible: (r) => Boolean(r?.is_active_bool),
-      disabled: (r) => isSavingOrder || isMutatingAction || pendingDeactivatedRoleIds.has(String(r?.role_id ?? "")),
+      key: "restore-role", label: "Restore", type: "secondary", icon: "rotate-left",
+      visible: (r) => r?.__batchState !== "hardDeleted" && (!Boolean(r?.is_active_bool) || pendingDeactivatedRoleIds.has(String(r?.role_id ?? ""))) && String(r?.role_id ?? "") !== String(editingRoleId ?? ""),
+      disabled: (r) => isSavingOrder || isMutatingAction,
       onClick: (r) => openToggleRoleDialog(r),
     },
     {
-      key: "enable-role", label: "Enable", type: "secondary", icon: "check-circle",
-      visible: (r) => !Boolean(r?.is_active_bool),
-      disabled: (r) => isSavingOrder || isMutatingAction || pendingDeactivatedRoleIds.has(String(r?.role_id ?? "")),
-      onClick: (r) => openToggleRoleDialog(r),
-    },
-    {
-      key: "deactivate-role", label: "Deactivate", type: "danger", icon: "trash",
-      disabled: (r) => isSavingOrder || isMutatingAction || pendingDeactivatedRoleIds.has(String(r?.role_id ?? "")),
+      key: "deactivate-role", label: "Deactivate", type: "secondary", icon: "ban",
+      visible: (r) => r?.__batchState !== "hardDeleted" && Boolean(r?.is_active_bool) && !pendingDeactivatedRoleIds.has(String(r?.role_id ?? "")) && String(r?.role_id ?? "") !== String(editingRoleId ?? ""),
+      disabled: (r) => isSavingOrder || isMutatingAction,
       onClick: (r) => openDeactivateRoleDialog(r),
     },
+    {
+      key: "delete-role", label: "Delete", type: "danger", icon: "trash",
+      visible: (r) => r?.__batchState !== "hardDeleted" && String(r?.role_id ?? "") !== String(editingRoleId ?? ""),
+      confirm: true,
+      confirmMessage: (r) => `Permanently delete ${r?.role_name || "this role"}? This action cannot be undone.`,
+      disabled: (r) => isSavingOrder || isMutatingAction,
+      onClick: (r) => stageHardDeleteRole(r),
+    },
   ], [editingRoleId, isMutatingAction, isSavingOrder, onStartEditing, onStopEditing,
-    openDeactivateRoleDialog, openToggleRoleDialog, pendingDeactivatedRoleIds]);
+    openDeactivateRoleDialog, openToggleRoleDialog, pendingDeactivatedRoleIds, stageHardDeleteRole]);
 
   return (
     <Card

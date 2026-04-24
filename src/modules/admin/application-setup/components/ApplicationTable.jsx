@@ -7,6 +7,7 @@ function StatusBadge({ isActive }) {
 }
 
 function batchMarker(batchState) {
+  if (batchState === "hardDeleted") return { text: "Deleted", cls: "psb-batch-marker psb-batch-marker-deleted" };
   if (batchState === "deleted") return { text: "Deactivated", cls: "psb-batch-marker psb-batch-marker-deleted" };
   if (batchState === "created") return { text: "New", cls: "psb-batch-marker psb-batch-marker-new" };
   if (batchState === "updated") return { text: "Edited", cls: "psb-batch-marker psb-batch-marker-edited" };
@@ -15,9 +16,9 @@ function batchMarker(batchState) {
 
 export function ApplicationTable({
   decoratedApplications, selectedApp, isSavingOrder, isMutatingAction,
-  pendingDeactivatedAppIds, handleApplicationRowClick, handleApplicationReorder,
+  pendingDeactivatedAppIds, pendingHardDeletedAppIds, handleApplicationRowClick, handleApplicationReorder,
   editingAppId, onStartEditing, onStopEditing, onInlineEdit,
-  openToggleApplicationDialog, openDeactivateApplicationDialog,
+  openToggleApplicationDialog, openDeactivateApplicationDialog, stageHardDeleteApplication,
 }) {
   const columns = useMemo(() => [
     {
@@ -32,6 +33,7 @@ export function ApplicationTable({
             <InlineEditCell
               value={row?.app_name || ""}
               onCommit={(val) => onInlineEdit?.(row, "app_name", val)}
+              onCancel={onStopEditing}
               disabled={editDisabled}
             />
             {m.text ? <span className={m.cls}>{m.text}</span> : null}
@@ -49,6 +51,7 @@ export function ApplicationTable({
           <InlineEditCell
             value={row?.app_desc || ""}
             onCommit={(val) => onInlineEdit?.(row, "app_desc", val)}
+            onCancel={onStopEditing}
             disabled={editDisabled}
           />
         );
@@ -58,39 +61,42 @@ export function ApplicationTable({
       key: "is_active_bool", label: "Active", width: "12%", sortable: true, align: "center",
       render: (row) => <StatusBadge isActive={Boolean(row?.is_active_bool)} />,
     },
-  ], [editingAppId, isMutatingAction, isSavingOrder, onInlineEdit, selectedApp?.app_id]);
+  ], [editingAppId, isMutatingAction, isSavingOrder, onInlineEdit, onStopEditing, selectedApp?.app_id]);
 
   const actions = useMemo(() => [
     {
-      key: "edit-application", label: "Edit", type: "secondary", icon: "pencil-square",
-      visible: (r) => String(r?.app_id ?? "") !== String(editingAppId ?? ""),
-      disabled: (r) => isSavingOrder || isMutatingAction || pendingDeactivatedAppIds.has(String(r?.app_id ?? "")),
+      key: "edit-application", label: "Edit", type: "secondary", icon: "pen",
+      visible: (r) => r?.__batchState !== "hardDeleted" && String(r?.app_id ?? "") !== String(editingAppId ?? ""),
+      disabled: (r) => isSavingOrder || isMutatingAction,
       onClick: (r) => onStartEditing(r),
     },
     {
-      key: "done-edit-application", label: "Done", type: "success", icon: "check-circle",
+      key: "cancel-edit-application", label: "Cancel", type: "secondary", icon: "xmark",
       visible: (r) => String(r?.app_id ?? "") === String(editingAppId ?? ""),
       onClick: () => onStopEditing(),
     },
     {
-      key: "disable-application", label: "Disable", type: "secondary", icon: "slash-circle",
-      visible: (r) => Boolean(r?.is_active_bool),
-      disabled: (r) => isSavingOrder || isMutatingAction || pendingDeactivatedAppIds.has(String(r?.app_id ?? "")),
+      key: "restore-application", label: "Restore", type: "secondary", icon: "rotate-left",
+      visible: (r) => r?.__batchState !== "hardDeleted" && (!Boolean(r?.is_active_bool) || pendingDeactivatedAppIds.has(String(r?.app_id ?? ""))) && String(r?.app_id ?? "") !== String(editingAppId ?? ""),
+      disabled: (r) => isSavingOrder || isMutatingAction,
       onClick: (r) => openToggleApplicationDialog(r),
     },
     {
-      key: "enable-application", label: "Enable", type: "secondary", icon: "check-circle",
-      visible: (r) => !Boolean(r?.is_active_bool),
-      disabled: (r) => isSavingOrder || isMutatingAction || pendingDeactivatedAppIds.has(String(r?.app_id ?? "")),
-      onClick: (r) => openToggleApplicationDialog(r),
-    },
-    {
-      key: "deactivate-application", label: "Deactivate", type: "danger", icon: "trash",
-      disabled: (r) => isSavingOrder || isMutatingAction || pendingDeactivatedAppIds.has(String(r?.app_id ?? "")),
+      key: "deactivate-application", label: "Deactivate", type: "secondary", icon: "ban",
+      visible: (r) => r?.__batchState !== "hardDeleted" && Boolean(r?.is_active_bool) && !pendingDeactivatedAppIds.has(String(r?.app_id ?? "")) && String(r?.app_id ?? "") !== String(editingAppId ?? ""),
+      disabled: (r) => isSavingOrder || isMutatingAction,
       onClick: (r) => openDeactivateApplicationDialog(r),
     },
+    {
+      key: "delete-application", label: "Delete", type: "danger", icon: "trash",
+      visible: (r) => r?.__batchState !== "hardDeleted" && String(r?.app_id ?? "") !== String(editingAppId ?? ""),
+      confirm: true,
+      confirmMessage: (r) => `Permanently delete ${r?.app_name || "this application"}? This action cannot be undone.`,
+      disabled: (r) => isSavingOrder || isMutatingAction,
+      onClick: (r) => stageHardDeleteApplication(r),
+    },
   ], [editingAppId, isMutatingAction, isSavingOrder, onStartEditing, onStopEditing,
-    openDeactivateApplicationDialog, openToggleApplicationDialog, pendingDeactivatedAppIds]);
+    openDeactivateApplicationDialog, openToggleApplicationDialog, pendingDeactivatedAppIds, stageHardDeleteApplication]);
 
   return (
     <Card title="Applications" subtitle="Drag the grip icon in Actions to reorder applications.">

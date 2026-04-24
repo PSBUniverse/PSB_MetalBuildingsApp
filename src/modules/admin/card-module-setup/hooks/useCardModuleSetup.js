@@ -116,46 +116,54 @@ export function useCardModuleSetup({ applications = [], cardGroups = [], cards =
 
   const pendingSummary = useMemo(() => {
     const gA = pendingBatch.groupCreates.length, gE = Object.keys(pendingBatch.groupUpdates || {}).length;
-    const gD = pendingBatch.groupDeactivations.length, cA = pendingBatch.cardCreates.length;
+    const gD = pendingBatch.groupDeactivations.length, gH = (pendingBatch.groupHardDeletes || []).length;
+    const cA = pendingBatch.cardCreates.length;
     const cE = Object.keys(pendingBatch.cardUpdates || {}).length, cD = pendingBatch.cardDeactivations.length;
+    const cH = (pendingBatch.cardHardDeletes || []).length;
     const oC = (hasGroupOrderChanges ? 1 : 0) + (hasCardOrderChanges ? 1 : 0);
-    return { groupAdded: gA, groupEdited: gE, groupDeactivated: gD, cardAdded: cA, cardEdited: cE, cardDeactivated: cD, rowOrderChanged: oC, total: gA + gE + gD + cA + cE + cD + oC };
+    return { groupAdded: gA, groupEdited: gE, groupDeactivated: gD, groupHardDeleted: gH, cardAdded: cA, cardEdited: cE, cardDeactivated: cD, cardHardDeleted: cH, rowOrderChanged: oC, total: gA + gE + gD + gH + cA + cE + cD + cH + oC };
   }, [hasCardOrderChanges, hasGroupOrderChanges, pendingBatch]);
 
   const hasPendingChanges = pendingSummary.total > 0;
   const pendingDeactivatedGroupIds = useMemo(() => new Set((pendingBatch.groupDeactivations || []).map((id) => String(id ?? ""))), [pendingBatch.groupDeactivations]);
   const pendingDeactivatedCardIds = useMemo(() => new Set((pendingBatch.cardDeactivations || []).map((id) => String(id ?? ""))), [pendingBatch.cardDeactivations]);
+  const pendingHardDeletedGroupIds = useMemo(() => new Set((pendingBatch.groupHardDeletes || []).map((id) => String(id ?? ""))), [pendingBatch.groupHardDeletes]);
+  const pendingHardDeletedCardIds = useMemo(() => new Set((pendingBatch.cardHardDeletes || []).map((id) => String(id ?? ""))), [pendingBatch.cardHardDeletes]);
   const isSelectedGroupPendingDeactivation = useMemo(() => pendingDeactivatedGroupIds.has(String(selectedGroup?.group_id ?? "")), [pendingDeactivatedGroupIds, selectedGroup?.group_id]);
 
   const decoratedGroups = useMemo(() => {
     const cIds = new Set((pendingBatch.groupCreates || []).map((e) => String(e?.tempId ?? "")));
     const uIds = new Set(Object.keys(pendingBatch.groupUpdates || {}));
     const dIds = new Set((pendingBatch.groupDeactivations || []).map((e) => String(e ?? "")));
+    const hIds = new Set((pendingBatch.groupHardDeletes || []).map((e) => String(e ?? "")));
     return appGroups.map((row) => {
       const id = String(row?.group_id ?? "");
       const oc = row.__originalOrder != null && Number(row.display_order) !== Number(row.__originalOrder);
+      if (hIds.has(id)) return { ...row, __batchState: "hardDeleted", __previousOrder: oc ? row.__originalOrder : null };
       if (dIds.has(id)) return { ...row, __batchState: "deleted", __previousOrder: oc ? row.__originalOrder : null };
       if (cIds.has(id)) return { ...row, __batchState: "created", __previousOrder: null };
       if (uIds.has(id)) return { ...row, __batchState: "updated", __previousOrder: oc ? row.__originalOrder : null };
       if (oc) return { ...row, __batchState: "reordered", __previousOrder: row.__originalOrder };
       return { ...row, __batchState: "none", __previousOrder: null };
     });
-  }, [appGroups, pendingBatch.groupCreates, pendingBatch.groupDeactivations, pendingBatch.groupUpdates]);
+  }, [appGroups, pendingBatch.groupCreates, pendingBatch.groupDeactivations, pendingBatch.groupHardDeletes, pendingBatch.groupUpdates]);
 
   const decoratedSelectedGroupCards = useMemo(() => {
     const cIds = new Set((pendingBatch.cardCreates || []).map((e) => String(e?.tempId ?? "")));
     const uIds = new Set(Object.keys(pendingBatch.cardUpdates || {}));
     const dIds = new Set((pendingBatch.cardDeactivations || []).map((e) => String(e ?? "")));
+    const hIds = new Set((pendingBatch.cardHardDeletes || []).map((e) => String(e ?? "")));
     return selectedGroupCards.map((row) => {
       const id = String(row?.card_id ?? "");
       const oc = row.__originalOrder != null && Number(row.display_order) !== Number(row.__originalOrder);
+      if (hIds.has(id)) return { ...row, __batchState: "hardDeleted", __previousOrder: oc ? row.__originalOrder : null };
       if (dIds.has(id)) return { ...row, __batchState: "deleted", __previousOrder: oc ? row.__originalOrder : null };
       if (cIds.has(id)) return { ...row, __batchState: "created", __previousOrder: null };
       if (uIds.has(id)) return { ...row, __batchState: "updated", __previousOrder: oc ? row.__originalOrder : null };
       if (oc) return { ...row, __batchState: "reordered", __previousOrder: row.__originalOrder };
       return { ...row, __batchState: "none", __previousOrder: null };
     });
-  }, [pendingBatch.cardCreates, pendingBatch.cardDeactivations, pendingBatch.cardUpdates, selectedGroupCards]);
+  }, [pendingBatch.cardCreates, pendingBatch.cardDeactivations, pendingBatch.cardHardDeletes, pendingBatch.cardUpdates, selectedGroupCards]);
 
   const updateQueryParams = useCallback((updates) => {
     const p = new URLSearchParams(searchParams?.toString() || "");
@@ -234,13 +242,13 @@ export function useCardModuleSetup({ applications = [], cardGroups = [], cards =
 
   const groupActions = useGroupActions({
     isSaving, isMutatingAction, selectedApp, appGroups, allCards, orderedGroups,
-    selectedGroup, dialog, groupDraft,
+    selectedGroup, dialog, groupDraft, pendingDeactivatedGroupIds,
     setOrderedGroups, setAllCards, setPendingBatch, setDialog, setGroupDraft, updateQueryParams,
   });
 
   const cardActions = useCardActions({
     isSaving, isMutatingAction, isSelectedGroupPendingDeactivation,
-    selectedGroup, selectedApp, selectedGroupCards,
+    selectedGroup, selectedApp, selectedGroupCards, pendingDeactivatedCardIds,
     dialog, cardDraft, setAllCards, setPendingBatch, setDialog, setCardDraft,
   });
 
@@ -265,7 +273,6 @@ export function useCardModuleSetup({ applications = [], cardGroups = [], cards =
   const handleInlineEditGroup = useCallback((row, key, value) => {
     const groupId = row?.group_id;
     if (!groupId || isSaving || isMutatingAction) return;
-    if (pendingDeactivatedGroupIds.has(String(groupId))) return;
 
     setOrderedGroups((prev) =>
       prev.map((g, i) => isSameId(g?.group_id, groupId)
@@ -288,13 +295,12 @@ export function useCardModuleSetup({ applications = [], cardGroups = [], cards =
         },
       };
     });
-  }, [isMutatingAction, isSaving, pendingDeactivatedGroupIds]);
+  }, [isMutatingAction, isSaving]);
 
   // -- inline edit: cards
   const handleInlineEditCard = useCallback((row, key, value) => {
     const cardId = row?.card_id;
     if (!cardId || isSaving || isMutatingAction) return;
-    if (pendingDeactivatedCardIds.has(String(cardId))) return;
 
     setAllCards((prev) =>
       prev.map((c, i) => isSameId(c?.card_id, cardId)
@@ -317,13 +323,14 @@ export function useCardModuleSetup({ applications = [], cardGroups = [], cards =
         },
       };
     });
-  }, [isMutatingAction, isSaving, pendingDeactivatedCardIds]);
+  }, [isMutatingAction, isSaving]);
 
   return {
     safeApplications, decoratedGroups, decoratedSelectedGroupCards,
     dialog, groupDraft, cardDraft, isSaving, isMutatingAction,
     pendingSummary, hasPendingChanges,
     pendingDeactivatedGroupIds, pendingDeactivatedCardIds,
+    pendingHardDeletedGroupIds, pendingHardDeletedCardIds,
     selectedApp, selectedGroup, isSelectedGroupPendingDeactivation,
     setDialog, setGroupDraft, setCardDraft,
     handleApplicationChange, handleGroupRowClick,

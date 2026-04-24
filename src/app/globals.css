@@ -1,5 +1,5 @@
 @import "bootstrap/dist/css/bootstrap.min.css";
-@import "bootstrap-icons/font/bootstrap-icons.css";
+@import "@fortawesome/fontawesome-svg-core/styles.css";
 @import "../styles/variables.css";
 @import "../styles/theme.css";
 @import "../styles/globals.css";
@@ -504,9 +504,13 @@
 .psb-row-deleted td .btn,
 .psb-row-deleted td .badge,
 .psb-row-deleted td i,
+.psb-row-deleted td .table-actions-icon-btn,
+.psb-row-deleted td .table-actions-icon-btn *,
 .psb-batch-row-deleted td .btn,
 .psb-batch-row-deleted td .badge,
-.psb-batch-row-deleted td i {
+.psb-batch-row-deleted td i,
+.psb-batch-row-deleted td .table-actions-icon-btn,
+.psb-batch-row-deleted td .table-actions-icon-btn * {
   text-decoration: none;
 }
 
@@ -556,23 +560,6 @@
   min-width: 40px;
   min-height: 1.4em;
   line-height: 1.4;
-}
-
-.psb-inline-edit-cell-editable {
-  cursor: pointer;
-  border-bottom: 1px dashed #adb5bd;
-  transition: border-color 0.15s;
-}
-
-.psb-inline-edit-cell-editable:hover {
-  border-bottom-color: #0d6efd;
-  color: #0d6efd;
-}
-
-.psb-inline-edit-cell-editable:focus {
-  outline: 2px solid #86b7fe;
-  outline-offset: 1px;
-  border-bottom-color: #0d6efd;
 }
 
 .psb-inline-edit-input {
@@ -818,9 +805,9 @@
 
 .psb-ui-table-actions-header,
 .psb-ui-table-actions-cell {
-  width: 96px;
-  min-width: 96px;
-  max-width: 96px;
+  width: 140px;
+  min-width: 140px;
+  max-width: 140px;
   white-space: nowrap;
   text-align: center;
   vertical-align: middle;
@@ -837,7 +824,7 @@
   white-space: nowrap;
 }
 
-.table-actions-inline-btn-icon {
+.table-actions-icon-btn {
   width: 2rem;
   min-width: 2rem;
   height: 2rem;
@@ -846,77 +833,69 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  border-radius: 0.375rem;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
 }
 
-.table-actions-inline-btn-icon .bi {
-  font-size: 1rem;
+.table-actions-icon-btn .svg-inline--fa {
+  font-size: 0.85rem;
 }
 
-.table-actions-toggle {
-  width: 1.6rem;
-  min-width: 1.6rem;
-  height: 1.6rem;
-  line-height: 1;
-  padding: 0;
-  border-radius: 0.5rem;
-  border: 1px solid #d6e1ea;
-  background: #f8fbfd;
-  color: #5a6f83;
-  box-shadow: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+.table-actions-icon-btn:disabled,
+.table-actions-icon-btn.action-btn-disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  pointer-events: none;
 }
 
-.table-actions-toggle.btn-secondary {
-  border-color: #d6e1ea;
-  background: #f8fbfd;
-  color: #5a6f83;
+/* Focus ring for keyboard navigation */
+.table-actions-icon-btn:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
 }
 
-.table-actions-toggle.btn-secondary:hover,
-.table-actions-toggle.btn-secondary:focus,
-.table-actions-toggle.btn-secondary:active,
-.table-actions-toggle.btn-secondary.show {
-  border-color: #c7d5e1;
-  background: #edf3f8;
-  color: #344b5f;
-  box-shadow: 0 0 0 0.12rem rgba(38, 97, 146, 0.12);
-}
+/* ── Action color: View (gray) ── */
+.action-color-view { color: #6b7280; }
+.action-color-view:hover:not(:disabled) { background: #f3f4f6; color: #4b5563; }
 
-.table-actions-toggle.dropdown-toggle::after {
-  display: none;
-}
+/* ── Action color: Edit (blue) ── */
+.action-color-edit { color: #2563eb; }
+.action-color-edit:hover:not(:disabled) { background: #eff6ff; color: #1d4ed8; }
 
-.table-actions-toggle .bi {
-  font-size: 0.72rem;
-  line-height: 1;
-}
+/* ── Action color: Save (green) ── */
+.action-color-save { color: #15803d; }
+.action-color-save:hover:not(:disabled) { background: #f0fdf4; color: #166534; }
 
-.table-actions-item {
-  white-space: nowrap;
-}
+/* ── Action color: Deactivate / Disable (amber) ── */
+.action-color-deactivate { color: #d97706; }
+.action-color-deactivate:hover:not(:disabled) { background: #fffbeb; color: #b45309; }
+
+/* ── Action color: Delete (red) ── */
+.action-color-delete { color: #dc2626; }
+.action-color-delete:hover:not(:disabled) { background: #fef2f2; color: #b91c1c; }
+
+/* ── Action color: Cancel (gray) ── */
+.action-color-cancel { color: #4b5563; }
+.action-color-cancel:hover:not(:disabled) { background: #e5e7eb; color: #374151; }
+
+/* ── Action color: Restore (green secondary) ── */
+.action-color-restore { color: #16a34a; }
+.action-color-restore:hover:not(:disabled) { background: #dcfce7; color: #15803d; }
 
 .table-actions-empty {
   color: #71889b;
   font-size: 0.8rem;
 }
 
-.table-actions-danger-item {
-  color: #b02d2d;
-  font-weight: 600;
-}
-
-.table-actions-danger-item:hover,
-.table-actions-danger-item:focus {
-  background: #ffe8e8;
-  color: #8e1e1e;
-}
-
 .psb-ui-table-actions-stack {
-  display: inline-flex;
-  gap: 0.35rem;
-  flex-wrap: wrap;
+  display: flex;
+  gap: 0.375rem;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: center;
 }
 
 .psb-ui-table-columns-menu {

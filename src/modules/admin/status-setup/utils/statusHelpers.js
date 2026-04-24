@@ -77,7 +77,7 @@ export function isTempStatusId(value) {
 }
 
 export function createEmptyStatusChanges() {
-  return { creates: [], updates: {}, deactivations: [] };
+  return { creates: [], updates: {}, deactivations: [], hardDeletes: [] };
 }
 
 export async function requestJson(url, options, fallbackMessage) {
@@ -90,7 +90,9 @@ export async function requestJson(url, options, fallbackMessage) {
 }
 
 export async function executeBatchSave(statusChanges) {
-  const deactivatedSet = new Set((statusChanges.deactivations || []).map((id) => String(id ?? "")));
+  const deactivatedSet = new Set(
+    [...(statusChanges.deactivations || []), ...(statusChanges.hardDeletes || [])].map((id) => String(id ?? "")),
+  );
   const tempIdMap = new Map();
 
   for (const createEntry of statusChanges.creates || []) {
@@ -135,6 +137,17 @@ export async function executeBatchSave(statusChanges) {
       `/api/admin/status-setup/statuses/${encodeURIComponent(String(resolvedStatusId))}`,
       { method: "DELETE" },
       "Failed to deactivate status.",
+    );
+  }
+
+  for (const statusId of statusChanges.hardDeletes || []) {
+    const resolvedStatusId = tempIdMap.get(String(statusId)) ?? statusId;
+    if (isTempStatusId(resolvedStatusId)) continue;
+
+    await requestJson(
+      `/api/admin/status-setup/statuses/${encodeURIComponent(String(resolvedStatusId))}?permanent=true`,
+      { method: "DELETE" },
+      "Failed to permanently delete status.",
     );
   }
 }

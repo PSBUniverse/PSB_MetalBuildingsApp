@@ -7,6 +7,7 @@ function StatusBadge({ isActive }) {
 
 function batchMarker(bs) {
   const map = {
+    hardDeleted: { t: "Deleted", c: "psb-batch-marker psb-batch-marker-deleted" },
     deleted: { t: "Deactivated", c: "psb-batch-marker psb-batch-marker-deleted" },
     created: { t: "New", c: "psb-batch-marker psb-batch-marker-new" },
     updated: { t: "Edited", c: "psb-batch-marker psb-batch-marker-edited" },
@@ -16,9 +17,9 @@ function batchMarker(bs) {
 
 export function DepartmentPanel({
   selectedCompany, decoratedDepartments, isSaving, isMutatingAction,
-  pendingDeactivatedDepartmentIds,
+  pendingDeactivatedDepartmentIds, pendingHardDeletedDepartmentIds,
   editingDeptId, onStartEditing, onStopEditing, onInlineEdit,
-  openToggleDepartmentDialog, openDeactivateDepartmentDialog,
+  openToggleDepartmentDialog, openDeactivateDepartmentDialog, stageHardDeleteDepartment,
 }) {
   const columns = useMemo(() => [
     {
@@ -32,6 +33,7 @@ export function DepartmentPanel({
             <InlineEditCell
               value={row?.dept_name || ""}
               onCommit={(val) => onInlineEdit?.(row, "dept_name", val)}
+              onCancel={onStopEditing}
               disabled={editDisabled}
             />
             {m.t ? <span className={m.c}>{m.t}</span> : null}
@@ -48,6 +50,7 @@ export function DepartmentPanel({
           <InlineEditCell
             value={row?.dept_short_name || ""}
             onCommit={(val) => onInlineEdit?.(row, "dept_short_name", val)}
+            onCancel={onStopEditing}
             disabled={editDisabled}
           />
         );
@@ -57,29 +60,32 @@ export function DepartmentPanel({
       key: "is_active_bool", label: "Active", width: "22%", sortable: true, align: "center",
       render: (row) => <StatusBadge isActive={Boolean(row?.is_active_bool)} />,
     },
-  ], [editingDeptId, isMutatingAction, isSaving, onInlineEdit]);
+  ], [editingDeptId, isMutatingAction, isSaving, onInlineEdit, onStopEditing]);
 
   const actions = useMemo(() => [
-    { key: "edit-department", label: "Edit", type: "secondary", icon: "pencil-square",
-      visible: (r) => String(r?.dept_id ?? "") !== String(editingDeptId ?? ""),
-      disabled: (r) => isSaving || isMutatingAction || pendingDeactivatedDepartmentIds.has(String(r?.dept_id ?? "")),
+    { key: "edit-department", label: "Edit", type: "secondary", icon: "pen",
+      visible: (r) => r?.__batchState !== "hardDeleted" && String(r?.dept_id ?? "") !== String(editingDeptId ?? ""),
+      disabled: (r) => isSaving || isMutatingAction,
       onClick: (r) => onStartEditing(r) },
-    { key: "done-edit-department", label: "Done", type: "success", icon: "check-circle",
+    { key: "cancel-edit-department", label: "Cancel", type: "secondary", icon: "xmark",
       visible: (r) => String(r?.dept_id ?? "") === String(editingDeptId ?? ""),
       onClick: () => onStopEditing() },
-    { key: "disable-department", label: "Disable", type: "secondary", icon: "slash-circle",
-      visible: (r) => Boolean(r?.is_active_bool),
-      disabled: (r) => isSaving || isMutatingAction || pendingDeactivatedDepartmentIds.has(String(r?.dept_id ?? "")),
+    { key: "restore-department", label: "Restore", type: "secondary", icon: "rotate-left",
+      visible: (r) => r?.__batchState !== "hardDeleted" && (!Boolean(r?.is_active_bool) || pendingDeactivatedDepartmentIds.has(String(r?.dept_id ?? ""))) && String(r?.dept_id ?? "") !== String(editingDeptId ?? ""),
+      disabled: (r) => isSaving || isMutatingAction,
       onClick: (r) => openToggleDepartmentDialog(r) },
-    { key: "enable-department", label: "Enable", type: "secondary", icon: "check-circle",
-      visible: (r) => !Boolean(r?.is_active_bool),
-      disabled: (r) => isSaving || isMutatingAction || pendingDeactivatedDepartmentIds.has(String(r?.dept_id ?? "")),
-      onClick: (r) => openToggleDepartmentDialog(r) },
-    { key: "deactivate-department", label: "Deactivate", type: "danger", icon: "trash",
-      disabled: (r) => isSaving || isMutatingAction || pendingDeactivatedDepartmentIds.has(String(r?.dept_id ?? "")),
+    { key: "deactivate-department", label: "Deactivate", type: "secondary", icon: "ban",
+      visible: (r) => r?.__batchState !== "hardDeleted" && Boolean(r?.is_active_bool) && !pendingDeactivatedDepartmentIds.has(String(r?.dept_id ?? "")) && String(r?.dept_id ?? "") !== String(editingDeptId ?? ""),
+      disabled: (r) => isSaving || isMutatingAction,
       onClick: (r) => openDeactivateDepartmentDialog(r) },
+    { key: "delete-department", label: "Delete", type: "danger", icon: "trash",
+      visible: (r) => r?.__batchState !== "hardDeleted" && String(r?.dept_id ?? "") !== String(editingDeptId ?? ""),
+      confirm: true,
+      confirmMessage: (r) => `Permanently delete ${r?.dept_name || "this department"}? This action cannot be undone.`,
+      disabled: (r) => isSaving || isMutatingAction,
+      onClick: (r) => stageHardDeleteDepartment(r) },
   ], [editingDeptId, isMutatingAction, isSaving, onStartEditing, onStopEditing,
-    openDeactivateDepartmentDialog, openToggleDepartmentDialog, pendingDeactivatedDepartmentIds]);
+    openDeactivateDepartmentDialog, openToggleDepartmentDialog, pendingDeactivatedDepartmentIds, stageHardDeleteDepartment]);
 
   return (
     <Card

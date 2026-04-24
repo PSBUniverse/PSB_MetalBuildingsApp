@@ -92,6 +92,20 @@ export async function deleteCardGroupById(supabase, groupId) {
   }
 }
 
+export async function hardDeleteCardGroupById(supabase, groupId) {
+  try {
+    const { error } = await supabase
+      .from(TABLE)
+      .delete()
+      .eq("group_id", groupId);
+
+    if (error) throw error;
+    return { groupId };
+  } catch (err) {
+    throw new Error(err.message || "Failed to permanently delete card group");
+  }
+}
+
 export async function updateCardGroupOrderBatch(supabase, orderedIds) {
   const results = [];
 

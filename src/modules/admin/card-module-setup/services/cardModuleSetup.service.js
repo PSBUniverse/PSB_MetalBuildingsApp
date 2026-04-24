@@ -4,6 +4,7 @@ import {
   createCardGroup,
   updateCardGroupById,
   deleteCardGroupById,
+  hardDeleteCardGroupById,
   updateCardGroupOrderBatch,
 } from "../repo/cardGroups.repo.js";
 import {
@@ -11,10 +12,12 @@ import {
   createCard,
   updateCardById,
   deleteCardById,
+  hardDeleteCardById,
   updateCardOrderBatch,
 } from "../repo/cards.repo.js";
 import {
   deactivateCardRoleAccessByCardId,
+  hardDeleteCardRoleAccessByCardId,
 } from "../repo/cardRoleAccess.repo.js";
 
 function normalizeText(value, fallback = "") {
@@ -243,6 +246,44 @@ export async function deleteCardRecord(supabase, cardId) {
 
   await deactivateCardRoleAccessByCardId(supabase, cardId).catch(() => {});
   return deleteCardById(supabase, cardId);
+}
+
+export async function hardDeleteCardGroupRecord(supabase, groupId) {
+  if (groupId === undefined || groupId === null || groupId === "") {
+    throw new Error("Card group ID is required.");
+  }
+
+  const linkedCards = await fetchAllCards(supabase);
+  const groupCards = linkedCards.filter(
+    (card) => String(card?.group_id ?? "") === String(groupId),
+  );
+
+  for (const card of groupCards) {
+    await hardDeleteCardRoleAccessByCardId(supabase, card.card_id).catch(() => {});
+    await hardDeleteCardById(supabase, card.card_id);
+  }
+
+  await hardDeleteCardGroupById(supabase, groupId);
+
+  return {
+    groupId,
+    deletedCardCount: groupCards.length,
+    permanentlyDeleted: true,
+  };
+}
+
+export async function hardDeleteCardRecord(supabase, cardId) {
+  if (cardId === undefined || cardId === null || cardId === "") {
+    throw new Error("Card ID is required.");
+  }
+
+  await hardDeleteCardRoleAccessByCardId(supabase, cardId).catch(() => {});
+  await hardDeleteCardById(supabase, cardId);
+
+  return {
+    cardId,
+    permanentlyDeleted: true,
+  };
 }
 
 export async function saveCardOrder(supabase, cardIds) {

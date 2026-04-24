@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getSupabase } from "@/modules/admin/card-module-setup/utils/supabase.js";
 import {
   deleteCardGroupRecord,
+  hardDeleteCardGroupRecord,
   updateCardGroupRecord,
 } from "@/modules/admin/card-module-setup/services/cardModuleSetup.service.js";
 
@@ -88,8 +89,13 @@ export async function DELETE(request, context) {
       throw new Error("Invalid card group id.");
     }
 
+    const url = new URL(request.url);
+    const permanent = url.searchParams.get("permanent") === "true";
+
     const supabase = await getSupabase();
-    const result = await deleteCardGroupRecord(supabase, groupId);
+    const result = permanent
+      ? await hardDeleteCardGroupRecord(supabase, groupId)
+      : await deleteCardGroupRecord(supabase, groupId);
 
     return NextResponse.json(
       {
@@ -102,7 +108,7 @@ export async function DELETE(request, context) {
     return NextResponse.json(
       {
         ok: false,
-        error: error?.message || "Failed to deactivate card group.",
+        error: error?.message || "Failed to delete card group.",
       },
       { status: 500, headers: noStoreHeaders() },
     );

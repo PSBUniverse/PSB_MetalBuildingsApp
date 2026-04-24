@@ -9,7 +9,7 @@ import {
 
 export function useDepartmentActions({
   isSaving, isMutatingAction, isSelectedCompanyPendingDeactivation,
-  selectedCompany, dialog, departmentDraft,
+  selectedCompany, dialog, departmentDraft, pendingDeactivatedDepartmentIds,
   setAllDepartments, setDepartmentChanges, setDialog, setDepartmentDraft,
 }) {
   const openAddDepartmentDialog = useCallback(() => {
@@ -28,8 +28,17 @@ export function useDepartmentActions({
 
   const openToggleDepartmentDialog = useCallback((row) => {
     if (isMutatingAction || isSaving) return;
+    const deptId = String(row?.dept_id ?? "");
+    if (pendingDeactivatedDepartmentIds.has(deptId)) {
+      setDepartmentChanges((prev) => ({
+        ...prev,
+        deactivations: (prev.deactivations || []).filter((id) => !isSameId(id, deptId)),
+      }));
+      toastSuccess("Department deactivation un-staged.", "Batching");
+      return;
+    }
     setDialog({ kind: "toggle-department", target: row, nextIsActive: !Boolean(row?.is_active_bool) });
-  }, [isMutatingAction, isSaving, setDialog]);
+  }, [isMutatingAction, isSaving, pendingDeactivatedDepartmentIds, setDepartmentChanges, setDialog]);
 
   const openDeactivateDepartmentDialog = useCallback((row) => {
     if (isMutatingAction || isSaving) return;
@@ -128,8 +137,32 @@ export function useDepartmentActions({
     toastSuccess("Department deactivation staged for Save Batch.", "Batching");
   }, [dialog, setAllDepartments, setDepartmentChanges, setDialog]);
 
+  const stageHardDeleteDepartment = useCallback((row) => {
+    const deptId = String(row?.dept_id ?? "");
+    if (!deptId || isMutatingAction || isSaving) return;
+
+    if (isTempDepartmentId(deptId)) {
+      setAllDepartments((prev) => prev.filter((d) => !isSameId(d?.dept_id, deptId)));
+      setDepartmentChanges((prev) => ({
+        ...prev,
+        creates: prev.creates.filter((e) => !isSameId(e?.tempId, deptId)),
+        updates: removeObjectKey(prev.updates, deptId),
+      }));
+      toastSuccess("Staged department removed.", "Batching");
+      return;
+    }
+
+    setDepartmentChanges((prev) => ({
+      ...prev,
+      deactivations: (prev.deactivations || []).filter((id) => !isSameId(id, deptId)),
+      updates: removeObjectKey(prev.updates, deptId),
+      hardDeletes: appendUniqueId(prev.hardDeletes || [], deptId),
+    }));
+    toastSuccess("Department deletion staged for Save Batch.", "Batching");
+  }, [isMutatingAction, isSaving, setAllDepartments, setDepartmentChanges]);
+
   return {
     openAddDepartmentDialog, openEditDepartmentDialog, openToggleDepartmentDialog, openDeactivateDepartmentDialog,
-    submitAddDepartment, submitEditDepartment, submitToggleDepartment, submitDeactivateDepartment,
+    submitAddDepartment, submitEditDepartment, submitToggleDepartment, submitDeactivateDepartment, stageHardDeleteDepartment,
   };
 }

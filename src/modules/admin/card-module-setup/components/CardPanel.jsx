@@ -7,6 +7,7 @@ function StatusBadge({ isActive }) {
 
 function batchMarker(bs) {
   const map = {
+    hardDeleted: { t: "Deleted", c: "psb-batch-marker psb-batch-marker-deleted" },
     deleted: { t: "Deactivated", c: "psb-batch-marker psb-batch-marker-deleted" },
     created: { t: "New", c: "psb-batch-marker psb-batch-marker-new" },
     updated: { t: "Edited", c: "psb-batch-marker psb-batch-marker-edited" },
@@ -17,9 +18,9 @@ function batchMarker(bs) {
 
 export function CardPanel({
   selectedGroup, decoratedSelectedGroupCards, isSaving, isMutatingAction,
-  pendingDeactivatedCardIds, handleCardReorder,
+  pendingDeactivatedCardIds, pendingHardDeletedCardIds, handleCardReorder,
   editingCardId, onStartEditing, onStopEditing, onInlineEdit,
-  openToggleCardDialog, openDeactivateCardDialog,
+  openToggleCardDialog, openDeactivateCardDialog, stageHardDeleteCard,
 }) {
   const columns = useMemo(() => [
     {
@@ -45,6 +46,7 @@ export function CardPanel({
             <InlineEditCell
               value={row?.card_name || ""}
               onCommit={(val) => onInlineEdit?.(row, "card_name", val)}
+              onCancel={onStopEditing}
               disabled={editDisabled}
             />
             {m.t ? <span className={m.c}>{m.t}</span> : null}
@@ -61,6 +63,7 @@ export function CardPanel({
           <InlineEditCell
             value={row?.card_desc || ""}
             onCommit={(val) => onInlineEdit?.(row, "card_desc", val)}
+            onCancel={onStopEditing}
             disabled={editDisabled}
           />
         );
@@ -75,6 +78,7 @@ export function CardPanel({
           <InlineEditCell
             value={row?.route_path || ""}
             onCommit={(val) => onInlineEdit?.(row, "route_path", val)}
+            onCancel={onStopEditing}
             disabled={editDisabled}
             placeholder="#"
           />
@@ -90,6 +94,7 @@ export function CardPanel({
           <InlineEditCell
             value={row?.card_icon || row?.icon || ""}
             onCommit={(val) => onInlineEdit?.(row, "icon", val)}
+            onCancel={onStopEditing}
             disabled={editDisabled}
             placeholder="bi-grid-3x3-gap"
           />
@@ -100,29 +105,32 @@ export function CardPanel({
       key: "is_active_bool", label: "Active", width: "12%", sortable: true, align: "center",
       render: (row) => <StatusBadge isActive={Boolean(row?.is_active_bool)} />,
     },
-  ], [editingCardId, isMutatingAction, isSaving, onInlineEdit]);
+  ], [editingCardId, isMutatingAction, isSaving, onInlineEdit, onStopEditing]);
 
   const actions = useMemo(() => [
-    { key: "edit-card", label: "Edit", type: "secondary", icon: "pencil-square",
-      visible: (r) => String(r?.card_id ?? "") !== String(editingCardId ?? ""),
-      disabled: (r) => isSaving || isMutatingAction || pendingDeactivatedCardIds.has(String(r?.card_id ?? "")),
+    { key: "edit-card", label: "Edit", type: "secondary", icon: "pen",
+      visible: (r) => r?.__batchState !== "hardDeleted" && String(r?.card_id ?? "") !== String(editingCardId ?? ""),
+      disabled: (r) => isSaving || isMutatingAction,
       onClick: (r) => onStartEditing(r) },
-    { key: "done-edit-card", label: "Done", type: "success", icon: "check-circle",
+    { key: "cancel-edit-card", label: "Cancel", type: "secondary", icon: "xmark",
       visible: (r) => String(r?.card_id ?? "") === String(editingCardId ?? ""),
       onClick: () => onStopEditing() },
-    { key: "disable-card", label: "Disable", type: "secondary", icon: "slash-circle",
-      visible: (r) => Boolean(r?.is_active_bool),
-      disabled: (r) => isSaving || isMutatingAction || pendingDeactivatedCardIds.has(String(r?.card_id ?? "")),
+    { key: "restore-card", label: "Restore", type: "secondary", icon: "rotate-left",
+      visible: (r) => r?.__batchState !== "hardDeleted" && (!Boolean(r?.is_active_bool) || pendingDeactivatedCardIds.has(String(r?.card_id ?? ""))) && String(r?.card_id ?? "") !== String(editingCardId ?? ""),
+      disabled: (r) => isSaving || isMutatingAction,
       onClick: (r) => openToggleCardDialog(r) },
-    { key: "enable-card", label: "Enable", type: "secondary", icon: "check-circle",
-      visible: (r) => !Boolean(r?.is_active_bool),
-      disabled: (r) => isSaving || isMutatingAction || pendingDeactivatedCardIds.has(String(r?.card_id ?? "")),
-      onClick: (r) => openToggleCardDialog(r) },
-    { key: "deactivate-card", label: "Deactivate", type: "danger", icon: "trash",
-      disabled: (r) => isSaving || isMutatingAction || pendingDeactivatedCardIds.has(String(r?.card_id ?? "")),
+    { key: "deactivate-card", label: "Deactivate", type: "secondary", icon: "ban",
+      visible: (r) => r?.__batchState !== "hardDeleted" && Boolean(r?.is_active_bool) && !pendingDeactivatedCardIds.has(String(r?.card_id ?? "")) && String(r?.card_id ?? "") !== String(editingCardId ?? ""),
+      disabled: (r) => isSaving || isMutatingAction,
       onClick: (r) => openDeactivateCardDialog(r) },
+    { key: "delete-card", label: "Delete", type: "danger", icon: "trash",
+      visible: (r) => r?.__batchState !== "hardDeleted" && String(r?.card_id ?? "") !== String(editingCardId ?? ""),
+      confirm: true,
+      confirmMessage: (r) => `Permanently delete ${r?.card_name || "this card"}? This action cannot be undone.`,
+      disabled: (r) => isSaving || isMutatingAction,
+      onClick: (r) => stageHardDeleteCard(r) },
   ], [editingCardId, isMutatingAction, isSaving, onStartEditing, onStopEditing,
-    openDeactivateCardDialog, openToggleCardDialog, pendingDeactivatedCardIds]);
+    openDeactivateCardDialog, openToggleCardDialog, pendingDeactivatedCardIds, stageHardDeleteCard]);
 
   return (
     <Card

@@ -59,14 +59,16 @@ export function useApplicationSetup({ applications = [], roles = [], initialSele
     const aA = pendingBatch.appCreates.length;
     const aE = Object.keys(pendingBatch.appUpdates || {}).length;
     const aD = pendingBatch.appDeactivations.length;
+    const aH = (pendingBatch.appHardDeletes || []).length;
     const rA = pendingBatch.roleCreates.length;
     const rE = Object.keys(pendingBatch.roleUpdates || {}).length;
     const rD = pendingBatch.roleDeactivations.length;
+    const rH = (pendingBatch.roleHardDeletes || []).length;
     const oC = hasOrderChanges ? 1 : 0;
     return {
-      applicationAdded: aA, applicationEdited: aE, applicationDeactivated: aD,
-      roleAdded: rA, roleEdited: rE, roleDeactivated: rD, rowOrderChanged: oC,
-      total: aA + aE + aD + rA + rE + rD + oC,
+      applicationAdded: aA, applicationEdited: aE, applicationDeactivated: aD, applicationHardDeleted: aH,
+      roleAdded: rA, roleEdited: rE, roleDeactivated: rD, roleHardDeleted: rH, rowOrderChanged: oC,
+      total: aA + aE + aD + aH + rA + rE + rD + rH + oC,
     };
   }, [hasOrderChanges, pendingBatch]);
 
@@ -79,6 +81,14 @@ export function useApplicationSetup({ applications = [], roles = [], initialSele
   const pendingDeactivatedRoleIds = useMemo(
     () => new Set((pendingBatch.roleDeactivations || []).map((id) => String(id ?? ""))),
     [pendingBatch.roleDeactivations],
+  );
+  const pendingHardDeletedAppIds = useMemo(
+    () => new Set((pendingBatch.appHardDeletes || []).map((id) => String(id ?? ""))),
+    [pendingBatch.appHardDeletes],
+  );
+  const pendingHardDeletedRoleIds = useMemo(
+    () => new Set((pendingBatch.roleHardDeletes || []).map((id) => String(id ?? ""))),
+    [pendingBatch.roleHardDeletes],
   );
 
   const selectedAppId = useMemo(() => {
@@ -108,27 +118,31 @@ export function useApplicationSetup({ applications = [], roles = [], initialSele
     const cIds = new Set((pendingBatch.appCreates || []).map((e) => String(e?.tempId ?? "")));
     const uIds = new Set(Object.keys(pendingBatch.appUpdates || {}));
     const dIds = new Set((pendingBatch.appDeactivations || []).map((e) => String(e ?? "")));
+    const hIds = new Set((pendingBatch.appHardDeletes || []).map((e) => String(e ?? "")));
     return orderedApplications.map((row) => {
       const id = String(row?.app_id ?? "");
+      if (hIds.has(id)) return { ...row, __batchState: "hardDeleted" };
       if (dIds.has(id)) return { ...row, __batchState: "deleted" };
       if (cIds.has(id)) return { ...row, __batchState: "created" };
       if (uIds.has(id)) return { ...row, __batchState: "updated" };
       return { ...row, __batchState: "none" };
     });
-  }, [orderedApplications, pendingBatch.appCreates, pendingBatch.appDeactivations, pendingBatch.appUpdates]);
+  }, [orderedApplications, pendingBatch.appCreates, pendingBatch.appDeactivations, pendingBatch.appHardDeletes, pendingBatch.appUpdates]);
 
   const decoratedSelectedAppRoles = useMemo(() => {
     const cIds = new Set((pendingBatch.roleCreates || []).map((e) => String(e?.tempId ?? "")));
     const uIds = new Set(Object.keys(pendingBatch.roleUpdates || {}));
     const dIds = new Set((pendingBatch.roleDeactivations || []).map((e) => String(e ?? "")));
+    const hIds = new Set((pendingBatch.roleHardDeletes || []).map((e) => String(e ?? "")));
     return selectedAppRoles.map((row) => {
       const id = String(row?.role_id ?? "");
+      if (hIds.has(id)) return { ...row, __batchState: "hardDeleted" };
       if (dIds.has(id)) return { ...row, __batchState: "deleted" };
       if (cIds.has(id)) return { ...row, __batchState: "created" };
       if (uIds.has(id)) return { ...row, __batchState: "updated" };
       return { ...row, __batchState: "none" };
     });
-  }, [pendingBatch.roleCreates, pendingBatch.roleDeactivations, pendingBatch.roleUpdates, selectedAppRoles]);
+  }, [pendingBatch.roleCreates, pendingBatch.roleDeactivations, pendingBatch.roleHardDeletes, pendingBatch.roleUpdates, selectedAppRoles]);
 
   const updateSelectedApplicationInQuery = useCallback((appId) => {
     const p = new URLSearchParams(searchParams?.toString() || "");
@@ -188,13 +202,65 @@ export function useApplicationSetup({ applications = [], roles = [], initialSele
 
   const openToggleApplicationDialog = useCallback((row) => {
     if (isSavingOrder || isMutatingAction) return;
+    const appId = String(row?.app_id ?? "");
+    if (pendingDeactivatedAppIds.has(appId)) {
+      const linkedRoleIds = allRoles.filter((r) => isSameId(r?.app_id, appId)).map((r) => String(r?.role_id ?? ""));
+      setPendingBatch((prev) => ({
+        ...prev,
+        appDeactivations: (prev.appDeactivations || []).filter((id) => !isSameId(id, appId)),
+        roleDeactivations: (prev.roleDeactivations || []).filter((id) => !linkedRoleIds.some((lr) => isSameId(lr, id))),
+      }));
+      toastSuccess("Application deactivation un-staged.", "Batching");
+      return;
+    }
     setDialog({ kind: "toggle-application", target: row, nextIsActive: !Boolean(row?.is_active_bool) });
-  }, [isMutatingAction, isSavingOrder]);
+  }, [allRoles, isMutatingAction, isSavingOrder, pendingDeactivatedAppIds]);
 
   const openDeactivateApplicationDialog = useCallback((row) => {
     if (isSavingOrder || isMutatingAction) return;
     setDialog({ kind: "deactivate-application", target: row, nextIsActive: null });
   }, [isMutatingAction, isSavingOrder]);
+
+  const stageHardDeleteApplication = useCallback((row) => {
+    const appId = String(row?.app_id ?? "");
+    if (!appId || isSavingOrder || isMutatingAction) return;
+    const linkedRoleIds = allRoles.filter((r) => isSameId(r?.app_id, appId)).map((r) => String(r?.role_id ?? ""));
+
+    if (isTempApplicationId(appId)) {
+      const nextApps = orderedApplications
+        .filter((a) => !isSameId(a?.app_id, appId))
+        .map((a, i) => ({ ...a, app_order: i + 1, display_order: i + 1 }));
+      setOrderedApplications(nextApps);
+      setAllRoles((prev) => prev.filter((r) => !isSameId(r?.app_id, appId)));
+      setPendingBatch((prev) => ({
+        ...prev,
+        appCreates: prev.appCreates.filter((e) => !isSameId(e?.tempId, appId)),
+        appUpdates: removeObjectKey(prev.appUpdates, appId),
+        roleCreates: prev.roleCreates.filter((e) => !isSameId(e?.payload?.app_id, appId)),
+        roleUpdates: linkedRoleIds.reduce((m, id) => removeObjectKey(m, id), prev.roleUpdates),
+        roleDeactivations: (prev.roleDeactivations || []).filter((id) => !linkedRoleIds.some((lr) => isSameId(lr, id))),
+        roleHardDeletes: (prev.roleHardDeletes || []).filter((id) => !linkedRoleIds.some((lr) => isSameId(lr, id))),
+      }));
+      if (isSameId(selectedApp?.app_id, appId)) updateSelectedApplicationInQuery(nextApps[0]?.app_id ?? null);
+      toastSuccess("Staged application removed.", "Batching");
+      return;
+    }
+
+    setPendingBatch((prev) => ({
+      ...prev,
+      appUpdates: removeObjectKey(prev.appUpdates, appId),
+      appDeactivations: (prev.appDeactivations || []).filter((id) => !isSameId(id, appId)),
+      appHardDeletes: appendUniqueId(prev.appHardDeletes || [], appId),
+      roleCreates: prev.roleCreates.filter((e) => !isSameId(e?.payload?.app_id, appId)),
+      roleUpdates: linkedRoleIds.reduce((m, id) => removeObjectKey(m, id), prev.roleUpdates),
+      roleDeactivations: (prev.roleDeactivations || []).filter((id) => !linkedRoleIds.some((lr) => isSameId(lr, id))),
+      roleHardDeletes: linkedRoleIds.reduce(
+        (ids, id) => isTempRoleId(id) ? ids : appendUniqueId(ids, id),
+        (prev.roleHardDeletes || []).filter((id) => !linkedRoleIds.some((lr) => isSameId(lr, id))),
+      ),
+    }));
+    toastSuccess("Application deletion staged for Save Batch.", "Batching");
+  }, [allRoles, isMutatingAction, isSavingOrder, orderedApplications, selectedApp?.app_id, updateSelectedApplicationInQuery]);
 
   const openAddApplicationDialog = useCallback(() => {
     if (isSavingOrder || isMutatingAction) return;
@@ -319,7 +385,8 @@ export function useApplicationSetup({ applications = [], roles = [], initialSele
 
   const roleActions = useRoleActions({
     isSavingOrder, isMutatingAction, isSelectedAppPendingDeactivation, selectedApp,
-    dialog, roleDraft, setAllRoles, setPendingBatch, setDialog, setRoleDraft,
+    dialog, roleDraft, pendingDeactivatedRoleIds,
+    setAllRoles, setPendingBatch, setDialog, setRoleDraft,
   });
 
   // -- row editing mode
@@ -343,7 +410,6 @@ export function useApplicationSetup({ applications = [], roles = [], initialSele
   const handleInlineEditApplication = useCallback((row, key, value) => {
     const appId = row?.app_id;
     if (!appId || isSavingOrder || isMutatingAction) return;
-    if (pendingDeactivatedAppIds.has(String(appId))) return;
 
     setOrderedApplications((prev) =>
       prev.map((a, i) => isSameId(a?.app_id, appId)
@@ -366,13 +432,12 @@ export function useApplicationSetup({ applications = [], roles = [], initialSele
         },
       };
     });
-  }, [isMutatingAction, isSavingOrder, pendingDeactivatedAppIds]);
+  }, [isMutatingAction, isSavingOrder]);
 
   // -- inline edit: roles
   const handleInlineEditRole = useCallback((row, key, value) => {
     const roleId = row?.role_id;
     if (!roleId || isSavingOrder || isMutatingAction) return;
-    if (pendingDeactivatedRoleIds.has(String(roleId))) return;
 
     setAllRoles((prev) =>
       prev.map((r, i) => isSameId(r?.role_id, roleId)
@@ -395,17 +460,18 @@ export function useApplicationSetup({ applications = [], roles = [], initialSele
         },
       };
     });
-  }, [isMutatingAction, isSavingOrder, pendingDeactivatedRoleIds]);
+  }, [isMutatingAction, isSavingOrder]);
 
   return {
     decoratedApplications, decoratedSelectedAppRoles, dialog, applicationDraft, roleDraft,
     isSavingOrder, isMutatingAction, pendingSummary, hasPendingChanges,
     pendingDeactivatedAppIds, pendingDeactivatedRoleIds,
+    pendingHardDeletedAppIds, pendingHardDeletedRoleIds,
     selectedApp, isSelectedAppPendingDeactivation,
     setDialog, setApplicationDraft, setRoleDraft,
     handleApplicationRowClick, handleApplicationReorder, handleCancelOrderChanges, handleSaveOrderChanges,
     closeDialog, openEditApplicationDialog, openToggleApplicationDialog,
-    openDeactivateApplicationDialog, openAddApplicationDialog,
+    openDeactivateApplicationDialog, stageHardDeleteApplication, openAddApplicationDialog,
     submitAddApplication, submitEditApplication, submitToggleApplication, submitDeactivateApplication,
     handleInlineEditApplication, handleInlineEditRole,
     editingAppId, startEditingApp, stopEditingApp,

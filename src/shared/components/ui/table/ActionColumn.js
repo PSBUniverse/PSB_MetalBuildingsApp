@@ -2,28 +2,8 @@
 
 import { useMemo, useState } from "react";
 import Button from "@/shared/components/ui/controls/Button";
-import Dropdown from "@/shared/components/ui/controls/Dropdown";
 import Modal from "@/shared/components/ui/overlay/Modal";
-
-const ACTION_TYPE_ORDER = Object.freeze({
-  primary: 1,
-  secondary: 2,
-  danger: 3,
-});
-
-const ACTION_MENU_POPPER_CONFIG = Object.freeze({
-  strategy: "fixed",
-  modifiers: [
-    {
-      name: "preventOverflow",
-      options: {
-        boundary: "viewport",
-        altBoundary: true,
-        padding: 8,
-      },
-    },
-  ],
-});
+import AppIcon from "@/shared/components/ui/AppIcon";
 
 function normalizeActionType(value) {
   const raw = String(value || "secondary").trim().toLowerCase();
@@ -33,29 +13,56 @@ function normalizeActionType(value) {
   return "secondary";
 }
 
-function resolveButtonVariant(type) {
-  if (type === "primary") return "primary";
-  if (type === "danger") return "danger";
-  return "secondary";
+/**
+ * Maps icon names to per-action color CSS classes.
+ * Allowed actions: View, Edit, Save, Deactivate, Delete, Cancel, Restore.
+ */
+const ACTION_COLOR_MAP = Object.freeze({
+  // View (gray)
+  eye: "action-color-view",
+  preview: "action-color-view",
+  // Edit (blue)
+  pen: "action-color-edit",
+  edit: "action-color-edit",
+  // Save (green)
+  save: "action-color-save",
+  "floppy-disk": "action-color-save",
+  // Deactivate (amber)
+  ban: "action-color-deactivate",
+  deactivate: "action-color-deactivate",
+  // Delete (red)
+  trash: "action-color-delete",
+  delete: "action-color-delete",
+  // Cancel (gray)
+  xmark: "action-color-cancel",
+  cancel: "action-color-cancel",
+  // Restore (green secondary)
+  "rotate-left": "action-color-restore",
+  restore: "action-color-restore",
+});
+
+function resolveActionColorClass(iconName) {
+  const key = String(iconName || "").trim().toLowerCase();
+  return ACTION_COLOR_MAP[key] || "action-color-edit";
 }
 
-function resolveIconClassName(icon) {
-  const raw = String(icon || "").trim();
-  if (!raw) return "";
+/**
+ * Explicit action ordering by icon name.
+ * View → Edit → Save → Deactivate → Cancel → Restore → Delete.
+ */
+const ACTION_ICON_ORDER = Object.freeze({
+  eye: 1, preview: 1,
+  pen: 2, edit: 2,
+  xmark: 2, cancel: 2,
+  save: 3, "floppy-disk": 3,
+  ban: 3, deactivate: 3,
+  "rotate-left": 3, restore: 3,
+  trash: 4, delete: 4,
+});
 
-  if (raw.includes(" ")) {
-    return raw;
-  }
-
-  if (raw.startsWith("bi-")) {
-    return `bi ${raw}`;
-  }
-
-  if (raw.startsWith("bi")) {
-    return raw;
-  }
-
-  return `bi bi-${raw}`;
+function resolveIconOrder(iconName) {
+  const key = String(iconName || "").trim().toLowerCase();
+  return ACTION_ICON_ORDER[key] || 5;
 }
 
 function resolveVisibleActions(actions, row) {
@@ -80,13 +87,9 @@ function resolveVisibleActions(actions, row) {
       type: normalizeActionType(action.type),
     }))
     .sort((left, right) => {
-      const leftOrder = ACTION_TYPE_ORDER[left.type] || ACTION_TYPE_ORDER.secondary;
-      const rightOrder = ACTION_TYPE_ORDER[right.type] || ACTION_TYPE_ORDER.secondary;
-      if (leftOrder !== rightOrder) {
-        return leftOrder - rightOrder;
-      }
-
-      return String(left.label || "").localeCompare(String(right.label || ""));
+      const leftOrder = resolveIconOrder(left.icon);
+      const rightOrder = resolveIconOrder(right.icon);
+      return leftOrder - rightOrder;
     });
 }
 
@@ -168,79 +171,6 @@ export default function ActionColumn({ row, actions = [], onAction }) {
     return null;
   }
 
-  let actionContent = null;
-
-  if (visibleActions.length === 1) {
-    const action = visibleActions[0];
-    const iconClassName = resolveIconClassName(action.icon);
-    const useIconOnlyMode = Boolean(iconClassName);
-
-    actionContent = (
-      <Button
-        size="sm"
-        variant={resolveButtonVariant(action.type)}
-        className={[
-          "table-actions-inline-btn",
-          useIconOnlyMode ? "table-actions-inline-btn-icon" : "",
-        ].filter(Boolean).join(" ")}
-        disabled={isDisabled(action, row)}
-        onClick={() => emitAction(action)}
-        title={String(action.label || "").trim() || undefined}
-        aria-label={String(action.label || "").trim() || undefined}
-      >
-        {iconClassName ? <i className={iconClassName} aria-hidden="true" /> : null}
-        {useIconOnlyMode ? <span className="visually-hidden">{action.label}</span> : action.label}
-      </Button>
-    );
-  } else {
-    const nonDangerActions = visibleActions.filter((action) => action.type !== "danger");
-    const dangerActions = visibleActions.filter((action) => action.type === "danger");
-
-    actionContent = (
-      <Dropdown align="end">
-        <Dropdown.Toggle variant="secondary" size="sm" className="table-actions-toggle" aria-label="Open actions">
-          <i className="bi bi-three-dots-vertical" aria-hidden="true" />
-        </Dropdown.Toggle>
-
-        <Dropdown.Menu popperConfig={ACTION_MENU_POPPER_CONFIG}>
-          {nonDangerActions.map((action) => {
-            const iconClassName = resolveIconClassName(action.icon);
-
-            return (
-              <Dropdown.Item
-                key={String(action.key || action.label)}
-                className="table-actions-item"
-                disabled={isDisabled(action, row)}
-                onClick={() => emitAction(action)}
-              >
-                {iconClassName ? <i className={`${iconClassName} me-2`} aria-hidden="true" /> : null}
-                {action.label}
-              </Dropdown.Item>
-            );
-          })}
-
-          {nonDangerActions.length > 0 && dangerActions.length > 0 ? <Dropdown.Divider /> : null}
-
-          {dangerActions.map((action) => {
-            const iconClassName = resolveIconClassName(action.icon);
-
-            return (
-              <Dropdown.Item
-                key={String(action.key || action.label)}
-                className="table-actions-item table-actions-danger-item"
-                disabled={isDisabled(action, row)}
-                onClick={() => emitAction(action)}
-              >
-                {iconClassName ? <i className={`${iconClassName} me-2`} aria-hidden="true" /> : null}
-                {action.label}
-              </Dropdown.Item>
-            );
-          })}
-        </Dropdown.Menu>
-      </Dropdown>
-    );
-  }
-
   const confirmAction = pendingConfirmation?.action || null;
   const confirmActionType = normalizeActionType(confirmAction?.type);
   const confirmButtonVariant = confirmActionType === "danger" ? "danger" : "primary";
@@ -248,7 +178,26 @@ export default function ActionColumn({ row, actions = [], onAction }) {
 
   return (
     <>
-      {actionContent}
+      <div className="psb-ui-table-actions-stack">
+        {visibleActions.map((action) => {
+          const label = String(action.label || "").trim();
+          const iconName = String(action.icon || "").trim();
+
+          return (
+            <button
+              key={String(action.key || action.label)}
+              type="button"
+              className={`table-actions-icon-btn ${resolveActionColorClass(iconName)}`}
+              disabled={isDisabled(action, row)}
+              onClick={() => emitAction(action)}
+              title={label || undefined}
+              aria-label={label || undefined}
+            >
+              {iconName ? <AppIcon icon={iconName} /> : <span className="visually-hidden">{label}</span>}
+            </button>
+          );
+        })}
+      </div>
 
       <Modal
         show={Boolean(pendingConfirmation)}

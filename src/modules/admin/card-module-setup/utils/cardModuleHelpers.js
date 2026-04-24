@@ -64,7 +64,7 @@ export const TEMP_GROUP_PREFIX = "tmp-grp-";
 export const TEMP_CARD_PREFIX = "tmp-card-";
 
 export function createEmptyBatchState() {
-  return { groupCreates: [], groupUpdates: {}, groupDeactivations: [], cardCreates: [], cardUpdates: {}, cardDeactivations: [] };
+  return { groupCreates: [], groupUpdates: {}, groupDeactivations: [], groupHardDeletes: [], cardCreates: [], cardUpdates: {}, cardDeactivations: [], cardHardDeletes: [] };
 }
 
 export function createTempId(prefix) {
@@ -104,8 +104,12 @@ async function requestJson(url, options, fallback) {
 
 export async function executeBatchSave(pendingBatch, appGroups, allCards, persistedCardOrderSignatures) {
   const groupIdMap = new Map();
-  const deactivatedGroupSet = new Set((pendingBatch.groupDeactivations || []).map((id) => String(id ?? "")));
-  const deactivatedCardSet = new Set((pendingBatch.cardDeactivations || []).map((id) => String(id ?? "")));
+  const deactivatedGroupSet = new Set(
+    [...(pendingBatch.groupDeactivations || []), ...(pendingBatch.groupHardDeletes || [])].map((id) => String(id ?? "")),
+  );
+  const deactivatedCardSet = new Set(
+    [...(pendingBatch.cardDeactivations || []), ...(pendingBatch.cardHardDeletes || [])].map((id) => String(id ?? "")),
+  );
 
   for (const entry of pendingBatch.groupCreates || []) {
     const res = await requestJson("/api/admin/card-module-setup/card-groups", {
@@ -149,6 +153,16 @@ export async function executeBatchSave(pendingBatch, appGroups, allCards, persis
   for (const gid of pendingBatch.groupDeactivations || []) {
     if (isTempGroupId(gid)) continue;
     await requestJson(`/api/admin/card-module-setup/card-groups/${encodeURIComponent(String(gid))}`, { method: "DELETE" }, "Failed to deactivate card group.");
+  }
+
+  for (const cid of pendingBatch.cardHardDeletes || []) {
+    if (isTempCardId(cid)) continue;
+    await requestJson(`/api/admin/card-module-setup/cards/${encodeURIComponent(String(cid))}?permanent=true`, { method: "DELETE" }, "Failed to permanently delete card.");
+  }
+
+  for (const gid of pendingBatch.groupHardDeletes || []) {
+    if (isTempGroupId(gid)) continue;
+    await requestJson(`/api/admin/card-module-setup/card-groups/${encodeURIComponent(String(gid))}?permanent=true`, { method: "DELETE" }, "Failed to permanently delete card group.");
   }
 
   const orderedPersistedGroupIds = appGroups

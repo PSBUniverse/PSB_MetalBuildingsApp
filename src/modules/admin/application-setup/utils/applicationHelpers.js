@@ -61,7 +61,7 @@ export const TEMP_APP_PREFIX = "tmp-app-";
 export const TEMP_ROLE_PREFIX = "tmp-role-";
 
 export function createEmptyBatchState() {
-  return { appCreates: [], appUpdates: {}, appDeactivations: [], roleCreates: [], roleUpdates: {}, roleDeactivations: [] };
+  return { appCreates: [], appUpdates: {}, appDeactivations: [], appHardDeletes: [], roleCreates: [], roleUpdates: {}, roleDeactivations: [], roleHardDeletes: [] };
 }
 
 export function createTempId(prefix) {
@@ -101,8 +101,12 @@ async function requestJson(url, options, fallback) {
 
 export async function executeBatchSave(pendingBatch, orderedApplications) {
   const appIdMap = new Map();
-  const deactivatedAppSet = new Set((pendingBatch.appDeactivations || []).map((id) => String(id ?? "")));
-  const deactivatedRoleSet = new Set((pendingBatch.roleDeactivations || []).map((id) => String(id ?? "")));
+  const deactivatedAppSet = new Set(
+    [...(pendingBatch.appDeactivations || []), ...(pendingBatch.appHardDeletes || [])].map((id) => String(id ?? "")),
+  );
+  const deactivatedRoleSet = new Set(
+    [...(pendingBatch.roleDeactivations || []), ...(pendingBatch.roleHardDeletes || [])].map((id) => String(id ?? "")),
+  );
 
   for (const entry of pendingBatch.appCreates || []) {
     const res = await requestJson("/api/admin/application-setup/applications", {
@@ -150,6 +154,20 @@ export async function executeBatchSave(pendingBatch, orderedApplications) {
     await requestJson(`/api/admin/application-setup/applications/${encodeURIComponent(String(appId))}`, {
       method: "DELETE",
     }, "Failed to deactivate application.");
+  }
+
+  for (const roleId of pendingBatch.roleHardDeletes || []) {
+    if (isTempRoleId(roleId)) continue;
+    await requestJson(`/api/admin/application-setup/roles/${encodeURIComponent(String(roleId))}?permanent=true`, {
+      method: "DELETE",
+    }, "Failed to permanently delete role.");
+  }
+
+  for (const appId of pendingBatch.appHardDeletes || []) {
+    if (isTempApplicationId(appId)) continue;
+    await requestJson(`/api/admin/application-setup/applications/${encodeURIComponent(String(appId))}?permanent=true`, {
+      method: "DELETE",
+    }, "Failed to permanently delete application.");
   }
 
   const orderedPersistedAppIds = orderedApplications

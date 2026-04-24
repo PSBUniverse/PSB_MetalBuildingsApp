@@ -79,6 +79,20 @@ export async function deleteApplicationById(supabase, appId) {
   }
 }
 
+export async function hardDeleteApplicationById(supabase, appId) {
+  try {
+    const { error } = await supabase
+      .from("psb_s_application")
+      .delete()
+      .eq("app_id", appId);
+
+    if (error) throw error;
+    return { appId };
+  } catch (err) {
+    throw new Error(err.message || "Failed to permanently delete application");
+  }
+}
+
 export async function updateApplicationOrderBatch(supabase, orderUpdates, orderField = "display_order") {
   const safeUpdates = Array.isArray(orderUpdates) ? orderUpdates : [];
 

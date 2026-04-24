@@ -6,6 +6,7 @@
 import {
   createStatus,
   deleteStatusById,
+  hardDeleteStatusById,
   fetchStatuses,
   fetchStatusById,
   updateStatusById,
@@ -116,6 +117,15 @@ export async function deleteStatusRecord(supabase, statusId) {
     statusId,
     deactivated: true,
     deleted: true,
+  };
+}
+
+export async function hardDeleteStatusRecord(supabase, statusId) {
+  await hardDeleteStatusById(supabase, statusId);
+
+  return {
+    statusId,
+    permanentlyDeleted: true,
   };
 }
 

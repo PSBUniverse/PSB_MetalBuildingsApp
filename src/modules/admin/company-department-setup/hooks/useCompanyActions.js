@@ -4,12 +4,12 @@ import { useCallback } from "react";
 import { toastError, toastSuccess } from "@/shared/components/ui";
 import {
   isSameId, normalizeText, mapCompanyRow, removeObjectKey, mergeUpdatePatch, appendUniqueId,
-  EMPTY_DIALOG, TEMP_COMPANY_PREFIX, createTempId, isTempCompanyId,
+  EMPTY_DIALOG, TEMP_COMPANY_PREFIX, createTempId, isTempCompanyId, isTempDepartmentId,
 } from "../utils/companyDeptHelpers";
 
 export function useCompanyActions({
   isSaving, isMutatingAction, selectedCompany, allDepartments, orderedCompanies,
-  dialog, companyDraft,
+  dialog, companyDraft, pendingDeactivatedCompanyIds,
   setOrderedCompanies, setAllDepartments, setCompanyChanges, setDepartmentChanges,
   setDialog, setCompanyDraft, updateSelectedCompanyInQuery,
 }) {
@@ -30,8 +30,22 @@ export function useCompanyActions({
 
   const openToggleCompanyDialog = useCallback((row) => {
     if (isMutatingAction || isSaving) return;
+    const companyId = String(row?.comp_id ?? "");
+    if (pendingDeactivatedCompanyIds.has(companyId)) {
+      const linkedDeptIds = allDepartments.filter((d) => isSameId(d?.comp_id, companyId)).map((d) => String(d?.dept_id ?? ""));
+      setCompanyChanges((prev) => ({
+        ...prev,
+        deactivations: (prev.deactivations || []).filter((id) => !isSameId(id, companyId)),
+      }));
+      setDepartmentChanges((prev) => ({
+        ...prev,
+        deactivations: (prev.deactivations || []).filter((id) => !linkedDeptIds.some((lr) => isSameId(lr, id))),
+      }));
+      toastSuccess("Company deactivation un-staged.", "Batching");
+      return;
+    }
     setDialog({ kind: "toggle-company", target: row, nextIsActive: !Boolean(row?.is_active_bool) });
-  }, [isMutatingAction, isSaving, setDialog]);
+  }, [allDepartments, isMutatingAction, isSaving, pendingDeactivatedCompanyIds, setCompanyChanges, setDepartmentChanges, setDialog]);
 
   const openDeactivateCompanyDialog = useCallback((row) => {
     if (isMutatingAction || isSaving) return;
@@ -149,8 +163,53 @@ export function useCompanyActions({
     setDialog(EMPTY_DIALOG); toastSuccess("Company deactivation staged for Save Batch.", "Batching");
   }, [allDepartments, dialog, orderedCompanies, selectedCompany?.comp_id, setAllDepartments, setCompanyChanges, setDepartmentChanges, setDialog, setOrderedCompanies, updateSelectedCompanyInQuery]);
 
+  const stageHardDeleteCompany = useCallback((row) => {
+    const companyId = String(row?.comp_id ?? "");
+    if (!companyId || isMutatingAction || isSaving) return;
+    const linkedDeptIds = allDepartments.filter((d) => isSameId(d?.comp_id, companyId)).map((d) => String(d?.dept_id ?? ""));
+
+    if (isTempCompanyId(companyId)) {
+      const nextCompanies = orderedCompanies.filter((c) => !isSameId(c?.comp_id, companyId));
+      setOrderedCompanies(nextCompanies);
+      setAllDepartments((prev) => prev.filter((d) => !isSameId(d?.comp_id, companyId)));
+      setCompanyChanges((prev) => ({
+        ...prev,
+        creates: prev.creates.filter((e) => !isSameId(e?.tempId, companyId)),
+        updates: removeObjectKey(prev.updates, companyId),
+      }));
+      setDepartmentChanges((prev) => ({
+        ...prev,
+        creates: prev.creates.filter((e) => !isSameId(e?.payload?.comp_id, companyId)),
+        updates: linkedDeptIds.reduce((m, id) => removeObjectKey(m, id), prev.updates),
+        deactivations: (prev.deactivations || []).filter((id) => !linkedDeptIds.some((lr) => isSameId(lr, id))),
+        hardDeletes: (prev.hardDeletes || []).filter((id) => !linkedDeptIds.some((lr) => isSameId(lr, id))),
+      }));
+      if (isSameId(selectedCompany?.comp_id, companyId)) updateSelectedCompanyInQuery(nextCompanies[0]?.comp_id ?? null);
+      toastSuccess("Staged company removed.", "Batching");
+      return;
+    }
+
+    setCompanyChanges((prev) => ({
+      ...prev,
+      updates: removeObjectKey(prev.updates, companyId),
+      deactivations: (prev.deactivations || []).filter((id) => !isSameId(id, companyId)),
+      hardDeletes: appendUniqueId(prev.hardDeletes || [], companyId),
+    }));
+    setDepartmentChanges((prev) => ({
+      ...prev,
+      creates: prev.creates.filter((e) => !isSameId(e?.payload?.comp_id, companyId)),
+      updates: linkedDeptIds.reduce((m, id) => removeObjectKey(m, id), prev.updates),
+      deactivations: (prev.deactivations || []).filter((id) => !linkedDeptIds.some((lr) => isSameId(lr, id))),
+      hardDeletes: linkedDeptIds.reduce(
+        (ids, id) => isTempDepartmentId(id) ? ids : appendUniqueId(ids, id),
+        (prev.hardDeletes || []).filter((id) => !linkedDeptIds.some((lr) => isSameId(lr, id))),
+      ),
+    }));
+    toastSuccess("Company deletion staged for Save Batch.", "Batching");
+  }, [allDepartments, isMutatingAction, isSaving, orderedCompanies, selectedCompany?.comp_id, setAllDepartments, setCompanyChanges, setDepartmentChanges, setOrderedCompanies, updateSelectedCompanyInQuery]);
+
   return {
     openAddCompanyDialog, openEditCompanyDialog, openToggleCompanyDialog, openDeactivateCompanyDialog,
-    submitAddCompany, submitEditCompany, submitToggleCompany, submitDeactivateCompany,
+    submitAddCompany, submitEditCompany, submitToggleCompany, submitDeactivateCompany, stageHardDeleteCompany,
   };
 }

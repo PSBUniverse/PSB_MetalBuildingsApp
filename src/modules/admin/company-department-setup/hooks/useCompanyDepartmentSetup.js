@@ -56,8 +56,10 @@ export function useCompanyDepartmentSetup({ companies = [], departments = [], in
 
   const pendingSummary = useMemo(() => {
     const cA = companyChanges.creates.length, cE = Object.keys(companyChanges.updates || {}).length, cD = companyChanges.deactivations.length;
+    const cH = (companyChanges.hardDeletes || []).length;
     const dA = departmentChanges.creates.length, dE = Object.keys(departmentChanges.updates || {}).length, dD = departmentChanges.deactivations.length;
-    return { companyAdded: cA, companyEdited: cE, companyDeactivated: cD, departmentAdded: dA, departmentEdited: dE, departmentDeactivated: dD, total: cA + cE + cD + dA + dE + dD };
+    const dH = (departmentChanges.hardDeletes || []).length;
+    return { companyAdded: cA, companyEdited: cE, companyDeactivated: cD, companyHardDeleted: cH, departmentAdded: dA, departmentEdited: dE, departmentDeactivated: dD, departmentHardDeleted: dH, total: cA + cE + cD + cH + dA + dE + dD + dH };
   }, [companyChanges, departmentChanges]);
 
   const hasPendingChanges = pendingSummary.total > 0;
@@ -66,6 +68,10 @@ export function useCompanyDepartmentSetup({ companies = [], departments = [], in
     () => new Set((companyChanges.deactivations || []).map((id) => String(id ?? ""))), [companyChanges.deactivations]);
   const pendingDeactivatedDepartmentIds = useMemo(
     () => new Set((departmentChanges.deactivations || []).map((id) => String(id ?? ""))), [departmentChanges.deactivations]);
+  const pendingHardDeletedCompanyIds = useMemo(
+    () => new Set((companyChanges.hardDeletes || []).map((id) => String(id ?? ""))), [companyChanges.hardDeletes]);
+  const pendingHardDeletedDepartmentIds = useMemo(
+    () => new Set((departmentChanges.hardDeletes || []).map((id) => String(id ?? ""))), [departmentChanges.hardDeletes]);
 
   const selectedCompany = useMemo(
     () => orderedCompanies.find((c) => isSameId(c?.comp_id, selectedCompanyId)) ?? null, [orderedCompanies, selectedCompanyId]);
@@ -82,8 +88,10 @@ export function useCompanyDepartmentSetup({ companies = [], departments = [], in
     const cIds = new Set((companyChanges.creates || []).map((e) => String(e?.tempId ?? "")));
     const uIds = new Set(Object.keys(companyChanges.updates || {}));
     const dIds = new Set((companyChanges.deactivations || []).map((e) => String(e ?? "")));
+    const hIds = new Set((companyChanges.hardDeletes || []).map((e) => String(e ?? "")));
     return orderedCompanies.map((row) => {
       const id = String(row?.comp_id ?? "");
+      if (hIds.has(id)) return { ...row, __batchState: "hardDeleted" };
       if (dIds.has(id)) return { ...row, __batchState: "deleted" };
       if (cIds.has(id)) return { ...row, __batchState: "created" };
       if (uIds.has(id)) return { ...row, __batchState: "updated" };
@@ -95,8 +103,10 @@ export function useCompanyDepartmentSetup({ companies = [], departments = [], in
     const cIds = new Set((departmentChanges.creates || []).map((e) => String(e?.tempId ?? "")));
     const uIds = new Set(Object.keys(departmentChanges.updates || {}));
     const dIds = new Set((departmentChanges.deactivations || []).map((e) => String(e ?? "")));
+    const hIds = new Set((departmentChanges.hardDeletes || []).map((e) => String(e ?? "")));
     return selectedCompanyDepartments.map((row) => {
       const id = String(row?.dept_id ?? "");
+      if (hIds.has(id)) return { ...row, __batchState: "hardDeleted" };
       if (dIds.has(id)) return { ...row, __batchState: "deleted" };
       if (cIds.has(id)) return { ...row, __batchState: "created" };
       if (uIds.has(id)) return { ...row, __batchState: "updated" };
@@ -149,14 +159,14 @@ export function useCompanyDepartmentSetup({ companies = [], departments = [], in
 
   const companyActions = useCompanyActions({
     isSaving, isMutatingAction, selectedCompany, allDepartments, orderedCompanies,
-    dialog, companyDraft,
+    dialog, companyDraft, pendingDeactivatedCompanyIds,
     setOrderedCompanies, setAllDepartments, setCompanyChanges, setDepartmentChanges,
     setDialog, setCompanyDraft, updateSelectedCompanyInQuery,
   });
 
   const deptActions = useDepartmentActions({
     isSaving, isMutatingAction, isSelectedCompanyPendingDeactivation,
-    selectedCompany, dialog, departmentDraft,
+    selectedCompany, dialog, departmentDraft, pendingDeactivatedDepartmentIds,
     setAllDepartments, setDepartmentChanges, setDialog, setDepartmentDraft,
   });
 
@@ -181,7 +191,6 @@ export function useCompanyDepartmentSetup({ companies = [], departments = [], in
   const handleInlineEditCompany = useCallback((row, key, value) => {
     const compId = row?.comp_id;
     if (!compId || isSaving || isMutatingAction) return;
-    if (pendingDeactivatedCompanyIds.has(String(compId))) return;
 
     setOrderedCompanies((prev) =>
       prev.map((c, i) => isSameId(c?.comp_id, compId)
@@ -204,13 +213,12 @@ export function useCompanyDepartmentSetup({ companies = [], departments = [], in
         },
       };
     });
-  }, [isMutatingAction, isSaving, pendingDeactivatedCompanyIds]);
+  }, [isMutatingAction, isSaving]);
 
   // -- inline edit: departments
   const handleInlineEditDepartment = useCallback((row, key, value) => {
     const deptId = row?.dept_id;
     if (!deptId || isSaving || isMutatingAction) return;
-    if (pendingDeactivatedDepartmentIds.has(String(deptId))) return;
 
     setAllDepartments((prev) =>
       prev.map((d, i) => isSameId(d?.dept_id, deptId)
@@ -233,13 +241,14 @@ export function useCompanyDepartmentSetup({ companies = [], departments = [], in
         },
       };
     });
-  }, [isMutatingAction, isSaving, pendingDeactivatedDepartmentIds]);
+  }, [isMutatingAction, isSaving]);
 
   return {
     decoratedCompanies, decoratedDepartments,
     dialog, companyDraft, departmentDraft, isSaving, isMutatingAction,
     pendingSummary, hasPendingChanges,
     pendingDeactivatedCompanyIds, pendingDeactivatedDepartmentIds,
+    pendingHardDeletedCompanyIds, pendingHardDeletedDepartmentIds,
     selectedCompany, isSelectedCompanyPendingDeactivation,
     setDialog, setCompanyDraft, setDepartmentDraft,
     handleCompanyRowClick, handleCancelBatch, handleSaveBatch, closeDialog,

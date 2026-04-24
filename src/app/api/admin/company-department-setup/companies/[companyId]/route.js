@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getSupabase } from "@/modules/admin/company-department-setup/utils/supabase.js";
 import {
   deleteCompanyRecord,
+  hardDeleteCompanyRecord,
   updateCompanyRecord,
 } from "@/modules/admin/company-department-setup/services/companyDepartmentSetup.service.js";
 
@@ -92,8 +93,13 @@ export async function DELETE(request, context) {
       throw new Error("Invalid company id.");
     }
 
+    const url = new URL(request.url);
+    const permanent = url.searchParams.get("permanent") === "true";
+
     const supabase = await getSupabase();
-    const result = await deleteCompanyRecord(supabase, companyId);
+    const result = permanent
+      ? await hardDeleteCompanyRecord(supabase, companyId)
+      : await deleteCompanyRecord(supabase, companyId);
 
     return NextResponse.json(
       {
@@ -106,7 +112,7 @@ export async function DELETE(request, context) {
     return NextResponse.json(
       {
         ok: false,
-        error: error?.message || "Failed to deactivate company.",
+        error: error?.message || "Failed to delete company.",
       },
       { status: 500, headers: noStoreHeaders() },
     );

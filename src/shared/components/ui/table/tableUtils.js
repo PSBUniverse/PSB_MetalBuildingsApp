@@ -12,6 +12,7 @@ export const BATCH_STATE_NONE = "none";
 export const BATCH_STATE_CREATED = "created";
 export const BATCH_STATE_UPDATED = "updated";
 export const BATCH_STATE_DELETED = "deleted";
+export const BATCH_STATE_HARD_DELETED = "hardDeleted";
 export const BATCH_STATE_REORDERED = "reordered";
 
 export function isPlainObject(value) {
@@ -128,6 +129,7 @@ export function normalizeBatchState(value) {
   if (raw === BATCH_STATE_CREATED || raw === "new") return BATCH_STATE_CREATED;
   if (raw === BATCH_STATE_UPDATED || raw === "edited") return BATCH_STATE_UPDATED;
   if (raw === BATCH_STATE_DELETED || raw === "deactivated") return BATCH_STATE_DELETED;
+  if (raw === BATCH_STATE_HARD_DELETED || raw === "harddeleted") return BATCH_STATE_HARD_DELETED;
   if (raw === BATCH_STATE_REORDERED) return BATCH_STATE_REORDERED;
 
   return BATCH_STATE_NONE;
@@ -158,6 +160,7 @@ export function resolveBatchClassName(batchState) {
   if (normalizedState === BATCH_STATE_CREATED) return "psb-row-created";
   if (normalizedState === BATCH_STATE_UPDATED) return "psb-row-updated";
   if (normalizedState === BATCH_STATE_DELETED) return "psb-row-deleted";
+  if (normalizedState === BATCH_STATE_HARD_DELETED) return "psb-row-deleted";
   if (normalizedState === BATCH_STATE_REORDERED) return "psb-row-updated";
 
   return "";

@@ -92,6 +92,20 @@ export async function deleteCardById(supabase, cardId) {
   }
 }
 
+export async function hardDeleteCardById(supabase, cardId) {
+  try {
+    const { error } = await supabase
+      .from(TABLE)
+      .delete()
+      .eq("card_id", cardId);
+
+    if (error) throw error;
+    return { cardId };
+  } catch (err) {
+    throw new Error(err.message || "Failed to permanently delete card");
+  }
+}
+
 export async function updateCardOrderBatch(supabase, orderedIds) {
   const results = [];
 

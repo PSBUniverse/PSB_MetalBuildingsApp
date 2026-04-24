@@ -1,0 +1,69 @@
+﻿
+> psbuniverse@0.1.0 build
+> next build
+
+Γû▓ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+Γ£ô Compiled successfully in 8.4s
+  Running TypeScript ...
+  Finished TypeScript in 355ms ...
+  Collecting page data using 15 workers ...
+  Generating static pages using 15 workers (0/12) ...
+  Generating static pages using 15 workers (3/12) 
+  Generating static pages using 15 workers (6/12) 
+  Generating static pages using 15 workers (9/12) 
+Γ£ô Generating static pages using 15 workers (12/12) in 770ms
+  Finalizing page optimization ...
+
+Route (app)
+Γöî Γùï /
+Γö£ Γùï /_not-found
+Γö£ ╞Æ /[...modulePath]
+Γö£ ╞Æ /admin/application-setup
+Γö£ ╞Æ /admin/card-module-setup
+Γö£ ╞Æ /admin/company-department-setup
+Γö£ Γùï /admin/status-setup
+Γö£ ╞Æ /admin/user-master-setup
+Γö£ ╞Æ /api/admin/application-setup/applications
+Γö£ ╞Æ /api/admin/application-setup/applications/[appId]
+Γö£ ╞Æ /api/admin/application-setup/order
+Γö£ ╞Æ /api/admin/application-setup/roles
+Γö£ ╞Æ /api/admin/application-setup/roles/[roleId]
+Γö£ ╞Æ /api/admin/card-module-setup/card-groups
+Γö£ ╞Æ /api/admin/card-module-setup/card-groups-order
+Γö£ ╞Æ /api/admin/card-module-setup/card-groups/[groupId]
+Γö£ ╞Æ /api/admin/card-module-setup/cards
+Γö£ ╞Æ /api/admin/card-module-setup/cards-order
+Γö£ ╞Æ /api/admin/card-module-setup/cards/[cardId]
+Γö£ ╞Æ /api/admin/company-department-setup/companies
+Γö£ ╞Æ /api/admin/company-department-setup/companies/[companyId]
+Γö£ ╞Æ /api/admin/company-department-setup/departments
+Γö£ ╞Æ /api/admin/company-department-setup/departments/[departmentId]
+Γö£ ╞Æ /api/admin/status-setup/statuses
+Γö£ ╞Æ /api/admin/status-setup/statuses/[statusId]
+Γö£ ╞Æ /api/admin/user-master-setup/lookups
+Γö£ ╞Æ /api/admin/user-master-setup/users
+Γö£ ╞Æ /api/admin/user-master-setup/users/[userId]
+Γö£ ╞Æ /api/admin/user-master-setup/users/[userId]/access
+Γö£ ╞Æ /api/databind/export
+Γö£ ╞Æ /api/databind/options
+Γö£ ╞Æ /api/databind/query
+Γö£ ╞Æ /api/databind/schema
+Γö£ ╞Æ /api/examples/data-table
+Γö£ ╞Æ /api/examples/data-table/export
+Γö£ ╞Æ /api/examples/data-table/options
+Γö£ ╞Æ /api/me/bootstrap
+Γö£ ╞Æ /psbpages/dashboard
+Γö£ Γùï /psbpages/examples
+Γö£ Γùï /psbpages/examples/data-table
+Γö£ Γùï /psbpages/login
+Γöö Γùï /psbpages/profile
+
+
+╞Æ Proxy (Middleware)
+
+Γùï  (Static)   prerendered as static content
+╞Æ  (Dynamic)  server-rendered on demand
+
