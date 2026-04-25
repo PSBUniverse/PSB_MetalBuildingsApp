@@ -32,6 +32,23 @@ function createModuleUrl(modulePath) {
   return moduleUrl;
 }
 
+function createPageImporter(modulePath) {
+  const moduleDir = path.dirname(modulePath);
+
+  return async function importPage(pageName) {
+    const pagePath = path.join(moduleDir, "pages", `${pageName}.js`);
+
+    try {
+      await fs.access(pagePath);
+    } catch {
+      return null;
+    }
+
+    const pageUrl = createModuleUrl(pagePath);
+    return import(/* webpackIgnore: true */ pageUrl.href);
+  };
+}
+
 export async function loadModules() {
   const modules = [];
   const seenModuleKeys = new Set();
@@ -64,6 +81,8 @@ export async function loadModules() {
       if (seenModuleKeys.has(moduleKey)) {
         continue;
       }
+
+      moduleDefinition._importPage = createPageImporter(modulePath);
 
       seenModuleKeys.add(moduleKey);
       modules.push(moduleDefinition);

@@ -184,10 +184,11 @@ Rules:
 
 1. Read Section 6 (Module Structure Rules) and Section 7 (Module Contract) below first
 2. Copy an existing module folder as your template (e.g., `src/modules/admin/application-setup/`)
-3. Rename the folder and update `index.js` with your module's key, app_id, name, and routes
+3. Rename the folder and update `index.js` with your module's key, app_id, name, and routes (use `page` string, not component import)
 4. Register your app and cards in the database (see Section 8)
-5. Build your pages and components inside your module folder
-6. Test with both authorized and unauthorized users
+5. Build your pages inside the `pages/` folder (server components only — no `"use client"`)
+6. Build client components inside `components/` (use `"use client"` here)
+7. Test with both authorized and unauthorized users
 
 ### Troubleshooting Common Setup Issues
 
@@ -316,6 +317,23 @@ Hard rule:
 1. Never remove index.js
 2. Core cannot load module without it
 
+Page component rule:
+1. Page files in `pages/` must be server components
+2. Do NOT put `"use client"` at the top of a page file
+3. For client-side interactivity, import client components from the page:
+
+```js
+// pages/DashboardPage.js  ← server component (no directive)
+import MyWidget from "../components/MyWidget";  // ← "use client" goes here
+
+export default function DashboardPage() {
+  return <MyWidget />;
+}
+```
+
+This is required because pages are loaded via Node.js runtime import (not webpack-bundled).
+Putting `"use client"` on a page file will break webpack's client boundary detection.
+
 ---
 
 ## 7) Module Contract
@@ -340,7 +358,7 @@ Field meaning:
 3. name
    - display name in dashboard
 4. routes
-   - route list with path and component
+   - route list with path and page name (string matching the filename in `pages/` without extension)
 
 Why app_id is critical:
 1. Core RBAC checks app access by app_id
@@ -354,10 +372,14 @@ export default {
   app_id: 1001,
   name: "Gutter",
   routes: [
-    { path: "/gutter", component: GutterPage },
+    { path: "/gutter", page: "DashboardPage" },
   ],
 };
 ```
+
+The `page` value must be a string matching a file in your module's `pages/` folder.
+For the example above, the system resolves `src/modules/gutter/pages/DashboardPage.js`.
+You do not need to import the page component — core auto-discovers it at runtime.
 
 ---
 
@@ -448,18 +470,26 @@ Data flow in module:
 ## 11) Routing Rules
 
 Rules:
-1. Define routes in module src/index.js
-2. Route path must start with /
-3. Route path should match DB card route_path
-4. Core resolves and gates route access
+1. Define routes in module `index.js` with `path` and `page` fields
+2. Route `path` must start with `/`
+3. Route `path` should match DB card `route_path`
+4. Route `page` must be a string matching a filename in your module's `pages/` folder (without `.js` extension)
+5. Core auto-discovers your module and auto-resolves page files — no core file edits required
+
+How auto-discovery works:
+1. Core scans `src/modules/` for folders containing `index.js`
+2. Each module's routes are registered automatically
+3. When a user visits a route, core matches it to your module and loads the page from your `pages/` folder
+4. You never need to edit any file outside your module folder
 
 Why this matters:
 1. If code route and DB route differ, UI and permission logic drift
 2. Drift causes wrong navigation and wrong feature visibility
 
 Example:
-1. DB card route_path = /gutter/settings
-2. Module route path must also be /gutter/settings
+1. DB card route_path = `/gutter/settings`
+2. Module route: `{ path: "/gutter/settings", page: "SettingsPage" }`
+3. File must exist: `src/modules/gutter/pages/SettingsPage.js`
 
 ---
 
