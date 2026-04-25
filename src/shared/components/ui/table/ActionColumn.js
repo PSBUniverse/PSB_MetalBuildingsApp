@@ -5,6 +5,8 @@ import Button from "@/shared/components/ui/controls/Button";
 import Modal from "@/shared/components/ui/overlay/Modal";
 import AppIcon from "@/shared/components/ui/AppIcon";
 
+import { normalizeBatchState, BATCH_STATE_HARD_DELETED } from "@/shared/components/ui/table/tableUtils";
+
 function normalizeActionType(value) {
   const raw = String(value || "secondary").trim().toLowerCase();
 
@@ -65,6 +67,17 @@ function resolveIconOrder(iconName) {
   return ACTION_ICON_ORDER[key] || 5;
 }
 
+/**
+ * Detects whether a row is in a "pending removal" batch state.
+ * Only hardDeleted and __pendingRemove trigger this — deactivated/soft-deleted
+ * rows keep their normal actions (Restore, Edit, etc.).
+ */
+function isRowPendingRemoval(row) {
+  if (Boolean(row?.__pendingRemove)) return true;
+  const state = normalizeBatchState(row?.__batchState);
+  return state === BATCH_STATE_HARD_DELETED;
+}
+
 function resolveVisibleActions(actions, row) {
   return actions
     .filter((action) => {
@@ -122,12 +135,14 @@ function resolveConfirmationMessage(action, row) {
   return String(customMessage || fallbackMessage).trim() || fallbackMessage;
 }
 
-export default function ActionColumn({ row, actions = [], onAction }) {
+export default function ActionColumn({ row, actions = [], onAction, onUndoBatchAction }) {
   const [pendingConfirmation, setPendingConfirmation] = useState(null);
 
+  const pendingRemoval = isRowPendingRemoval(row);
+
   const visibleActions = useMemo(
-    () => resolveVisibleActions(Array.isArray(actions) ? actions : [], row),
-    [actions, row],
+    () => pendingRemoval ? [] : resolveVisibleActions(Array.isArray(actions) ? actions : [], row),
+    [actions, row, pendingRemoval],
   );
 
   const emitActionDirectly = (action) => {
@@ -166,6 +181,22 @@ export default function ActionColumn({ row, actions = [], onAction }) {
 
     emitActionDirectly(action);
   };
+
+  if (pendingRemoval && typeof onUndoBatchAction === "function") {
+    return (
+      <div className="psb-ui-table-actions-stack">
+        <button
+          type="button"
+          className="table-actions-icon-btn action-color-restore"
+          onClick={() => onUndoBatchAction(row)}
+          title="Undo Delete"
+          aria-label="Undo Delete"
+        >
+          <AppIcon icon="rotate-left" />
+        </button>
+      </div>
+    );
+  }
 
   if (visibleActions.length === 0) {
     return null;

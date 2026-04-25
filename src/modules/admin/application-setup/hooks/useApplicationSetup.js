@@ -262,6 +262,18 @@ export function useApplicationSetup({ applications = [], roles = [], initialSele
     toastSuccess("Application deletion staged for Save Batch.", "Batching");
   }, [allRoles, isMutatingAction, isSavingOrder, orderedApplications, selectedApp?.app_id, updateSelectedApplicationInQuery]);
 
+  const unstageHardDeleteApplication = useCallback((row) => {
+    const appId = String(row?.app_id ?? "");
+    if (!appId || isSavingOrder || isMutatingAction) return;
+    const linkedRoleIds = allRoles.filter((r) => isSameId(r?.app_id, appId)).map((r) => String(r?.role_id ?? ""));
+    setPendingBatch((prev) => ({
+      ...prev,
+      appHardDeletes: (prev.appHardDeletes || []).filter((id) => !isSameId(id, appId)),
+      roleHardDeletes: (prev.roleHardDeletes || []).filter((id) => !linkedRoleIds.some((lr) => isSameId(lr, id))),
+    }));
+    toastSuccess("Application deletion un-staged.", "Batching");
+  }, [allRoles, isMutatingAction, isSavingOrder]);
+
   const openAddApplicationDialog = useCallback(() => {
     if (isSavingOrder || isMutatingAction) return;
     setApplicationDraft({ name: "", desc: "" });
@@ -471,7 +483,7 @@ export function useApplicationSetup({ applications = [], roles = [], initialSele
     setDialog, setApplicationDraft, setRoleDraft,
     handleApplicationRowClick, handleApplicationReorder, handleCancelOrderChanges, handleSaveOrderChanges,
     closeDialog, openEditApplicationDialog, openToggleApplicationDialog,
-    openDeactivateApplicationDialog, stageHardDeleteApplication, openAddApplicationDialog,
+    openDeactivateApplicationDialog, stageHardDeleteApplication, unstageHardDeleteApplication, openAddApplicationDialog,
     submitAddApplication, submitEditApplication, submitToggleApplication, submitDeactivateApplication,
     handleInlineEditApplication, handleInlineEditRole,
     editingAppId, startEditingApp, stopEditingApp,

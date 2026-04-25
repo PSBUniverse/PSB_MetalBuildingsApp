@@ -20,7 +20,7 @@ export function CardPanel({
   selectedGroup, decoratedSelectedGroupCards, isSaving, isMutatingAction,
   pendingDeactivatedCardIds, pendingHardDeletedCardIds, handleCardReorder,
   editingCardId, onStartEditing, onStopEditing, onInlineEdit,
-  openToggleCardDialog, openDeactivateCardDialog, stageHardDeleteCard,
+  openToggleCardDialog, openDeactivateCardDialog, stageHardDeleteCard, onUndoBatchAction,
 }) {
   const columns = useMemo(() => [
     {
@@ -109,22 +109,22 @@ export function CardPanel({
 
   const actions = useMemo(() => [
     { key: "edit-card", label: "Edit", type: "secondary", icon: "pen",
-      visible: (r) => r?.__batchState !== "hardDeleted" && String(r?.card_id ?? "") !== String(editingCardId ?? ""),
+      visible: (r) => String(r?.card_id ?? "") !== String(editingCardId ?? ""),
       disabled: (r) => isSaving || isMutatingAction,
       onClick: (r) => onStartEditing(r) },
     { key: "cancel-edit-card", label: "Cancel", type: "secondary", icon: "xmark",
       visible: (r) => String(r?.card_id ?? "") === String(editingCardId ?? ""),
       onClick: () => onStopEditing() },
     { key: "restore-card", label: "Restore", type: "secondary", icon: "rotate-left",
-      visible: (r) => r?.__batchState !== "hardDeleted" && (!Boolean(r?.is_active_bool) || pendingDeactivatedCardIds.has(String(r?.card_id ?? ""))) && String(r?.card_id ?? "") !== String(editingCardId ?? ""),
+      visible: (r) => (!Boolean(r?.is_active_bool) || pendingDeactivatedCardIds.has(String(r?.card_id ?? ""))) && String(r?.card_id ?? "") !== String(editingCardId ?? ""),
       disabled: (r) => isSaving || isMutatingAction,
       onClick: (r) => openToggleCardDialog(r) },
     { key: "deactivate-card", label: "Deactivate", type: "secondary", icon: "ban",
-      visible: (r) => r?.__batchState !== "hardDeleted" && Boolean(r?.is_active_bool) && !pendingDeactivatedCardIds.has(String(r?.card_id ?? "")) && String(r?.card_id ?? "") !== String(editingCardId ?? ""),
+      visible: (r) => Boolean(r?.is_active_bool) && !pendingDeactivatedCardIds.has(String(r?.card_id ?? "")) && String(r?.card_id ?? "") !== String(editingCardId ?? ""),
       disabled: (r) => isSaving || isMutatingAction,
       onClick: (r) => openDeactivateCardDialog(r) },
     { key: "delete-card", label: "Delete", type: "danger", icon: "trash",
-      visible: (r) => r?.__batchState !== "hardDeleted" && String(r?.card_id ?? "") !== String(editingCardId ?? ""),
+      visible: (r) => String(r?.card_id ?? "") !== String(editingCardId ?? ""),
       confirm: true,
       confirmMessage: (r) => `Permanently delete ${r?.card_name || "this card"}? This action cannot be undone.`,
       disabled: (r) => isSaving || isMutatingAction,
@@ -140,7 +140,8 @@ export function CardPanel({
       {selectedGroup ? (
         <TableZ columns={columns} data={decoratedSelectedGroupCards} rowIdKey="card_id"
           actions={actions} emptyMessage="No cards assigned to this group."
-          draggable={!isSaving && !isMutatingAction} onReorder={handleCardReorder} />
+          draggable={!isSaving && !isMutatingAction} onReorder={handleCardReorder}
+          onUndoBatchAction={onUndoBatchAction} />
       ) : (
         <div className="notice-banner notice-banner-info mb-0">Click a card group row to view its cards.</div>
       )}

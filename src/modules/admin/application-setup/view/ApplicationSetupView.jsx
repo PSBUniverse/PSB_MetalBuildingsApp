@@ -35,6 +35,7 @@ export default function ApplicationSetupView({ applications, roles, initialSelec
             openToggleApplicationDialog={h.openToggleApplicationDialog}
             openDeactivateApplicationDialog={h.openDeactivateApplicationDialog}
           stageHardDeleteApplication={h.stageHardDeleteApplication}
+          onUndoBatchAction={h.unstageHardDeleteApplication}
           />
         </div>
         <div className="col-12 col-xl-6">
@@ -50,6 +51,7 @@ export default function ApplicationSetupView({ applications, roles, initialSelec
             openToggleRoleDialog={h.openToggleRoleDialog}
             openDeactivateRoleDialog={h.openDeactivateRoleDialog}
           stageHardDeleteRole={h.stageHardDeleteRole}
+          onUndoBatchAction={h.unstageHardDeleteRole}
           />
         </div>
       </div>

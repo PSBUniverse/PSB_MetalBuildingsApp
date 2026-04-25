@@ -208,8 +208,23 @@ export function useCompanyActions({
     toastSuccess("Company deletion staged for Save Batch.", "Batching");
   }, [allDepartments, isMutatingAction, isSaving, orderedCompanies, selectedCompany?.comp_id, setAllDepartments, setCompanyChanges, setDepartmentChanges, setOrderedCompanies, updateSelectedCompanyInQuery]);
 
+  const unstageHardDeleteCompany = useCallback((row) => {
+    const companyId = String(row?.comp_id ?? "");
+    if (!companyId || isMutatingAction || isSaving) return;
+    const linkedDeptIds = allDepartments.filter((d) => isSameId(d?.comp_id, companyId)).map((d) => String(d?.dept_id ?? ""));
+    setCompanyChanges((prev) => ({
+      ...prev,
+      hardDeletes: (prev.hardDeletes || []).filter((id) => !isSameId(id, companyId)),
+    }));
+    setDepartmentChanges((prev) => ({
+      ...prev,
+      hardDeletes: (prev.hardDeletes || []).filter((id) => !linkedDeptIds.some((lr) => isSameId(lr, id))),
+    }));
+    toastSuccess("Company deletion un-staged.", "Batching");
+  }, [allDepartments, isMutatingAction, isSaving, setCompanyChanges, setDepartmentChanges]);
+
   return {
     openAddCompanyDialog, openEditCompanyDialog, openToggleCompanyDialog, openDeactivateCompanyDialog,
-    submitAddCompany, submitEditCompany, submitToggleCompany, submitDeactivateCompany, stageHardDeleteCompany,
+    submitAddCompany, submitEditCompany, submitToggleCompany, submitDeactivateCompany, stageHardDeleteCompany, unstageHardDeleteCompany,
   };
 }

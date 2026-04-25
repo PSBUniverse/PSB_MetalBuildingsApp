@@ -220,6 +220,7 @@ export default function TableZ({
   searchDebounceMs = DEFAULT_SEARCH_DEBOUNCE_MS,
   pageSizeOptions = DEFAULT_PAGE_SIZE_OPTIONS,
   exportFormats = ["csv", "excel"],
+  onUndoBatchAction,
 }) {
   const tableId = useId();
   const controlledMode = isPlainObject(state) && typeof onChange === "function";
@@ -854,6 +855,7 @@ export default function TableZ({
       selectedRowId,
       onRowClick,
       onAction: handleAction,
+      onUndoBatchAction,
       emptyMessage,
       emptyColSpan: tableColSpan,
       renderCellContext,

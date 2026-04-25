@@ -37,6 +37,7 @@ export default function CardModuleSetupView({ applications, cardGroups, cards, i
             openToggleGroupDialog={h.openToggleGroupDialog}
             openDeactivateGroupDialog={h.openDeactivateGroupDialog}
           stageHardDeleteGroup={h.stageHardDeleteGroup}
+          onUndoBatchAction={h.unstageHardDeleteGroup}
           />
         </div>
         <div className="col-12 col-xl-7">
@@ -53,6 +54,7 @@ export default function CardModuleSetupView({ applications, cardGroups, cards, i
             openToggleCardDialog={h.openToggleCardDialog}
             openDeactivateCardDialog={h.openDeactivateCardDialog}
           stageHardDeleteCard={h.stageHardDeleteCard}
+          onUndoBatchAction={h.unstageHardDeleteCard}
           />
         </div>
       </div>

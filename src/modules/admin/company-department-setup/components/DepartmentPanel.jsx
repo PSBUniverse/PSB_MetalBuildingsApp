@@ -19,7 +19,7 @@ export function DepartmentPanel({
   selectedCompany, decoratedDepartments, isSaving, isMutatingAction,
   pendingDeactivatedDepartmentIds, pendingHardDeletedDepartmentIds,
   editingDeptId, onStartEditing, onStopEditing, onInlineEdit,
-  openToggleDepartmentDialog, openDeactivateDepartmentDialog, stageHardDeleteDepartment,
+  openToggleDepartmentDialog, openDeactivateDepartmentDialog, stageHardDeleteDepartment, onUndoBatchAction,
 }) {
   const columns = useMemo(() => [
     {
@@ -64,22 +64,22 @@ export function DepartmentPanel({
 
   const actions = useMemo(() => [
     { key: "edit-department", label: "Edit", type: "secondary", icon: "pen",
-      visible: (r) => r?.__batchState !== "hardDeleted" && String(r?.dept_id ?? "") !== String(editingDeptId ?? ""),
+      visible: (r) => String(r?.dept_id ?? "") !== String(editingDeptId ?? ""),
       disabled: (r) => isSaving || isMutatingAction,
       onClick: (r) => onStartEditing(r) },
     { key: "cancel-edit-department", label: "Cancel", type: "secondary", icon: "xmark",
       visible: (r) => String(r?.dept_id ?? "") === String(editingDeptId ?? ""),
       onClick: () => onStopEditing() },
     { key: "restore-department", label: "Restore", type: "secondary", icon: "rotate-left",
-      visible: (r) => r?.__batchState !== "hardDeleted" && (!Boolean(r?.is_active_bool) || pendingDeactivatedDepartmentIds.has(String(r?.dept_id ?? ""))) && String(r?.dept_id ?? "") !== String(editingDeptId ?? ""),
+      visible: (r) => (!Boolean(r?.is_active_bool) || pendingDeactivatedDepartmentIds.has(String(r?.dept_id ?? ""))) && String(r?.dept_id ?? "") !== String(editingDeptId ?? ""),
       disabled: (r) => isSaving || isMutatingAction,
       onClick: (r) => openToggleDepartmentDialog(r) },
     { key: "deactivate-department", label: "Deactivate", type: "secondary", icon: "ban",
-      visible: (r) => r?.__batchState !== "hardDeleted" && Boolean(r?.is_active_bool) && !pendingDeactivatedDepartmentIds.has(String(r?.dept_id ?? "")) && String(r?.dept_id ?? "") !== String(editingDeptId ?? ""),
+      visible: (r) => Boolean(r?.is_active_bool) && !pendingDeactivatedDepartmentIds.has(String(r?.dept_id ?? "")) && String(r?.dept_id ?? "") !== String(editingDeptId ?? ""),
       disabled: (r) => isSaving || isMutatingAction,
       onClick: (r) => openDeactivateDepartmentDialog(r) },
     { key: "delete-department", label: "Delete", type: "danger", icon: "trash",
-      visible: (r) => r?.__batchState !== "hardDeleted" && String(r?.dept_id ?? "") !== String(editingDeptId ?? ""),
+      visible: (r) => String(r?.dept_id ?? "") !== String(editingDeptId ?? ""),
       confirm: true,
       confirmMessage: (r) => `Permanently delete ${r?.dept_name || "this department"}? This action cannot be undone.`,
       disabled: (r) => isSaving || isMutatingAction,
@@ -94,7 +94,8 @@ export function DepartmentPanel({
     >
       {selectedCompany ? (
         <TableZ columns={columns} data={decoratedDepartments} rowIdKey="dept_id"
-          actions={actions} emptyMessage="No departments found for this company." />
+          actions={actions} emptyMessage="No departments found for this company."
+          onUndoBatchAction={onUndoBatchAction} />
       ) : (
         <div className="notice-banner notice-banner-info mb-0">Click a company row to view its departments.</div>
       )}

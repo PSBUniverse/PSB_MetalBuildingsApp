@@ -20,7 +20,7 @@ export function CompanyTable({
   decoratedCompanies, selectedCompany, isSaving, isMutatingAction,
   pendingDeactivatedCompanyIds, pendingHardDeletedCompanyIds, handleCompanyRowClick,
   editingCompanyId, onStartEditing, onStopEditing, onInlineEdit,
-  openToggleCompanyDialog, openDeactivateCompanyDialog, stageHardDeleteCompany,
+  openToggleCompanyDialog, openDeactivateCompanyDialog, stageHardDeleteCompany, onUndoBatchAction,
 }) {
   const columns = useMemo(() => [
     {
@@ -96,22 +96,22 @@ export function CompanyTable({
 
   const actions = useMemo(() => [
     { key: "edit-company", label: "Edit", type: "secondary", icon: "pen",
-      visible: (r) => r?.__batchState !== "hardDeleted" && String(r?.comp_id ?? "") !== String(editingCompanyId ?? ""),
+      visible: (r) => String(r?.comp_id ?? "") !== String(editingCompanyId ?? ""),
       disabled: (r) => isSaving || isMutatingAction,
       onClick: (r) => onStartEditing(r) },
     { key: "cancel-edit-company", label: "Cancel", type: "secondary", icon: "xmark",
       visible: (r) => String(r?.comp_id ?? "") === String(editingCompanyId ?? ""),
       onClick: () => onStopEditing() },
     { key: "restore-company", label: "Restore", type: "secondary", icon: "rotate-left",
-      visible: (r) => r?.__batchState !== "hardDeleted" && (!Boolean(r?.is_active_bool) || pendingDeactivatedCompanyIds.has(String(r?.comp_id ?? ""))) && String(r?.comp_id ?? "") !== String(editingCompanyId ?? ""),
+      visible: (r) => (!Boolean(r?.is_active_bool) || pendingDeactivatedCompanyIds.has(String(r?.comp_id ?? ""))) && String(r?.comp_id ?? "") !== String(editingCompanyId ?? ""),
       disabled: (r) => isSaving || isMutatingAction,
       onClick: (r) => openToggleCompanyDialog(r) },
     { key: "deactivate-company", label: "Deactivate", type: "secondary", icon: "ban",
-      visible: (r) => r?.__batchState !== "hardDeleted" && Boolean(r?.is_active_bool) && !pendingDeactivatedCompanyIds.has(String(r?.comp_id ?? "")) && String(r?.comp_id ?? "") !== String(editingCompanyId ?? ""),
+      visible: (r) => Boolean(r?.is_active_bool) && !pendingDeactivatedCompanyIds.has(String(r?.comp_id ?? "")) && String(r?.comp_id ?? "") !== String(editingCompanyId ?? ""),
       disabled: (r) => isSaving || isMutatingAction,
       onClick: (r) => openDeactivateCompanyDialog(r) },
     { key: "delete-company", label: "Delete", type: "danger", icon: "trash",
-      visible: (r) => r?.__batchState !== "hardDeleted" && String(r?.comp_id ?? "") !== String(editingCompanyId ?? ""),
+      visible: (r) => String(r?.comp_id ?? "") !== String(editingCompanyId ?? ""),
       confirm: true,
       confirmMessage: (r) => `Permanently delete ${r?.comp_name || "this company"}? This action cannot be undone.`,
       disabled: (r) => isSaving || isMutatingAction,
@@ -123,7 +123,8 @@ export function CompanyTable({
     <Card title="Companies" subtitle="Master company records.">
       <TableZ columns={columns} data={decoratedCompanies} rowIdKey="comp_id"
         selectedRowId={selectedCompany?.comp_id ?? null} onRowClick={handleCompanyRowClick}
-        actions={actions} emptyMessage="No companies found." />
+        actions={actions} emptyMessage="No companies found."
+        onUndoBatchAction={onUndoBatchAction} />
     </Card>
   );
 }

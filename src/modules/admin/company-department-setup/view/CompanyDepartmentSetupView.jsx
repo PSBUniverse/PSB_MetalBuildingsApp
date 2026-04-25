@@ -35,6 +35,7 @@ export default function CompanyDepartmentSetupView({ companies, departments, ini
             openToggleCompanyDialog={h.openToggleCompanyDialog}
             openDeactivateCompanyDialog={h.openDeactivateCompanyDialog}
           stageHardDeleteCompany={h.stageHardDeleteCompany}
+          onUndoBatchAction={h.unstageHardDeleteCompany}
           />
         </div>
         <div className="col-12 col-xl-6">
@@ -50,6 +51,7 @@ export default function CompanyDepartmentSetupView({ companies, departments, ini
             openToggleDepartmentDialog={h.openToggleDepartmentDialog}
             openDeactivateDepartmentDialog={h.openDeactivateDepartmentDialog}
           stageHardDeleteDepartment={h.stageHardDeleteDepartment}
+          onUndoBatchAction={h.unstageHardDeleteDepartment}
           />
         </div>
       </div>

@@ -16,7 +16,7 @@ function batchMarker(batchState) {
 export function RolePanel({
   selectedApp, decoratedSelectedAppRoles, isSavingOrder, isMutatingAction,
   pendingDeactivatedRoleIds, pendingHardDeletedRoleIds, editingRoleId, onStartEditing, onStopEditing, onInlineEdit,
-  openToggleRoleDialog, openDeactivateRoleDialog, stageHardDeleteRole,
+  openToggleRoleDialog, openDeactivateRoleDialog, stageHardDeleteRole, onUndoBatchAction,
 }) {
   const columns = useMemo(() => [
     {
@@ -62,7 +62,7 @@ export function RolePanel({
   const actions = useMemo(() => [
     {
       key: "edit-role", label: "Edit", type: "secondary", icon: "pen",
-      visible: (r) => r?.__batchState !== "hardDeleted" && String(r?.role_id ?? "") !== String(editingRoleId ?? ""),
+      visible: (r) => String(r?.role_id ?? "") !== String(editingRoleId ?? ""),
       disabled: (r) => isSavingOrder || isMutatingAction,
       onClick: (r) => onStartEditing(r),
     },
@@ -73,19 +73,19 @@ export function RolePanel({
     },
     {
       key: "restore-role", label: "Restore", type: "secondary", icon: "rotate-left",
-      visible: (r) => r?.__batchState !== "hardDeleted" && (!Boolean(r?.is_active_bool) || pendingDeactivatedRoleIds.has(String(r?.role_id ?? ""))) && String(r?.role_id ?? "") !== String(editingRoleId ?? ""),
+      visible: (r) => (!Boolean(r?.is_active_bool) || pendingDeactivatedRoleIds.has(String(r?.role_id ?? ""))) && String(r?.role_id ?? "") !== String(editingRoleId ?? ""),
       disabled: (r) => isSavingOrder || isMutatingAction,
       onClick: (r) => openToggleRoleDialog(r),
     },
     {
       key: "deactivate-role", label: "Deactivate", type: "secondary", icon: "ban",
-      visible: (r) => r?.__batchState !== "hardDeleted" && Boolean(r?.is_active_bool) && !pendingDeactivatedRoleIds.has(String(r?.role_id ?? "")) && String(r?.role_id ?? "") !== String(editingRoleId ?? ""),
+      visible: (r) => Boolean(r?.is_active_bool) && !pendingDeactivatedRoleIds.has(String(r?.role_id ?? "")) && String(r?.role_id ?? "") !== String(editingRoleId ?? ""),
       disabled: (r) => isSavingOrder || isMutatingAction,
       onClick: (r) => openDeactivateRoleDialog(r),
     },
     {
       key: "delete-role", label: "Delete", type: "danger", icon: "trash",
-      visible: (r) => r?.__batchState !== "hardDeleted" && String(r?.role_id ?? "") !== String(editingRoleId ?? ""),
+      visible: (r) => String(r?.role_id ?? "") !== String(editingRoleId ?? ""),
       confirm: true,
       confirmMessage: (r) => `Permanently delete ${r?.role_name || "this role"}? This action cannot be undone.`,
       disabled: (r) => isSavingOrder || isMutatingAction,
@@ -103,6 +103,7 @@ export function RolePanel({
         <TableZ
           columns={columns} data={decoratedSelectedAppRoles} rowIdKey="role_id"
           actions={actions} emptyMessage="No roles assigned to this application."
+          onUndoBatchAction={onUndoBatchAction}
         />
       ) : (
         <div className="notice-banner notice-banner-info mb-0">Click an application row to view its roles.</div>

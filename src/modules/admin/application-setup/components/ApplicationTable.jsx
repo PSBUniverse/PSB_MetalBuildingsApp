@@ -18,7 +18,7 @@ export function ApplicationTable({
   decoratedApplications, selectedApp, isSavingOrder, isMutatingAction,
   pendingDeactivatedAppIds, pendingHardDeletedAppIds, handleApplicationRowClick, handleApplicationReorder,
   editingAppId, onStartEditing, onStopEditing, onInlineEdit,
-  openToggleApplicationDialog, openDeactivateApplicationDialog, stageHardDeleteApplication,
+  openToggleApplicationDialog, openDeactivateApplicationDialog, stageHardDeleteApplication, onUndoBatchAction,
 }) {
   const columns = useMemo(() => [
     {
@@ -66,7 +66,7 @@ export function ApplicationTable({
   const actions = useMemo(() => [
     {
       key: "edit-application", label: "Edit", type: "secondary", icon: "pen",
-      visible: (r) => r?.__batchState !== "hardDeleted" && String(r?.app_id ?? "") !== String(editingAppId ?? ""),
+      visible: (r) => String(r?.app_id ?? "") !== String(editingAppId ?? ""),
       disabled: (r) => isSavingOrder || isMutatingAction,
       onClick: (r) => onStartEditing(r),
     },
@@ -77,19 +77,19 @@ export function ApplicationTable({
     },
     {
       key: "restore-application", label: "Restore", type: "secondary", icon: "rotate-left",
-      visible: (r) => r?.__batchState !== "hardDeleted" && (!Boolean(r?.is_active_bool) || pendingDeactivatedAppIds.has(String(r?.app_id ?? ""))) && String(r?.app_id ?? "") !== String(editingAppId ?? ""),
+      visible: (r) => (!Boolean(r?.is_active_bool) || pendingDeactivatedAppIds.has(String(r?.app_id ?? ""))) && String(r?.app_id ?? "") !== String(editingAppId ?? ""),
       disabled: (r) => isSavingOrder || isMutatingAction,
       onClick: (r) => openToggleApplicationDialog(r),
     },
     {
       key: "deactivate-application", label: "Deactivate", type: "secondary", icon: "ban",
-      visible: (r) => r?.__batchState !== "hardDeleted" && Boolean(r?.is_active_bool) && !pendingDeactivatedAppIds.has(String(r?.app_id ?? "")) && String(r?.app_id ?? "") !== String(editingAppId ?? ""),
+      visible: (r) => Boolean(r?.is_active_bool) && !pendingDeactivatedAppIds.has(String(r?.app_id ?? "")) && String(r?.app_id ?? "") !== String(editingAppId ?? ""),
       disabled: (r) => isSavingOrder || isMutatingAction,
       onClick: (r) => openDeactivateApplicationDialog(r),
     },
     {
       key: "delete-application", label: "Delete", type: "danger", icon: "trash",
-      visible: (r) => r?.__batchState !== "hardDeleted" && String(r?.app_id ?? "") !== String(editingAppId ?? ""),
+      visible: (r) => String(r?.app_id ?? "") !== String(editingAppId ?? ""),
       confirm: true,
       confirmMessage: (r) => `Permanently delete ${r?.app_name || "this application"}? This action cannot be undone.`,
       disabled: (r) => isSavingOrder || isMutatingAction,
@@ -105,6 +105,7 @@ export function ApplicationTable({
         selectedRowId={selectedApp?.app_id ?? null} onRowClick={handleApplicationRowClick}
         actions={actions} draggable={!isSavingOrder && !isMutatingAction}
         onReorder={handleApplicationReorder} emptyMessage="No applications found."
+        onUndoBatchAction={onUndoBatchAction}
       />
     </Card>
   );

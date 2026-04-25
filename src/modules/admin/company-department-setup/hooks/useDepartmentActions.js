@@ -161,8 +161,18 @@ export function useDepartmentActions({
     toastSuccess("Department deletion staged for Save Batch.", "Batching");
   }, [isMutatingAction, isSaving, setAllDepartments, setDepartmentChanges]);
 
+  const unstageHardDeleteDepartment = useCallback((row) => {
+    const deptId = String(row?.dept_id ?? "");
+    if (!deptId || isMutatingAction || isSaving) return;
+    setDepartmentChanges((prev) => ({
+      ...prev,
+      hardDeletes: (prev.hardDeletes || []).filter((id) => !isSameId(id, deptId)),
+    }));
+    toastSuccess("Department deletion un-staged.", "Batching");
+  }, [isMutatingAction, isSaving, setDepartmentChanges]);
+
   return {
     openAddDepartmentDialog, openEditDepartmentDialog, openToggleDepartmentDialog, openDeactivateDepartmentDialog,
-    submitAddDepartment, submitEditDepartment, submitToggleDepartment, submitDeactivateDepartment, stageHardDeleteDepartment,
+    submitAddDepartment, submitEditDepartment, submitToggleDepartment, submitDeactivateDepartment, stageHardDeleteDepartment, unstageHardDeleteDepartment,
   };
 }

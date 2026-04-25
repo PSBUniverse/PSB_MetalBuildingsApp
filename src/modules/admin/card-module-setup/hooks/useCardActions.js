@@ -184,8 +184,18 @@ export function useCardActions({
     toastSuccess("Card deletion staged for Save Batch.", "Batching");
   }, [isMutatingAction, isSaving, setAllCards, setPendingBatch]);
 
+  const unstageHardDeleteCard = useCallback((row) => {
+    const cardId = String(row?.card_id ?? "");
+    if (!cardId || isSaving || isMutatingAction) return;
+    setPendingBatch((prev) => ({
+      ...prev,
+      cardHardDeletes: (prev.cardHardDeletes || []).filter((id) => !isSameId(id, cardId)),
+    }));
+    toastSuccess("Card deletion un-staged.", "Batching");
+  }, [isMutatingAction, isSaving, setPendingBatch]);
+
   return {
     openAddCardDialog, openEditCardDialog, openToggleCardDialog, openDeactivateCardDialog,
-    submitAddCard, submitEditCard, submitToggleCard, submitDeactivateCard, stageHardDeleteCard,
+    submitAddCard, submitEditCard, submitToggleCard, submitDeactivateCard, stageHardDeleteCard, unstageHardDeleteCard,
   };
 }

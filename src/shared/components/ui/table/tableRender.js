@@ -26,6 +26,7 @@ function ActionCell({
   dragHandleProps,
   actions,
   onAction,
+  onUndoBatchAction,
 }) {
   return (
     <td
@@ -61,6 +62,7 @@ function ActionCell({
                 rowIndex,
               })
             }
+            onUndoBatchAction={onUndoBatchAction}
           />
         </div>
       ) : (
@@ -74,6 +76,7 @@ function ActionCell({
               rowIndex,
             })
           }
+          onUndoBatchAction={onUndoBatchAction}
         />
       )}
     </td>
@@ -119,6 +122,7 @@ function SortableBodyRow({
   onRowClick,
   actions,
   onAction,
+  onUndoBatchAction,
   renderCellContext,
   emptyValue,
   striped,
@@ -162,6 +166,7 @@ function SortableBodyRow({
           dragHandleProps={{ ...attributes, ...listeners }}
           actions={actions}
           onAction={onAction}
+          onUndoBatchAction={onUndoBatchAction}
         />
       ) : null}
       <DataRowCells
@@ -189,6 +194,7 @@ function StaticBodyRow({
   onRowClick,
   actions,
   onAction,
+  onUndoBatchAction,
   renderCellContext,
   emptyValue,
   striped,
@@ -224,6 +230,7 @@ function StaticBodyRow({
           draggable={false}
           actions={actions}
           onAction={onAction}
+          onUndoBatchAction={onUndoBatchAction}
         />
       ) : null}
       <DataRowCells
@@ -250,6 +257,7 @@ export function renderTableBody({
   selectedRowId,
   onRowClick,
   onAction,
+  onUndoBatchAction,
   emptyMessage,
   emptyColSpan,
   renderCellContext,
@@ -294,6 +302,7 @@ export function renderTableBody({
                 onRowClick={onRowClick}
                 actions={actions}
                 onAction={onAction}
+                onUndoBatchAction={onUndoBatchAction}
                 renderCellContext={renderCellContext}
                 emptyValue={emptyValue}
                 striped={striped}
@@ -325,6 +334,7 @@ export function renderTableBody({
             onRowClick={onRowClick}
             actions={actions}
             onAction={onAction}
+            onUndoBatchAction={onUndoBatchAction}
             renderCellContext={renderCellContext}
             emptyValue={emptyValue}
             striped={striped}

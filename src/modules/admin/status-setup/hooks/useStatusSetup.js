@@ -167,6 +167,16 @@ export function useStatusSetup({ statuses = [] }) {
     toastSuccess("Status deletion staged for Save Batch.", "Batching");
   }, [isMutatingAction, isSavingBatch]);
 
+  const unstageHardDeleteStatus = useCallback((row) => {
+    const statusId = String(row?.status_id ?? "");
+    if (!statusId || isMutatingAction || isSavingBatch) return;
+    setStatusChanges((prev) => ({
+      ...prev,
+      hardDeletes: (prev.hardDeletes || []).filter((id) => !isSameId(id, statusId)),
+    }));
+    toastSuccess("Status deletion un-staged.", "Batching");
+  }, [isMutatingAction, isSavingBatch]);
+
   // -- batch actions
   const handleCancelBatch = useCallback(() => {
     if (isMutatingAction || isSavingBatch || !hasPendingChanges) return;
@@ -406,6 +416,7 @@ export function useStatusSetup({ statuses = [] }) {
     openToggleStatusDialog,
     openDeactivateStatusDialog,
     stageHardDeleteStatus,
+    unstageHardDeleteStatus,
 
     // batch actions
     handleCancelBatch,

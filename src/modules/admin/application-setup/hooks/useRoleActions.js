@@ -201,8 +201,18 @@ export function useRoleActions({
     toastSuccess("Role deletion staged for Save Batch.", "Batching");
   }, [isMutatingAction, isSavingOrder, setAllRoles, setPendingBatch]);
 
+  const unstageHardDeleteRole = useCallback((row) => {
+    const roleId = String(row?.role_id ?? "");
+    if (!roleId || isSavingOrder || isMutatingAction) return;
+    setPendingBatch((prev) => ({
+      ...prev,
+      roleHardDeletes: (prev.roleHardDeletes || []).filter((id) => !isSameId(id, roleId)),
+    }));
+    toastSuccess("Role deletion un-staged.", "Batching");
+  }, [isMutatingAction, isSavingOrder, setPendingBatch]);
+
   return {
     openEditRoleDialog, openToggleRoleDialog, openDeactivateRoleDialog, openAddRoleDialog,
-    submitEditRole, submitToggleRole, submitDeactivateRole, submitAddRole, stageHardDeleteRole,
+    submitEditRole, submitToggleRole, submitDeactivateRole, submitAddRole, stageHardDeleteRole, unstageHardDeleteRole,
   };
 }

@@ -192,8 +192,20 @@ export function useGroupActions({
     toastSuccess("Card group deletion staged for Save Batch.", "Batching");
   }, [allCards, isMutatingAction, isSaving, orderedGroups, selectedApp?.app_id, selectedGroup?.group_id, setAllCards, setOrderedGroups, setPendingBatch, updateQueryParams]);
 
+  const unstageHardDeleteGroup = useCallback((row) => {
+    const groupId = String(row?.group_id ?? "");
+    if (!groupId || isSaving || isMutatingAction) return;
+    const linkedCardIds = allCards.filter((c) => isSameId(c?.group_id, groupId)).map((c) => String(c?.card_id ?? ""));
+    setPendingBatch((prev) => ({
+      ...prev,
+      groupHardDeletes: (prev.groupHardDeletes || []).filter((id) => !isSameId(id, groupId)),
+      cardHardDeletes: (prev.cardHardDeletes || []).filter((id) => !linkedCardIds.some((lr) => isSameId(lr, id))),
+    }));
+    toastSuccess("Card group deletion un-staged.", "Batching");
+  }, [allCards, isMutatingAction, isSaving, setPendingBatch]);
+
   return {
     openAddGroupDialog, openEditGroupDialog, openToggleGroupDialog, openDeactivateGroupDialog,
-    submitAddGroup, submitEditGroup, submitToggleGroup, submitDeactivateGroup, stageHardDeleteGroup,
+    submitAddGroup, submitEditGroup, submitToggleGroup, submitDeactivateGroup, stageHardDeleteGroup, unstageHardDeleteGroup,
   };
 }

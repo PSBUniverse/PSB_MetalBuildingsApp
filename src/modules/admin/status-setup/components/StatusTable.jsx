@@ -22,6 +22,7 @@ export function StatusTable({
   openToggleStatusDialog,
   openDeactivateStatusDialog,
   stageHardDeleteStatus,
+  onUndoBatchAction,
 }) {
   const columns = useMemo(
     () => [
@@ -117,7 +118,7 @@ export function StatusTable({
         label: "Edit",
         type: "secondary",
         icon: "pen",
-        visible: (row) => row?.__batchState !== "hardDeleted" && String(row?.status_id ?? "") !== String(editingStatusId ?? ""),
+        visible: (row) => String(row?.status_id ?? "") !== String(editingStatusId ?? ""),
         disabled: () => isMutatingAction || isSavingBatch,
         onClick: (row) => onStartEditing(row),
       },
@@ -134,7 +135,7 @@ export function StatusTable({
         label: "Restore",
         type: "secondary",
         icon: "rotate-left",
-        visible: (row) => row?.__batchState !== "hardDeleted" && (!Boolean(row?.is_active_bool) || pendingDeactivatedStatusIds.has(String(row?.status_id ?? ""))) && String(row?.status_id ?? "") !== String(editingStatusId ?? ""),
+        visible: (row) => (!Boolean(row?.is_active_bool) || pendingDeactivatedStatusIds.has(String(row?.status_id ?? ""))) && String(row?.status_id ?? "") !== String(editingStatusId ?? ""),
         disabled: () => isMutatingAction || isSavingBatch,
         onClick: (row) => openToggleStatusDialog(row),
       },
@@ -143,7 +144,7 @@ export function StatusTable({
         label: "Deactivate",
         type: "secondary",
         icon: "ban",
-        visible: (row) => row?.__batchState !== "hardDeleted" && Boolean(row?.is_active_bool) && !pendingDeactivatedStatusIds.has(String(row?.status_id ?? "")) && String(row?.status_id ?? "") !== String(editingStatusId ?? ""),
+        visible: (row) => Boolean(row?.is_active_bool) && !pendingDeactivatedStatusIds.has(String(row?.status_id ?? "")) && String(row?.status_id ?? "") !== String(editingStatusId ?? ""),
         disabled: () => isMutatingAction || isSavingBatch,
         onClick: (row) => openDeactivateStatusDialog(row),
       },
@@ -152,7 +153,7 @@ export function StatusTable({
         label: "Delete",
         type: "danger",
         icon: "trash",
-        visible: (row) => row?.__batchState !== "hardDeleted" && String(row?.status_id ?? "") !== String(editingStatusId ?? ""),
+        visible: (row) => String(row?.status_id ?? "") !== String(editingStatusId ?? ""),
         confirm: true,
         confirmMessage: (row) => `Permanently delete ${row?.status_name || "this status"}? This action cannot be undone.`,
         disabled: () => isMutatingAction || isSavingBatch,
@@ -181,6 +182,7 @@ export function StatusTable({
             data={decoratedStatuses}
             rowIdKey="status_id"
             actions={actions}
+            onUndoBatchAction={onUndoBatchAction}
             emptyMessage="No statuses found."
           />
         </Card>

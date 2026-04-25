@@ -21,7 +21,7 @@ export function GroupTable({
   decoratedGroups, selectedGroup, isSaving, isMutatingAction,
   pendingDeactivatedGroupIds, pendingHardDeletedGroupIds, handleGroupRowClick, handleGroupReorder,
   editingGroupId, onStartEditing, onStopEditing, onInlineEdit,
-  openToggleGroupDialog, openDeactivateGroupDialog, stageHardDeleteGroup,
+  openToggleGroupDialog, openDeactivateGroupDialog, stageHardDeleteGroup, onUndoBatchAction,
 }) {
   const columns = useMemo(() => [
     {
@@ -95,22 +95,22 @@ export function GroupTable({
 
   const actions = useMemo(() => [
     { key: "edit-group", label: "Edit", type: "secondary", icon: "pen",
-      visible: (r) => r?.__batchState !== "hardDeleted" && String(r?.group_id ?? "") !== String(editingGroupId ?? ""),
+      visible: (r) => String(r?.group_id ?? "") !== String(editingGroupId ?? ""),
       disabled: (r) => isSaving || isMutatingAction,
       onClick: (r) => onStartEditing(r) },
     { key: "cancel-edit-group", label: "Cancel", type: "secondary", icon: "xmark",
       visible: (r) => String(r?.group_id ?? "") === String(editingGroupId ?? ""),
       onClick: () => onStopEditing() },
     { key: "restore-group", label: "Restore", type: "secondary", icon: "rotate-left",
-      visible: (r) => r?.__batchState !== "hardDeleted" && (!Boolean(r?.is_active_bool) || pendingDeactivatedGroupIds.has(String(r?.group_id ?? ""))) && String(r?.group_id ?? "") !== String(editingGroupId ?? ""),
+      visible: (r) => (!Boolean(r?.is_active_bool) || pendingDeactivatedGroupIds.has(String(r?.group_id ?? ""))) && String(r?.group_id ?? "") !== String(editingGroupId ?? ""),
       disabled: (r) => isSaving || isMutatingAction,
       onClick: (r) => openToggleGroupDialog(r) },
     { key: "deactivate-group", label: "Deactivate", type: "secondary", icon: "ban",
-      visible: (r) => r?.__batchState !== "hardDeleted" && Boolean(r?.is_active_bool) && !pendingDeactivatedGroupIds.has(String(r?.group_id ?? "")) && String(r?.group_id ?? "") !== String(editingGroupId ?? ""),
+      visible: (r) => Boolean(r?.is_active_bool) && !pendingDeactivatedGroupIds.has(String(r?.group_id ?? "")) && String(r?.group_id ?? "") !== String(editingGroupId ?? ""),
       disabled: (r) => isSaving || isMutatingAction,
       onClick: (r) => openDeactivateGroupDialog(r) },
     { key: "delete-group", label: "Delete", type: "danger", icon: "trash",
-      visible: (r) => r?.__batchState !== "hardDeleted" && String(r?.group_id ?? "") !== String(editingGroupId ?? ""),
+      visible: (r) => String(r?.group_id ?? "") !== String(editingGroupId ?? ""),
       confirm: true,
       confirmMessage: (r) => `Permanently delete ${r?.group_name || "this group"}? This action cannot be undone.`,
       disabled: (r) => isSaving || isMutatingAction,
@@ -123,7 +123,8 @@ export function GroupTable({
       <TableZ columns={columns} data={decoratedGroups} rowIdKey="group_id"
         selectedRowId={selectedGroup?.group_id ?? null} onRowClick={handleGroupRowClick}
         actions={actions} draggable={!isSaving && !isMutatingAction}
-        onReorder={handleGroupReorder} emptyMessage="No card groups found for this application." />
+        onReorder={handleGroupReorder} emptyMessage="No card groups found for this application."
+        onUndoBatchAction={onUndoBatchAction} />
     </Card>
   );
 }
