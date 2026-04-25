@@ -9,7 +9,7 @@ Goals:
 3. Maintainable styling patterns
 4. Clear boundaries between core shell and module UI
 
-## 1) Styling Strategy
+## 1) Styling Strategy s
 
 Current platform baseline:
 1. Global foundation styles in src/app/globals.css
