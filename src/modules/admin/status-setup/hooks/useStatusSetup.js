@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toastError, toastSuccess } from "@/shared/components/ui";
 import {
@@ -39,9 +39,11 @@ export function useStatusSetup({ statuses = [] }) {
   const [dialog, setDialog] = useState(EMPTY_DIALOG);
   const [statusDraft, setStatusDraft] = useState({ name: "", desc: "" });
   const [editingStatusId, setEditingStatusId] = useState(null);
+  const batchActiveRef = useRef(false);
 
   // -- reset on prop change
   useEffect(() => {
+    if (batchActiveRef.current) return;
     setOrderedStatuses(seedStatuses);
     setStatusChanges(createEmptyStatusChanges());
     setDialog(EMPTY_DIALOG);
@@ -61,6 +63,8 @@ export function useStatusSetup({ statuses = [] }) {
   }, [statusChanges]);
 
   const hasPendingChanges = pendingSummary.total > 0;
+
+  useEffect(() => { batchActiveRef.current = hasPendingChanges; }, [hasPendingChanges]);
 
   const pendingDeactivatedStatusIds = useMemo(
     () => new Set((statusChanges.deactivations || []).map((id) => String(id ?? ""))),
@@ -180,6 +184,7 @@ export function useStatusSetup({ statuses = [] }) {
   // -- batch actions
   const handleCancelBatch = useCallback(() => {
     if (isMutatingAction || isSavingBatch || !hasPendingChanges) return;
+    batchActiveRef.current = false;
     setOrderedStatuses(seedStatuses);
     setStatusChanges(createEmptyStatusChanges());
     setDialog(EMPTY_DIALOG);
@@ -197,6 +202,7 @@ export function useStatusSetup({ statuses = [] }) {
     try {
       await executeBatchSave(statusChanges);
       setStatusChanges(createEmptyStatusChanges());
+      batchActiveRef.current = false;
       router.refresh();
       toastSuccess(`Saved ${pendingSummary.total} batched change(s).`, "Save Batch");
     } catch (error) {

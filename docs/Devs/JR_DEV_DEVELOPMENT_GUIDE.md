@@ -42,7 +42,168 @@ Why strict discipline is required:
 
 ---
 
-## 2) Your Role as a Jr Developer
+## 2) Getting Started: Running and Developing the Project
+
+Follow this exact sequence to get your local environment running.
+
+### Prerequisites
+
+Required before you start:
+1. Node.js v18+ installed (tested with v24.14.0)
+2. npm v9+ installed (tested with v11.9.0)
+3. Access to the team Supabase project (URL, anon key, service role key)
+4. Git access to the PSBUniverse-core repository
+
+### Step 1: Clone and Install
+
+```bash
+git clone <repo-url>
+cd PSBUniverse-core
+npm install
+```
+
+This installs all dependencies including Next.js 16, React 19, Supabase JS, Bootstrap, TanStack, and FontAwesome.
+
+### Step 2: Create `.env.local`
+
+Create a `.env.local` file in the project root. Get the Supabase values from your tech lead or from the Supabase dashboard under **Settings → API**.
+
+```env
+# === REQUIRED ===
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+```
+
+Optional (have defaults):
+
+```env
+NEXT_PUBLIC_ENV=local
+```
+
+Rules:
+1. Never commit `.env.local` to git — it is already in `.gitignore`
+2. Never share your service role key in chat or PRs
+3. If you are missing any value, ask your tech lead
+
+### Step 3: Start the Dev Server
+
+```bash
+npm run dev
+```
+
+Opens at **http://localhost:3000** using webpack.
+
+What to expect on first start:
+1. A `PackFileCacheStrategy` rename warning in the terminal — this is harmless, ignore it
+2. First page load may take a few seconds while webpack compiles
+
+### Step 4: Verify the App Loads
+
+1. Open **http://localhost:3000** in your browser
+2. You should see the login page
+3. Sign in with your test account credentials (ask tech lead if you do not have one)
+4. After login you should land on the dashboard
+
+If login redirects you back to login:
+1. Check your `.env.local` values are correct
+2. Check the terminal for errors
+3. Escalate to tech lead if it persists
+
+### Step 5: Verify the Build Passes
+
+Before starting any feature work, confirm the project builds cleanly:
+
+```bash
+npm run build
+```
+
+If the build fails on a fresh clone, do not try to fix core — report it to the tech lead.
+
+### Step 6: Run the Linter
+
+```bash
+npm run lint
+```
+
+Fix any lint errors in your code before submitting a PR. The project uses ESLint with Next.js core web vitals rules.
+
+### Key URLs in Development
+
+| URL | Purpose |
+|-----|---------|
+| http://localhost:3000 | Main app |
+| http://localhost:3000/login | Login page |
+| http://localhost:3000/dashboard | Dashboard (after login) |
+| http://localhost:3000/examples | Shared UI guide and playground |
+| http://localhost:3000/examples/data-table | Data table reference example |
+| http://localhost:3000/admin/application-setup | Admin: application setup |
+
+### Available npm Scripts
+
+| Command | What it does |
+|---------|-------------|
+| `npm run dev` | Start local dev server on port 3000 |
+| `npm run build` | Production build (run before PR) |
+| `npm run start` | Serve production build locally |
+| `npm run lint` | Run ESLint checks |
+
+### Environment Modes
+
+The `NEXT_PUBLIC_ENV` variable controls config in `config/app.js`:
+
+| Value | Base URL | Use case |
+|-------|----------|----------|
+| `local` (default) | http://localhost:3000 | Local development |
+| `dev` | Vercel dev URL | Staging |
+| `prod` | Production URL | Live |
+
+Do not change this to `dev` or `prod` locally unless instructed by tech lead.
+
+### Project Structure You Need to Know
+
+```text
+src/
+  app/          ← Next.js app routes (do not add module pages here directly)
+  core/         ← Auth, layout, Supabase clients (DO NOT MODIFY)
+  modules/      ← Where your module code lives
+    admin/      ← Admin modules
+    psbpages/   ← Platform pages (dashboard, login, profile)
+  shared/       ← Shared UI components and utilities (DO NOT MODIFY)
+  styles/       ← Global styles and theme variables
+config/         ← App configuration
+docs/           ← Documentation
+```
+
+Rules:
+1. Your work goes inside `src/modules/`
+2. Do not edit files in `src/core/` or `src/shared/` without lead approval
+3. Each module has its own folder with the required structure (see Section 5)
+
+### How to Start Building a New Module
+
+1. Read Section 6 (Module Structure Rules) and Section 7 (Module Contract) below first
+2. Copy an existing module folder as your template (e.g., `src/modules/admin/application-setup/`)
+3. Rename the folder and update `index.js` with your module's key, app_id, name, and routes
+4. Register your app and cards in the database (see Section 8)
+5. Build your pages and components inside your module folder
+6. Test with both authorized and unauthorized users
+
+### Troubleshooting Common Setup Issues
+
+| Problem | Fix |
+|---------|-----|
+| `npm install` fails | Delete `node_modules` and `package-lock.json`, run `npm install` again |
+| Port 3000 already in use | Kill the other process or set `PORT=3001` before `npm run dev` |
+| Supabase connection errors | Verify `.env.local` values match your Supabase dashboard |
+| Login redirects back to login | Check `.env.local`, check browser console for auth errors |
+| Module not showing on dashboard | Verify `index.js` exports correct key/app_id, verify DB records exist |
+| Build fails on fresh clone | Do not fix core — report to tech lead |
+| PowerShell blocks npm | Use `npm.cmd` instead of `npm` in PowerShell terminals |
+
+---
+
+## 3) Your Role as a Jr Developer
 
 Your role is feature delivery, not architecture redesign.
 
@@ -62,7 +223,7 @@ Simple rule:
 
 ---
 
-## 3) What You Are Allowed to Do
+## 4) What You Are Allowed to Do
 
 You are allowed to:
 1. Build module UI pages and components
@@ -74,7 +235,7 @@ You are allowed to:
 
 ---
 
-## 4) What You Are NOT Allowed to Do (Strict)
+## 5) What You Are NOT Allowed to Do (Strict)
 
 ### Rule tree
 
@@ -116,7 +277,7 @@ If your task needs any forbidden action:
 
 ---
 
-## 5) Module Structure Rules
+## 6) Module Structure Rules
 
 Required structure:
 
@@ -157,7 +318,7 @@ Hard rule:
 
 ---
 
-## 6) Module Contract
+## 7) Module Contract
 
 Required export in src/index.js:
 
@@ -200,7 +361,7 @@ export default {
 
 ---
 
-## 7) How to Build a Module (Step-by-Step)
+## 8) How to Build a Module (Step-by-Step)
 
 Follow this exact sequence:
 
@@ -235,7 +396,7 @@ Step details:
 
 ---
 
-## 8) How to Use RBAC in Module
+## 9) How to Use RBAC in Module
 
 Use:
 1. roles from useAuth()
@@ -262,7 +423,7 @@ Always:
 
 ---
 
-## 9) How to Work with Database
+## 10) How to Work with Database
 
 Use DB as source of truth.
 
@@ -284,7 +445,7 @@ Data flow in module:
 
 ---
 
-## 10) Routing Rules
+## 11) Routing Rules
 
 Rules:
 1. Define routes in module src/index.js
@@ -302,7 +463,7 @@ Example:
 
 ---
 
-## 11) UI and Styling Rules
+## 12) UI and Styling Rules
 
 Follow shared platform look and behavior.
 
@@ -321,7 +482,7 @@ Goal:
 
 ---
 
-## 12) Shared Table Rules (Required for New Module Tables)
+## 13) Shared Table Rules (Required for New Module Tables)
 
 Use shared table from core UI for all new module tables.
 
@@ -491,7 +652,7 @@ Bonus playground usage:
 
 ---
 
-## 13) Common Mistakes
+## 14) Common Mistakes
 
 Top mistakes to avoid:
 1. Hardcoding roles in components
@@ -506,7 +667,7 @@ Why these matter:
 
 ---
 
-## 14) Final Checklist Before Submitting
+## 15) Final Checklist Before Submitting
 
 All items must pass before PR:
 

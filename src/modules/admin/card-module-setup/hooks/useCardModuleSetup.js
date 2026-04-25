@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { toastError, toastSuccess } from "@/shared/components/ui";
 import {
@@ -59,8 +59,10 @@ export function useCardModuleSetup({ applications = [], cardGroups = [], cards =
   const [cardDraft, setCardDraft] = useState({ name: "", desc: "", route_path: "", icon: "" });
   const [editingGroupId, setEditingGroupId] = useState(null);
   const [editingCardId, setEditingCardId] = useState(null);
+  const batchActiveRef = useRef(false);
 
   useEffect(() => {
+    if (batchActiveRef.current) return;
     setOrderedGroups(seedCardGroups); setAllCards(seedCards);
     const resetGroups = seedCardGroups.filter((g) => isSameId(g?.app_id, initialAppId));
     setPersistedGroupOrderSig(buildOrderSignature(resetGroups, "group_id"));
@@ -125,6 +127,9 @@ export function useCardModuleSetup({ applications = [], cardGroups = [], cards =
   }, [hasCardOrderChanges, hasGroupOrderChanges, pendingBatch]);
 
   const hasPendingChanges = pendingSummary.total > 0;
+
+  useEffect(() => { batchActiveRef.current = hasPendingChanges; }, [hasPendingChanges]);
+
   const pendingDeactivatedGroupIds = useMemo(() => new Set((pendingBatch.groupDeactivations || []).map((id) => String(id ?? ""))), [pendingBatch.groupDeactivations]);
   const pendingDeactivatedCardIds = useMemo(() => new Set((pendingBatch.cardDeactivations || []).map((id) => String(id ?? ""))), [pendingBatch.cardDeactivations]);
   const pendingHardDeletedGroupIds = useMemo(() => new Set((pendingBatch.groupHardDeletes || []).map((id) => String(id ?? ""))), [pendingBatch.groupHardDeletes]);
@@ -202,6 +207,7 @@ export function useCardModuleSetup({ applications = [], cardGroups = [], cards =
 
   const handleCancelBatch = useCallback(() => {
     if (isSaving || isMutatingAction) return;
+    batchActiveRef.current = false;
     setOrderedGroups(seedCardGroups); setAllCards(seedCards); setPendingBatch(createEmptyBatchState());
     const cancelGroups = seedCardGroups.filter((g) => isSameId(g?.app_id, selectedApp?.app_id));
     setPersistedGroupOrderSig(buildOrderSignature(cancelGroups, "group_id"));
@@ -226,6 +232,7 @@ export function useCardModuleSetup({ applications = [], cardGroups = [], cards =
         nextSigMap[gid] = buildOrderSignature(gc, "card_id");
       }
       setPersistedCardOrderSigs(nextSigMap); setPendingBatch(createEmptyBatchState());
+      batchActiveRef.current = false;
       const selKey = String(selectedGroup?.group_id ?? "");
       const selResolved = groupIdMap.get(selKey) ?? selectedGroup?.group_id ?? null;
       const nextSelGid = selResolved && !deactivatedGroupSet.has(String(selResolved)) ? selResolved : (orderedPersistedGroupIds[0] ?? null);

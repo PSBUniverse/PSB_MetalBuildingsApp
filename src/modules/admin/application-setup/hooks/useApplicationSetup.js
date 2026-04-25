@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { toastError, toastSuccess } from "@/shared/components/ui";
 import {
@@ -42,8 +42,10 @@ export function useApplicationSetup({ applications = [], roles = [], initialSele
   const [roleDraft, setRoleDraft] = useState({ name: "", desc: "" });
   const [editingAppId, setEditingAppId] = useState(null);
   const [editingRoleId, setEditingRoleId] = useState(null);
+  const batchActiveRef = useRef(false);
 
   useEffect(() => {
+    if (batchActiveRef.current) return;
     setOrderedApplications(seedApplications); setAllRoles(seedRoles);
     setPersistedOrderSig(buildOrderSignature(seedApplications));
     setIsSavingOrder(false); setIsMutatingAction(false);
@@ -73,6 +75,8 @@ export function useApplicationSetup({ applications = [], roles = [], initialSele
   }, [hasOrderChanges, pendingBatch]);
 
   const hasPendingChanges = pendingSummary.total > 0;
+
+  useEffect(() => { batchActiveRef.current = hasPendingChanges; }, [hasPendingChanges]);
 
   const pendingDeactivatedAppIds = useMemo(
     () => new Set((pendingBatch.appDeactivations || []).map((id) => String(id ?? ""))),
@@ -165,6 +169,7 @@ export function useApplicationSetup({ applications = [], roles = [], initialSele
 
   const handleCancelOrderChanges = useCallback(() => {
     if (isSavingOrder || isMutatingAction) return;
+    batchActiveRef.current = false;
     setOrderedApplications(seedApplications); setAllRoles(seedRoles);
     setPendingBatch(createEmptyBatchState()); setPersistedOrderSig(buildOrderSignature(seedApplications));
     setDialog(EMPTY_DIALOG); setApplicationDraft({ name: "", desc: "" }); setRoleDraft({ name: "", desc: "" });
@@ -179,6 +184,7 @@ export function useApplicationSetup({ applications = [], roles = [], initialSele
       const { appIdMap, deactivatedAppSet, orderedPersistedAppIds } =
         await executeBatchSave(pendingBatch, orderedApplications);
       setPersistedOrderSig(currentOrderSig); setPendingBatch(createEmptyBatchState());
+      batchActiveRef.current = false;
       const selKey = String(selectedApp?.app_id ?? "");
       const selResolved = appIdMap.get(selKey) ?? selectedApp?.app_id ?? null;
       const nextSel = selResolved && !deactivatedAppSet.has(String(selResolved))

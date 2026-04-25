@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { toastError, toastSuccess } from "@/shared/components/ui";
 import {
@@ -36,6 +36,7 @@ export function useCompanyDepartmentSetup({ companies = [], departments = [], in
   const [departmentDraft, setDepartmentDraft] = useState({ name: "", shortName: "" });
   const [editingCompanyId, setEditingCompanyId] = useState(null);
   const [editingDeptId, setEditingDeptId] = useState(null);
+  const batchActiveRef = useRef(false);
 
   const [selectedCompanyId, setSelectedCompanyId] = useState(() => {
     const fromQ = parseCompanyId(searchParams?.get("company"));
@@ -45,6 +46,7 @@ export function useCompanyDepartmentSetup({ companies = [], departments = [], in
   });
 
   useEffect(() => {
+    if (batchActiveRef.current) return;
     setOrderedCompanies(seedCompanies); setAllDepartments(seedDepartments);
     setCompanyChanges(createEmptyCompanyChanges()); setDepartmentChanges(createEmptyDepartmentChanges());
     setDialog(EMPTY_DIALOG); setCompanyDraft({ name: "", shortName: "", email: "", phone: "" }); setDepartmentDraft({ name: "", shortName: "" });
@@ -63,6 +65,8 @@ export function useCompanyDepartmentSetup({ companies = [], departments = [], in
   }, [companyChanges, departmentChanges]);
 
   const hasPendingChanges = pendingSummary.total > 0;
+
+  useEffect(() => { batchActiveRef.current = hasPendingChanges; }, [hasPendingChanges]);
 
   const pendingDeactivatedCompanyIds = useMemo(
     () => new Set((companyChanges.deactivations || []).map((id) => String(id ?? ""))), [companyChanges.deactivations]);
@@ -132,6 +136,7 @@ export function useCompanyDepartmentSetup({ companies = [], departments = [], in
 
   const handleCancelBatch = useCallback(() => {
     if (isMutatingAction || isSaving || !hasPendingChanges) return;
+    batchActiveRef.current = false;
     setOrderedCompanies(seedCompanies); setAllDepartments(seedDepartments);
     setCompanyChanges(createEmptyCompanyChanges()); setDepartmentChanges(createEmptyDepartmentChanges());
     setDialog(EMPTY_DIALOG); setCompanyDraft({ name: "", shortName: "", email: "", phone: "" }); setDepartmentDraft({ name: "", shortName: "" });
@@ -148,6 +153,7 @@ export function useCompanyDepartmentSetup({ companies = [], departments = [], in
         companyChanges, departmentChanges, orderedCompanies, selectedCompany?.comp_id);
       if (companyIdMap.size > 0) setAllDepartments((prev) => remapDepartmentsByCompanyId(prev, companyIdMap));
       setCompanyChanges(createEmptyCompanyChanges()); setDepartmentChanges(createEmptyDepartmentChanges());
+      batchActiveRef.current = false;
       updateSelectedCompanyInQuery(nextSelectedCompanyId);
       router.refresh();
       toastSuccess(`Saved ${pendingSummary.total} batched change(s).`, "Save Batch");
