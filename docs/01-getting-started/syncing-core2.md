@@ -106,6 +106,9 @@ This connects your project to the shared core repo so you can pull updates later
 
 ```bash
 git remote add core https://github.com/PSBUniverse/PSBUniverse-core.git
+
+> **Only run this on individual modular applications**
+git remote set-url --push core no_push_allowed
 ```
 
 > **If you get an error saying "remote core already exists"** — that's fine, it means it was already added. Move on.
@@ -120,7 +123,7 @@ You should now see FOUR lines:
 
 ```
 core    https://github.com/PSBUniverse/PSBUniverse-core.git (fetch)
-core    https://github.com/PSBUniverse/PSBUniverse-core.git (push)
+core    no_push_allowed (push)
 origin  https://github.com/PSBUniverse/PSB_MetalBuildingsApp.git (fetch)
 origin  https://github.com/PSBUniverse/PSB_MetalBuildingsApp.git (push)
 ```

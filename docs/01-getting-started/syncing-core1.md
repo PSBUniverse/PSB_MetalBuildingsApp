@@ -37,6 +37,10 @@ git remote add core https://github.com/PSBUniverse/PSBUniverse-core.git
 git fetch core
 git branch core-main core/main
 
+# Only run this on individual modular applications
+git remote set-url --push core no_push_allowed
+git remote -v
+
 # Push your main branch to your app repo
 git push -u origin main
 ```
@@ -46,7 +50,7 @@ Verify your remotes:
 ```bash
 git remote -v
 # origin  https://github.com/PSBUniverse/PSB_MetalBuildingsApp.git (fetch)
-# origin  https://github.com/PSBUniverse/PSB_MetalBuildingsApp.git (push)
+# origin  no_push (push)
 # core    https://github.com/PSBUniverse/PSBUniverse-core.git (fetch)
 # core    https://github.com/PSBUniverse/PSBUniverse-core.git (push)
 ```
