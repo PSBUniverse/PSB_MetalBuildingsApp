@@ -50,7 +50,7 @@ Verify your remotes:
 ```bash
 git remote -v
 # origin  https://github.com/PSBUniverse/PSB_MetalBuildingsApp.git (fetch)
-# origin  no_push (push)
+# origin  no_push_allowed (push)
 # core    https://github.com/PSBUniverse/PSBUniverse-core.git (fetch)
 # core    https://github.com/PSBUniverse/PSBUniverse-core.git (push)
 ```
