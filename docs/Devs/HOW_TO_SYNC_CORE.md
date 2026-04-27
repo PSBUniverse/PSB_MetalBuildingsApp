@@ -34,6 +34,9 @@ git remote add core https://github.com/PSBUniverse/PSBUniverse-core.git
 # Create a local branch that tracks the core's main
 git fetch core
 git branch core-main core/main
+
+# Go back to your own repo.
+git push -u origin main
 ```
 
 Verify your remotes:
