@@ -7,7 +7,8 @@ Organized reference for the PSBUniverse Core platform. Start at the top and work
 ## 1. Getting Started
 
 - [Project Setup](01-getting-started/setup.md) — Install, configure, and run the project locally
-- [Syncing Core Updates](01-getting-started/syncing-core.md) — Pull core updates into downstream app repos
+- [Syncing Core Updates](01-getting-started/syncing-core1.md) — Pull core updates into downstream app repos
+- [Step-by-Step Git Setup & Push](01-getting-started/syncing-core2.md) — Beginner-friendly: clone, configure git, push, sync (for junior devs)
 
 ## 2. Architecture
 
