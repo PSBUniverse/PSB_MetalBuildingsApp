@@ -17,7 +17,7 @@ export function useGroupActions({
     if (!selectedApp?.app_id) { toastError("Select an application first."); return; }
     setGroupDraft({ name: "", desc: "", icon: "" });
     setDialog({ kind: "add-group", target: { app_id: selectedApp.app_id }, nextIsActive: true });
-  }, [isMutatingAction, isSaving, selectedApp?.app_id, setDialog, setGroupDraft]);
+  }, [isMutatingAction, isSaving, selectedApp, setDialog, setGroupDraft]);
 
   const openEditGroupDialog = useCallback((row) => {
     if (isSaving || isMutatingAction) return;
@@ -61,7 +61,7 @@ export function useGroupActions({
     }]}));
     updateQueryParams({ group: tempGroupId }); setDialog(EMPTY_DIALOG); setGroupDraft({ name: "", desc: "", icon: "" });
     toastSuccess("Card group staged for Save Batch.", "Batching");
-  }, [appGroups.length, groupDraft, selectedApp?.app_id, setDialog, setGroupDraft, setOrderedGroups, setPendingBatch, updateQueryParams]);
+  }, [appGroups.length, groupDraft, selectedApp, setDialog, setGroupDraft, setOrderedGroups, setPendingBatch, updateQueryParams]);
 
   const submitEditGroup = useCallback(() => {
     const row = dialog?.target;
@@ -148,7 +148,7 @@ export function useGroupActions({
       };
     });
     setDialog(EMPTY_DIALOG); toastSuccess("Card group deactivation staged for Save Batch.", "Batching");
-  }, [allCards, dialog, orderedGroups, selectedApp?.app_id, selectedGroup?.group_id, setAllCards, setDialog, setOrderedGroups, setPendingBatch, updateQueryParams]);
+  }, [allCards, dialog, orderedGroups, selectedApp, selectedGroup, setAllCards, setDialog, setOrderedGroups, setPendingBatch, updateQueryParams]);
 
   const stageHardDeleteGroup = useCallback((row) => {
     const groupId = String(row?.group_id ?? "");
@@ -190,7 +190,7 @@ export function useGroupActions({
       ),
     }));
     toastSuccess("Card group deletion staged for Save Batch.", "Batching");
-  }, [allCards, isMutatingAction, isSaving, orderedGroups, selectedApp?.app_id, selectedGroup?.group_id, setAllCards, setOrderedGroups, setPendingBatch, updateQueryParams]);
+  }, [allCards, isMutatingAction, isSaving, orderedGroups, selectedApp, selectedGroup, setAllCards, setOrderedGroups, setPendingBatch, updateQueryParams]);
 
   const unstageHardDeleteGroup = useCallback((row) => {
     const groupId = String(row?.group_id ?? "");

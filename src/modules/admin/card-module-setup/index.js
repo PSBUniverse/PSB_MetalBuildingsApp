@@ -1,9 +1,6 @@
-const appIdFromEnv = Number(process.env.CARD_MODULE_SETUP_APP_ID);
-const appId = Number.isFinite(appIdFromEnv) ? appIdFromEnv : 1;
-
 const cardModuleSetupModule = {
   key: "card-module-setup",
-  app_id: appId,
+  module_key: "psbuniverse",
   name: "Card Module Setup",
   description: "Configure application card groups and cards.",
   icon: "bi-card-list",
@@ -11,7 +8,7 @@ const cardModuleSetupModule = {
   group_desc: "Tools for system configuration and management.",
   order: 130,
   routes: [
-    { path: "/admin/card-module-setup", page: "DashboardPage" },
+    { path: "/admin/card-module-setup", page: "CardModuleSetupPage" },
   ],
 };
 

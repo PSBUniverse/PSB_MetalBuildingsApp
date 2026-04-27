@@ -54,16 +54,14 @@ These have defaults and you usually don't need to set them:
 
 ```env
 NEXT_PUBLIC_ENV=local
-CARD_MODULE_SETUP_APP_ID=1
-STATUS_SETUP_APP_ID=1
-USER_MASTER_SETUP_APP_ID=2
-COMPANY_DEPARTMENT_SETUP_APP_ID=1
 USER_MASTER_APP_CARD_GROUP_TABLE=psb_m_appcardgroup
 USER_MASTER_APP_CARD_TABLE=psb_s_appcard
 USER_MASTER_APP_CARD_ROLE_ACCESS_TABLE=psb_m_appcardroleaccess
 ```
 
 The `USER_MASTER_APP_*_TABLE` variables let you override which database tables the User Master module reads from. You almost never need to change them.
+
+> **Note:** Module `app_id` values are resolved automatically from the `module_key` column in `psb_s_application`. There are no `*_APP_ID` env vars.
 
 ### Environment Modes
 

@@ -17,19 +17,28 @@ A module is a self-contained feature that plugs into PSBUniverse Core. Each modu
 
 ```
 src/modules/<module-name>/
-  index.js              ← Module definition (required)
+  index.js                    ← Module definition (required)
+  data/
+    myModule.data.js          ← Client-safe helpers: model, utilities, batch orchestration
+    myModule.actions.js       ← "use server" file: DB queries & Server Actions
   pages/
-    DashboardPage.js    ← Route-level screens (server components)
-  components/
-    MyWidget.js         ← Interactive UI pieces (client components)
-  services/             ← Optional: business logic layer
-  repo/                 ← Optional: Supabase query layer
-  model/                ← Optional: DB-to-UI field mapping
-  hooks/                ← Optional: React hooks for state management
-  utils/                ← Optional: helpers
+    DashboardPage.js          ← Server component entry (loads data, renders view)
+    DashboardView.jsx         ← "use client" — all UI, hooks, sub-components
 ```
 
-The only **required** file is `index.js`. Everything else is added as your module grows.
+The only **required** file is `index.js`. For a simple module you may only need `index.js` + one page. As your module grows, add a `data/` folder for backend logic.
+
+### Why This Structure?
+
+| File | Responsibility |
+|------|---------------|
+| `index.js` | Identity — tells core "I exist, here are my routes" |
+| `data/*.data.js` | Client-safe utilities (model mappers, constants, batch logic) |
+| `data/*.actions.js` | Server Actions — all DB access lives here (`"use server"`) |
+| `pages/*Page.js` | Server entry — loads data, passes to view |
+| `pages/*View.jsx` | Client component — all UI, state, and interactivity |
+
+**Previous structure (deprecated):** Older modules may still have `components/`, `hooks/`, `services/`, `repo/`, `model/`, `utils/`, `view/` folders. New modules should use the flat structure above.
 
 ---
 
@@ -40,7 +49,7 @@ Every module must export a default object from `index.js`:
 ```js
 const myModule = {
   key: "metal-buildings",
-  app_id: 1,
+  module_key: "metal-app",
   name: "Metal Buildings",
   description: "Metal Buildings application.",
   icon: "bi-building",
@@ -56,12 +65,14 @@ const myModule = {
 export default myModule;
 ```
 
+> **`app_id` is resolved automatically.** The core matches your `module_key` to the `module_key` column in `psb_s_application` and injects `app_id` at load time. If no matching active row exists, the app throws an error.
+
 ### Field Reference
 
 | Field | Required | Purpose |
 |-------|----------|---------|
 | `key` | Yes | Unique module ID (lowercase, dashes, no spaces) |
-| `app_id` | Yes | Application ID from `psb_s_application`. Used by core for RBAC checks. |
+| `module_key` | Yes | Matches `module_key` in `psb_s_application`. Core resolves `app_id` from this. |
 | `name` | Yes | Display name shown on the dashboard |
 | `description` | No | Short text shown under the module card |
 | `icon` | No | Bootstrap icon class (e.g. `bi-building`) |
@@ -91,30 +102,67 @@ The system resolves `SettingsPage` to `src/modules/metal-buildings/pages/Setting
 
 Because pages are loaded via Node.js runtime import (not webpack), there's one important rule:
 
-> **Page files in `pages/` must be server components.**
-> Do NOT put `"use client"` at the top of a page file.
+> **Page entry files in `pages/` must be server components.**
+> Do NOT put `"use client"` at the top of a page entry file.
 
-For interactive UI, import client components from the page:
+The pattern is:
 
 ```js
 // pages/DashboardPage.js — server component (no directive)
-import MyWidget from "../components/MyWidget";
+import { loadData } from "../data/myModule.actions.js";
+import DashboardView from "./DashboardView.jsx";
 
-export default function DashboardPage() {
-  return <MyWidget />;
+export default async function DashboardPage() {
+  const data = await loadData();
+  return <DashboardView data={data} />;
 }
 ```
 
 ```js
-// components/MyWidget.js — client component
+// pages/DashboardView.jsx — client component (all UI here)
 "use client";
 
-export default function MyWidget() {
-  return <h1>Hello World!</h1>;
+export default function DashboardView({ data }) {
+  return <h1>Hello {data.name}!</h1>;
 }
 ```
 
-This is the standard Next.js App Router pattern.
+This is the standard Next.js App Router pattern with the "Blazor Mirror" layout:
+- **Page file** = thin server entry (load data, render view)
+- **View file** = all interactive UI, hooks, sub-components in one file
+
+---
+
+## Server Actions
+
+Instead of API routes, modules use **Server Actions** for all database mutations. These live in `data/*.actions.js` files with `"use server"` at the top:
+
+```js
+// data/myModule.actions.js
+"use server";
+
+import { getSupabaseAdmin } from "@/core/supabase/admin";
+
+export async function loadMyData() {
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase.from("my_table").select("*");
+  if (error) throw new Error(error.message);
+  return data;
+}
+
+export async function createRecord(payload) {
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase.from("my_table").insert(payload).select("*").single();
+  if (error) throw new Error(error.message);
+  return data;
+}
+```
+
+**Rules:**
+1. All `getSupabaseAdmin()` calls go in actions files only.
+2. Actions files must start with `"use server"`.
+3. Client code (views) can call these functions directly — Next.js handles the network boundary.
+4. **Do NOT create API routes** (`src/app/api/...`) for module CRUD. Use Server Actions instead.
 
 ---
 
@@ -226,10 +274,12 @@ Add rows in `psb_m_userapproleaccess` to link users → roles → your app. This
 ```
 src/modules/my-module/
   index.js
+  data/
+    myModule.actions.js
+    myModule.data.js
   pages/
     DashboardPage.js
-  components/
-    MyWidget.js
+    DashboardView.jsx
 ```
 
 ### 6. Write `index.js`
@@ -237,7 +287,7 @@ src/modules/my-module/
 ```js
 export default {
   key: "my-module",
-  app_id: YOUR_APP_ID,
+  module_key: "my-app",
   name: "My Module",
   routes: [
     { path: "/my-module", page: "DashboardPage" },
@@ -245,15 +295,53 @@ export default {
 };
 ```
 
-### 7. Write Pages and Components
+### 7. Write Data Files
 
-See the Server/Client component rules above.
+```js
+// data/myModule.actions.js
+"use server";
+import { getSupabaseAdmin } from "@/core/supabase/admin";
 
-### 8. Apply Card Access Checks
+export async function loadMyData() {
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase.from("my_table").select("*");
+  if (error) throw new Error(error.message);
+  return { items: data || [] };
+}
+```
+
+### 8. Write Pages
+
+```js
+// pages/DashboardPage.js — server entry
+import { loadMyData } from "../data/myModule.actions.js";
+import DashboardView from "./DashboardView.jsx";
+
+export default async function DashboardPage() {
+  const { items } = await loadMyData();
+  return <DashboardView items={items} />;
+}
+```
+
+```js
+// pages/DashboardView.jsx — client UI
+"use client";
+
+export default function DashboardView({ items }) {
+  return (
+    <main className="container py-4">
+      <h4>My Module</h4>
+      <ul>{items.map((item) => <li key={item.id}>{item.name}</li>)}</ul>
+    </main>
+  );
+}
+```
+
+### 9. Apply Card Access Checks
 
 Use `hasCardAccess()` to hide/disable features the user shouldn't see.
 
-### 9. Test
+### 10. Test
 
 1. Login as a user **with** the role mapping → module appears, page loads.
 2. Login as a user **without** the mapping → module is hidden, direct URL shows "No Access".
@@ -268,6 +356,8 @@ Use `hasCardAccess()` to hide/disable features the user shouldn't see.
 4. Hardcode permission labels (e.g. `if (roleName === "Admin")`).
 5. Store separate auth state in a module-local provider.
 6. Define route handlers that bypass core routing.
+7. Create API routes (`src/app/api/...`) — use Server Actions instead.
+8. Import `getSupabaseAdmin` outside of `"use server"` files.
 
 ---
 
@@ -339,19 +429,21 @@ import Link from "next/link";
 
 | Mistake | Why It's a Problem |
 |---------|--------------------|
-| Missing `app_id` in module manifest | Module is ignored by core — route won't resolve |
+| Missing `module_key` in module manifest | Core can't resolve `app_id` — module throws an error |
 | Duplicate route paths across modules | First matched route is unpredictable |
 | Route paths that don't start with `/` | Matching breaks, links are wrong |
 | Relying on module-only checks for app entry | Weak route protection model — must use core gate |
-| Putting `"use client"` on page files | Breaks webpack client boundary detection |
+| Putting `"use client"` on page entry files | Breaks server-side data loading |
 | Wrong `page` filename in routes | Core can't find the file — page won't load |
+| Creating API routes for module CRUD | Unnecessary — use Server Actions instead |
+| Importing `getSupabaseAdmin` in client files | Build error — `server-only` module can't run in browser |
 
 ---
 
 ## Checklist Before PR
 
-- [ ] `index.js` exports `key`, `app_id`, `name`, `routes`
-- [ ] `app_id` exists in `psb_s_application`
+- [ ] `index.js` exports `key`, `module_key`, `name`, `routes`
+- [ ] `module_key` has a matching active row in `psb_s_application`
 - [ ] All route paths start with `/` and are unique
 - [ ] Route `page` values match actual filenames in `pages/`
 - [ ] Page files are server components (no `"use client"`)

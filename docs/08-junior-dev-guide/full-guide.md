@@ -14,12 +14,13 @@ You build **module features**. You do not redesign architecture.
 
 ### What You Are Allowed To Do
 
-1. Build module UI pages and components inside `src/modules/`.
+1. Build module UI pages and views inside `src/modules/`.
 2. Define module routes in your module's `index.js`.
-3. Read cards and card groups from the database.
-4. Use `hasCardAccess()` for card-level filtering.
-5. Use `useAuth()` to read `authUser`, `dbUser`, `roles`, and `loading`.
-6. Add services, hooks, and repos inside your module folder.
+3. Write Server Actions in `data/*.actions.js` for database access.
+4. Read cards and card groups from the database.
+5. Use `hasCardAccess()` for card-level filtering.
+6. Use `useAuth()` to read `authUser`, `dbUser`, `roles`, and `loading`.
+7. Add data helpers inside your module's `data/` folder.
 
 ### What You Must NOT Do
 
@@ -37,6 +38,9 @@ You build **module features**. You do not redesign architecture.
 
 5. **Core files:** Do not edit files in `src/core/` or `src/shared/` without lead approval.
 
+6. **API routes:** Do not create files in `src/app/api/`. Use Server Actions instead.
+   - *Why dangerous:* Bypasses the standard data flow pattern. Makes modules harder to maintain.
+
 **If your task requires any of these, stop and escalate to your tech lead.**
 
 ---
@@ -48,7 +52,7 @@ Your `index.js` must export:
 ```js
 export default {
   key: "my-module",         // Unique ID (lowercase, dashes)
-  app_id: 1001,             // From psb_s_application
+  module_key: "my-app",     // Matches module_key in psb_s_application
   name: "My Module",        // Dashboard display name
   routes: [
     { path: "/my-module", page: "DashboardPage" },
@@ -58,6 +62,7 @@ export default {
 
 - `page` is a string matching a filename in your `pages/` folder (without `.js`).
 - Core auto-discovers your module — no core file edits needed.
+- `app_id` is resolved automatically from `module_key`. You never set it yourself.
 
 For the full module structure and contract details, see [Module System](../02-architecture/module-system.md).
 
@@ -241,9 +246,27 @@ Use the built-in examples as your primary reference:
 3. Create groups in `psb_m_appcardgroup`.
 4. Create cards in `psb_s_appcard`.
 5. Assign role access in `psb_m_appcardroleaccess`.
-6. Build your pages and components.
-7. Apply card access checks with `hasCardAccess()`.
-8. Test with authorized and unauthorized users.
+6. Write your `data/*.actions.js` (Server Actions for DB access).
+7. Write your `pages/*Page.js` (server entry) and `pages/*View.jsx` (client UI).
+8. Apply card access checks with `hasCardAccess()`.
+9. Test with authorized and unauthorized users.
+
+**Do NOT create API route files** (`src/app/api/...`). Use Server Actions instead.
+
+---
+
+## File Layout Cheat Sheet
+
+```
+src/modules/my-module/
+  index.js                    ← Module identity + routes
+  data/
+    myModule.actions.js       ← "use server" — all DB calls go here
+    myModule.data.js          ← Client-safe helpers (optional)
+  pages/
+    DashboardPage.js          ← Server entry: loads data, renders view
+    DashboardView.jsx         ← "use client" — all UI, hooks, sub-components
+```
 
 ---
 
@@ -254,9 +277,11 @@ Use the built-in examples as your primary reference:
 | Hardcoding roles in components | Permissions stop matching the database |
 | Skipping card access checks | Unauthorized users see features they shouldn't |
 | Fetching auth user in every component | Duplicated calls, session mismatches |
-| Missing `key` or `app_id` in index.js | Module won't load or RBAC breaks |
-| Wrong `app_id` | Users get access they shouldn't have |
+| Missing `key` or `module_key` in index.js | Module won't load — core throws an error |
+| Wrong `module_key` | Module maps to wrong application, RBAC breaks |
 | No loading or no-access states | Broken UX, no feedback to the user |
+| Creating API routes for CRUD | Unnecessary — use Server Actions in `data/*.actions.js` |
+| Importing `getSupabaseAdmin` in view files | Build error — server-only code can't run in browser |
 
 ---
 
@@ -264,12 +289,14 @@ Use the built-in examples as your primary reference:
 
 All items must pass before submitting:
 
-- [ ] Module structure follows the required pattern
-- [ ] `index.js` exports `key`, `app_id`, `name`, `routes`
-- [ ] `app_id` exists in `psb_s_application`
+- [ ] Module structure follows the required pattern (`index.js` + `data/` + `pages/`)
+- [ ] `index.js` exports `key`, `module_key`, `name`, `routes`
+- [ ] `module_key` has a matching active row in `psb_s_application`
 - [ ] Card groups exist in `psb_m_appcardgroup`
-- [ ] Cards exist in `psb_s_appcard` with correct `app_id` and `route_path`
+- [ ] Cards exist in `psb_s_appcard` with correct `app_id` (resolved from `module_key`) and `route_path`
 - [ ] Card-role mappings exist in `psb_m_appcardroleaccess`
+- [ ] All DB access is in `data/*.actions.js` files with `"use server"` directive
+- [ ] No API routes created (`src/app/api/...`)
 - [ ] Module uses `useAuth()` from core
 - [ ] Module uses `hasCardAccess()` for card visibility
 - [ ] No hardcoded role names or permission flags

@@ -1,4 +1,3 @@
-import ModuleAccessGate from "@/core/auth/ModuleAccessGate";
 import CompanyDepartmentSetupView from "../view/CompanyDepartmentSetupView";
 import { loadCompanyDepartmentSetupData } from "../hooks/companyDepartmentSetupData.js";
 
@@ -10,9 +9,6 @@ function parseCompanyId(value) {
   const asNumber = Number(value);
   return Number.isFinite(asNumber) ? asNumber : String(value);
 }
-
-const appIdFromEnv = Number(process.env.COMPANY_DEPARTMENT_SETUP_APP_ID);
-const APP_ID = Number.isFinite(appIdFromEnv) ? appIdFromEnv : 1;
 
 export default async function CompanyDepartmentSetupPage({ searchParams }) {
   const resolvedSearchParams = await searchParams;
@@ -28,24 +24,20 @@ export default async function CompanyDepartmentSetupPage({ searchParams }) {
       ?? null;
 
     return (
-      <ModuleAccessGate appId={APP_ID}>
-        <CompanyDepartmentSetupView
-          companies={companies}
-          departments={departments}
-          initialSelectedCompanyId={initialSelectedCompanyId}
-        />
-      </ModuleAccessGate>
+      <CompanyDepartmentSetupView
+        companies={companies}
+        departments={departments}
+        initialSelectedCompanyId={initialSelectedCompanyId}
+      />
     );
   } catch (error) {
     return (
-      <ModuleAccessGate appId={APP_ID}>
-        <main className="container py-4">
-          <div className="notice-banner notice-banner-danger mb-0">
-            <strong className="d-block">Failed to load company-department setup.</strong>
-            <span>{error?.message || "Unknown error"}</span>
-          </div>
-        </main>
-      </ModuleAccessGate>
+      <main className="container py-4">
+        <div className="notice-banner notice-banner-danger mb-0">
+          <strong className="d-block">Failed to load company-department setup.</strong>
+          <span>{error?.message || "Unknown error"}</span>
+        </div>
+      </main>
     );
   }
 }

@@ -1,8 +1,46 @@
+/**
+ * Status Setup — Data Layer (client-safe utilities)
+ *
+ * Pure helpers shared between page and view:
+ * - Model helpers (normalization, display)
+ * - Utility functions
+ * - Batch save orchestration (via Server Actions)
+ */
+
 import {
-  getStatusDescription,
-  getStatusDisplayName,
-  isStatusActive,
-} from "@/modules/admin/status-setup/model/status.model.js";
+  createStatusAction,
+  updateStatusAction,
+  deactivateStatusAction,
+  hardDeleteStatusAction,
+} from "./statusSetup.actions.js";
+
+// ─── MODEL HELPERS ─────────────────────────────────────────
+
+export function isStatusActive(status) {
+  if (status?.is_active === false || status?.is_active === 0) return false;
+  const text = String(status?.is_active ?? "").trim().toLowerCase();
+  return !(text === "false" || text === "0" || text === "f" || text === "n" || text === "no");
+}
+
+export function getStatusDisplayName(status) {
+  return status?.sts_name || status?.status_name || status?.name || "Unknown";
+}
+
+export function getStatusDescription(status) {
+  return status?.sts_desc || status?.status_desc || status?.description || "--";
+}
+
+export function mapStatusRow(status, index) {
+  return {
+    ...status,
+    id: status?.status_id ?? `status-${index}`,
+    sts_name: getStatusDisplayName(status),
+    sts_desc: getStatusDescription(status),
+    is_active_bool: isStatusActive(status),
+  };
+}
+
+// ─── UTILITY HELPERS ───────────────────────────────────────
 
 export function isSameId(left, right) {
   return String(left ?? "") === String(right ?? "");
@@ -15,25 +53,8 @@ export function compareText(left, right) {
   });
 }
 
-export function resolveErrorMessage(payload, fallbackMessage) {
-  if (payload && typeof payload === "object" && typeof payload.error === "string" && payload.error.trim()) {
-    return payload.error.trim();
-  }
-  return fallbackMessage;
-}
-
 export function normalizeText(value) {
   return String(value ?? "").trim();
-}
-
-export function mapStatusRow(status, index) {
-  return {
-    ...status,
-    id: status?.status_id ?? `status-${index}`,
-    sts_name: getStatusDisplayName(status),
-    sts_desc: getStatusDescription(status),
-    is_active_bool: isStatusActive(status),
-  };
 }
 
 export function removeObjectKey(objectValue, keyToRemove) {
@@ -80,14 +101,7 @@ export function createEmptyStatusChanges() {
   return { creates: [], updates: {}, deactivations: [], hardDeletes: [] };
 }
 
-export async function requestJson(url, options, fallbackMessage) {
-  const response = await fetch(url, options);
-  const payload = await response.json().catch(() => ({}));
-  if (!response.ok || payload?.ok === false) {
-    throw new Error(resolveErrorMessage(payload, fallbackMessage));
-  }
-  return payload;
-}
+// ─── BATCH SAVE (calls Server Actions) ─────────────────────
 
 export async function executeBatchSave(statusChanges) {
   const deactivatedSet = new Set(
@@ -96,16 +110,8 @@ export async function executeBatchSave(statusChanges) {
   const tempIdMap = new Map();
 
   for (const createEntry of statusChanges.creates || []) {
-    const payload = await requestJson(
-      "/api/admin/status-setup/statuses",
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(createEntry.payload),
-      },
-      "Failed to create status.",
-    );
-    const createdId = payload?.status?.status_id;
+    const created = await createStatusAction(createEntry.payload);
+    const createdId = created?.status_id;
     if (createdId === undefined || createdId === null || createdId === "") {
       throw new Error("Created status response is invalid.");
     }
@@ -117,37 +123,18 @@ export async function executeBatchSave(statusChanges) {
     if (deactivatedSet.has(String(resolvedStatusId))) continue;
     if (isTempStatusId(resolvedStatusId)) continue;
     if (Object.keys(updates || {}).length === 0) continue;
-
-    await requestJson(
-      `/api/admin/status-setup/statuses/${encodeURIComponent(String(resolvedStatusId))}`,
-      {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(updates),
-      },
-      "Failed to update status.",
-    );
+    await updateStatusAction(resolvedStatusId, updates);
   }
 
   for (const statusId of statusChanges.deactivations || []) {
     const resolvedStatusId = tempIdMap.get(String(statusId)) ?? statusId;
     if (isTempStatusId(resolvedStatusId)) continue;
-
-    await requestJson(
-      `/api/admin/status-setup/statuses/${encodeURIComponent(String(resolvedStatusId))}`,
-      { method: "DELETE" },
-      "Failed to deactivate status.",
-    );
+    await deactivateStatusAction(resolvedStatusId);
   }
 
   for (const statusId of statusChanges.hardDeletes || []) {
     const resolvedStatusId = tempIdMap.get(String(statusId)) ?? statusId;
     if (isTempStatusId(resolvedStatusId)) continue;
-
-    await requestJson(
-      `/api/admin/status-setup/statuses/${encodeURIComponent(String(resolvedStatusId))}?permanent=true`,
-      { method: "DELETE" },
-      "Failed to permanently delete status.",
-    );
+    await hardDeleteStatusAction(resolvedStatusId);
   }
 }

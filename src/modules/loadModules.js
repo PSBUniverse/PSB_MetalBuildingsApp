@@ -1,6 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
+import { getSupabaseAdmin } from "@/core/supabase/admin";
 
 async function readModuleEntries(modulesDir) {
   try {
@@ -91,5 +92,73 @@ export async function loadModules() {
 
   await scanDirectory(modulesDir, entries);
 
+  await resolveAppIds(modules);
+
   return modules;
+}
+
+async function resolveAppIds(modules) {
+  const moduleKeysNeeded = new Set();
+
+  for (const mod of modules) {
+    const mk = mod.module_key;
+    if (mk) {
+      moduleKeysNeeded.add(String(mk));
+    }
+  }
+
+  if (moduleKeysNeeded.size === 0) {
+    return;
+  }
+
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("psb_s_application")
+    .select("app_id, module_key")
+    .in("module_key", Array.from(moduleKeysNeeded))
+    .eq("is_active", true);
+
+  if (error) {
+    throw new Error(`Failed to resolve app_id from psb_s_application: ${error.message}`);
+  }
+
+  const keyToAppId = new Map();
+  for (const row of data || []) {
+    keyToAppId.set(row.module_key, row.app_id);
+  }
+
+  const missing = [];
+  for (const mod of modules) {
+    const mk = String(mod.module_key || "");
+    if (!mk) continue;
+
+    const appId = keyToAppId.get(mk);
+    if (appId == null) {
+      missing.push(`${mod.key} (module_key: "${mk}")`);
+    } else {
+      mod.app_id = appId;
+    }
+  }
+
+  if (missing.length > 0) {
+    throw new Error(
+      `Modules missing from psb_s_application (no active row with matching module_key):\n  - ${missing.join("\n  - ")}`
+    );
+  }
+}
+
+export async function resolveAppId(moduleKey) {
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("psb_s_application")
+    .select("app_id")
+    .eq("module_key", moduleKey)
+    .eq("is_active", true)
+    .single();
+
+  if (error || !data) {
+    throw new Error(`No active application found for module_key "${moduleKey}"`);
+  }
+
+  return data.app_id;
 }

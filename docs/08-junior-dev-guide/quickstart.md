@@ -30,12 +30,16 @@ Every module has the same basic shape:
 
 ```
 src/modules/Metal-Buildings/
-  index.js              ← The ID card for your module
+  index.js                        ← The ID card for your module
+  data/
+    metalBuildings.actions.js     ← Server Actions (database access)
+    metalBuildings.data.js        ← Shared helpers (used by the view)
   pages/
-    DashboardPage.js    ← The page the user sees (runs on the server)
-  components/
-    HelloWorld.js       ← The interactive UI (runs in the browser)
+    DashboardPage.js              ← Server entry (loads data)
+    DashboardView.jsx             ← The interactive UI (runs in the browser)
 ```
+
+For a simple module you might only have `index.js` + `pages/`. As your module grows, add a `data/` folder.
 
 Let's walk through each file.
 
@@ -48,7 +52,7 @@ This tells the system: "Hey, I exist. Here's my name and my URL."
 ```javascript
 const metalBuildingsModule = {
   key: "metal-buildings",
-  app_id: 1,
+  module_key: "metal-app",
   name: "Metal Buildings",
   description: "Metal Buildings application.",
   icon: "bi-building",
@@ -68,7 +72,7 @@ export default metalBuildingsModule;
 | Field | What It Does |
 |-------|-------------|
 | `key` | A unique ID for your module (lowercase, dashes, no spaces) |
-| `app_id` | Which application this belongs to (ask your senior for the ID) |
+| `module_key` | Which application this belongs to — must match a `module_key` in `psb_s_application` (ask your senior for the value) |
 | `name` | The display name users see on the dashboard |
 | `description` | A short sentence shown under the module card |
 | `icon` | A Bootstrap icon class (e.g. `bi-building`, `bi-gear`) |
@@ -85,32 +89,32 @@ The `routes` array is the most important part. Each entry says:
 
 ## File 2: `pages/DashboardPage.js` — The Page (Server Component)
 
-This is the entry point for your page. It runs on the **server**.
+This is the entry point for your page. It runs on the **server**, loads data, and passes it to the view.
 
 ```javascript
-import HelloWorld from "../components/HelloWorld";
+import DashboardView from "./DashboardView.jsx";
 
-export default function DashboardPage() {
-  return <HelloWorld />;
+export default async function DashboardPage() {
+  return <DashboardView />;
 }
 ```
 
 **Rules for page files:**
 
 1. **DO NOT** put `"use client"` at the top. Pages must be server components.
-2. Keep this file simple — just import and render your components.
+2. Keep this file simple — load data, pass to view.
 3. The filename must match the `page` value in your route (`"DashboardPage"` → `DashboardPage.js`).
 
 ---
 
-## File 3: `components/HelloWorld.js` — The UI (Client Component)
+## File 3: `pages/DashboardView.jsx` — The UI (Client Component)
 
 This is where your actual visible UI code goes. It runs in the **browser**.
 
 ```javascript
 "use client";
 
-export default function HelloWorld() {
+export default function DashboardView() {
   return (
     <div className="container mt-4">
       <h1>Hello World!</h1>
@@ -119,7 +123,7 @@ export default function HelloWorld() {
 }
 ```
 
-**Rules for component files:**
+**Rules for view/component files:**
 
 1. **DO** put `"use client"` at the very top. This is required for anything interactive (buttons, forms, state, etc.).
 2. Put all your UI, hooks (`useState`, `useEffect`), and event handlers here.
@@ -130,13 +134,13 @@ export default function HelloWorld() {
 
 Next.js needs to know what runs on the server vs the browser.
 
-- **Server components** (pages) — can talk to the database, load data, do secure stuff. They run once on the server and send HTML to the browser.
-- **Client components** — can handle clicks, forms, animations, and anything interactive. They run in the user's browser.
+- **Server components** (page entry files) — can talk to the database, load data, do secure stuff. They run once on the server and send HTML to the browser.
+- **Client components** (view files) — can handle clicks, forms, animations, and anything interactive. They run in the user's browser.
 
 The pattern is always:
 
 ```
-Page (server) → imports → Component (client)
+Page (server) → loads data → passes to → View (client)
 ```
 
 This is not something we invented — it's how Next.js works.
@@ -171,22 +175,22 @@ routes: [
 ],
 ```
 
-### Step 2: Create the page file
+### Step 2: Create the page files
 
 ```javascript
-// pages/SettingsPage.js
-import SettingsForm from "../components/SettingsForm";
+// pages/SettingsPage.js — server entry
+import SettingsView from "./SettingsView.jsx";
 
-export default function SettingsPage() {
-  return <SettingsForm />;
+export default async function SettingsPage() {
+  return <SettingsView />;
 }
 ```
 
 ```javascript
-// components/SettingsForm.js
+// pages/SettingsView.jsx — client UI
 "use client";
 
-export default function SettingsForm() {
+export default function SettingsView() {
   return <h1>Settings go here</h1>;
 }
 ```
@@ -199,11 +203,11 @@ That's it. No other files to touch.
 
 - [ ] Created `src/modules/My-Module/index.js` with module definition
 - [ ] `key` is lowercase with dashes (no spaces)
-- [ ] `app_id` is a valid number (ask your senior)
+- [ ] `module_key` matches a value in `psb_s_application` (ask your senior)
 - [ ] `routes` array has at least one entry
 - [ ] Each route `page` value matches a file in `pages/`
-- [ ] Page files have **no** `"use client"` directive
-- [ ] Component files **do** have `"use client"` at the top
+- [ ] Page entry files have **no** `"use client"` directive
+- [ ] View/component files **do** have `"use client"` at the top
 - [ ] Module shows up on the dashboard after login
 
 ---
@@ -212,7 +216,8 @@ That's it. No other files to touch.
 
 | Mistake | What Happens |
 |---------|-------------|
-| Putting `"use client"` on a page file | Page won't load — webpack boundary breaks |
+| Putting `"use client"` on a page entry file | Page won't load — server data loading breaks |
 | `page` in route doesn't match filename | Core can't find the file — blank page |
 | Editing files outside your module folder | You might break another module or the platform |
-| Forgetting `app_id` | Module won't show up — RBAC can't check access |
+| Forgetting `module_key` | Core can't resolve `app_id` — module throws an error |
+| Creating API route files | Unnecessary — use Server Actions in `data/*.actions.js` instead |

@@ -1,4 +1,3 @@
-import ModuleAccessGate from "@/core/auth/ModuleAccessGate";
 import CardModuleSetupView from "../view/CardModuleSetupView";
 import { loadCardModuleSetupData, loadApplications } from "../hooks/cardModuleSetupData.js";
 
@@ -10,9 +9,6 @@ function parseAppId(value) {
   const asNumber = Number(value);
   return Number.isFinite(asNumber) ? asNumber : String(value);
 }
-
-const appIdFromEnv = Number(process.env.CARD_MODULE_SETUP_APP_ID);
-const APP_ID = Number.isFinite(appIdFromEnv) ? appIdFromEnv : 1;
 
 export const dynamic = "force-dynamic";
 
@@ -34,25 +30,21 @@ export default async function CardModuleSetupPage({ searchParams }) {
       ?? null;
 
     return (
-      <ModuleAccessGate appId={APP_ID}>
-        <CardModuleSetupView
-          applications={applications}
-          cardGroups={cardGroups}
-          cards={cards}
-          initialSelectedAppId={initialSelectedAppId}
-        />
-      </ModuleAccessGate>
+      <CardModuleSetupView
+        applications={applications}
+        cardGroups={cardGroups}
+        cards={cards}
+        initialSelectedAppId={initialSelectedAppId}
+      />
     );
   } catch (error) {
     return (
-      <ModuleAccessGate appId={APP_ID}>
-        <main className="container py-4">
-          <div className="notice-banner notice-banner-danger mb-0">
-            <strong className="d-block">Failed to load card module setup.</strong>
-            <span>{error?.message || "Unknown error"}</span>
-          </div>
-        </main>
-      </ModuleAccessGate>
+      <main className="container py-4">
+        <div className="notice-banner notice-banner-danger mb-0">
+          <strong className="d-block">Failed to load card module setup.</strong>
+          <span>{error?.message || "Unknown error"}</span>
+        </div>
+      </main>
     );
   }
 }

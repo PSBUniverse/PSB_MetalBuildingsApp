@@ -1,9 +1,6 @@
-const appIdFromEnv = Number(process.env.USER_MASTER_SETUP_APP_ID);
-const appId = Number.isFinite(appIdFromEnv) ? appIdFromEnv : 2;
-
 const userMasterSetupModule = {
   key: "user-master-setup",
-  app_id: appId,
+  module_key: "psbuniverse",
   name: "User Master Setup",
   description: "Manage user master records and activation status.",
   icon: "bi-people",
@@ -11,7 +8,7 @@ const userMasterSetupModule = {
   group_desc: "Internal setup tools for user administration.",
   order: 110,
   routes: [
-    { path: "/admin/user-master-setup", page: "DashboardPage" },
+    { path: "/admin/user-master-setup", page: "UserMasterSetupPage" },
   ],
 };
 
