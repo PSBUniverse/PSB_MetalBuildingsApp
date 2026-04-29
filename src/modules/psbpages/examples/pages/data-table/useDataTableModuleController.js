@@ -3,6 +3,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Badge, toastError, toastInfo, toastSuccess, toastWarning } from "@/shared/components/ui";
 import { createFilterConfig, TABLE_FILTER_TYPES } from "@/shared/components/ui/table/filterSchema";
+import {
+  getDataTableFilterOptions,
+  queryDataTableRows,
+  exportDataTable,
+} from "../../data/dataTableExample.actions";
 
 const PAGE_SIZE_OPTIONS = [5, 10, 20, 30, 50, 100, 500];
 const DEFAULT_PAGE_SIZE = 50;
@@ -446,40 +451,24 @@ export function useDataTableModuleController({ userScope }) {
   );
 
   const loadFilterOptions = useCallback(async () => {
-    const response = await fetch("/api/examples/data-table/options", {
-      cache: "no-store",
-    });
-
-    if (!response.ok) {
-      throw new Error("Unable to load filter options.");
-    }
-
-    return response.json();
+    return getDataTableFilterOptions();
   }, []);
 
   const fetchRows = useCallback(
-    async (signal) => {
-      const searchParams = new URLSearchParams();
-      searchParams.set("page", String(requestState.page));
-      searchParams.set("pageSize", String(requestState.pageSize));
+    async () => {
+      const params = {
+        page: requestState.page,
+        pageSize: requestState.pageSize,
+        sortKey: requestState.sorting.key || "",
+        sortDirection: requestState.sorting.direction || "desc",
+        search: requestState.filters.search || "",
+        status: requestState.filters.status || "",
+        role: requestState.filters.role || "",
+        createdStart: requestState.filters.createdStart || "",
+        createdEnd: requestState.filters.createdEnd || "",
+      };
 
-      if (requestState.sorting.key) {
-        searchParams.set("sortKey", requestState.sorting.key);
-        searchParams.set("sortDirection", requestState.sorting.direction);
-      }
-
-      appendFiltersToQuery(searchParams, requestState.filters);
-
-      const response = await fetch(`/api/examples/data-table?${searchParams.toString()}`, {
-        cache: "no-store",
-        signal,
-      });
-
-      if (!response.ok) {
-        throw new Error("Unable to load table rows.");
-      }
-
-      return response.json();
+      return queryDataTableRows(params);
     },
     [requestState.filters, requestState.page, requestState.pageSize, requestState.sorting.direction, requestState.sorting.key],
   );
@@ -517,13 +506,11 @@ export function useDataTableModuleController({ userScope }) {
   }, [loadFilterOptions]);
 
   useEffect(() => {
-    const controller = new AbortController();
+    let active = true;
 
-    fetchRows(controller.signal)
+    fetchRows()
       .then((payload) => {
-        if (controller.signal.aborted) {
-          return;
-        }
+        if (!active) return;
 
         const nextRows = Array.isArray(payload?.rows) ? payload.rows : [];
         const nextTotal = Math.max(0, toIntegerOrFallback(payload?.total, 0));
@@ -543,9 +530,7 @@ export function useDataTableModuleController({ userScope }) {
         }));
       })
       .catch((error) => {
-        if (controller.signal.aborted) {
-          return;
-        }
+        if (!active) return;
 
         setRows([]);
 
@@ -562,13 +547,11 @@ export function useDataTableModuleController({ userScope }) {
         toastError(message);
       })
       .finally(() => {
-        if (!controller.signal.aborted) {
-          setLoading(false);
-        }
+        if (active) setLoading(false);
       });
 
     return () => {
-      controller.abort();
+      active = false;
     };
   }, [fetchRows, requestState.page, requestState.pageSize]);
 
@@ -584,38 +567,24 @@ export function useDataTableModuleController({ userScope }) {
         ? context.visibleColumnKeys.map((key) => String(key || "").trim()).filter(Boolean)
         : [];
 
-      const searchParams = new URLSearchParams();
-      searchParams.set("format", selectedFormat);
-      searchParams.set("scope", "all-filtered");
-      searchParams.set("page", String(contextPagination.page));
-      searchParams.set("pageSize", String(contextPagination.pageSize));
-
-      if (contextSorting.key) {
-        searchParams.set("sortKey", contextSorting.key);
-        searchParams.set("sortDirection", contextSorting.direction);
-      }
-
-      appendFiltersToQuery(searchParams, contextFilters);
-
-      if (visibleColumnKeys.length > 0) {
-        searchParams.set("columns", visibleColumnKeys.join(","));
-      }
-
-      const response = await fetch(`/api/examples/data-table/export?${searchParams.toString()}`, {
-        cache: "no-store",
+      const exportResult = await exportDataTable({
+        format: selectedFormat,
+        scope: "all-filtered",
+        page: contextPagination.page,
+        pageSize: contextPagination.pageSize,
+        sortKey: contextSorting.key || "",
+        sortDirection: contextSorting.direction || "desc",
+        search: contextFilters.search || "",
+        status: contextFilters.status || "",
+        role: contextFilters.role || "",
+        createdStart: contextFilters.createdStart || "",
+        createdEnd: contextFilters.createdEnd || "",
+        columns: visibleColumnKeys.length > 0 ? visibleColumnKeys : undefined,
       });
 
-      if (!response.ok) {
-        throw new Error("Export failed.");
-      }
-
-      const blob = await response.blob();
-      const resolvedFileName =
-        parseFileName(response.headers.get("content-disposition")) ||
-        `data-table-export.${selectedFormat === "excel" ? "xls" : "csv"}`;
-
-      downloadBlob(blob, resolvedFileName);
-      toastSuccess(`${resolvedFileName} downloaded.`, "Export ready");
+      const blob = new Blob([exportResult.content], { type: exportResult.mimeType });
+      downloadBlob(blob, exportResult.fileName);
+      toastSuccess(`${exportResult.fileName} downloaded.`, "Export ready");
     },
     [tableState.filters, tableState.pagination, tableState.sorting],
   );

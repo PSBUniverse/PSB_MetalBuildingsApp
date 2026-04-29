@@ -8,7 +8,9 @@ This document standardizes naming for all database objects in PSBUniverse Core. 
 
 ### Prefix Model
 
-Every table uses the `psb_` platform prefix followed by a **type prefix**:
+Every table uses the `psb_` platform prefix followed by a **type prefix**.
+
+> **In simple terms:** Every table name starts with `psb_` so you know it belongs to this project. The second part tells you what kind of table it is: `_s_` = a main data table (like a list of users), `_m_` = a link table that connects two things together (like connecting a user to a role), `_t_` = a log of events (like invoices).
 
 | Prefix | Meaning | Examples |
 |--------|---------|----------|
@@ -20,6 +22,9 @@ Every table uses the `psb_` platform prefix followed by a **type prefix**:
 
 1. Always include the `psb_` platform prefix.
 2. Use **lowercase snake_case** only.
+
+   > **For example:** `psb_s_user` is correct. `PsbSUser` or `psb-s-user` are wrong. Snake_case means lowercase words separated by underscores.
+
 3. Use singular nouns for entity tables when practical.
 4. Use explicit relationship names for mapping tables.
 
@@ -74,6 +79,8 @@ updated_by    (bigint or text)
 
 ## Constraint Naming
 
+> **In simple terms:** Constraints are rules the database enforces automatically. A primary key constraint says "this column must be unique." A foreign key constraint says "this value must exist in another table." We name them consistently so they're easy to find when debugging.
+
 | Type | Pattern | Example |
 |------|---------|---------|
 | Primary key | `<table>_pkey` | `psb_s_user_pkey` |
@@ -94,7 +101,9 @@ updated_by    (bigint or text)
 
 ## Mapping Table Naming
 
-Mapping tables should clearly describe the relationship:
+Mapping tables should clearly describe the relationship.
+
+> **For example:** `psb_m_userapproleaccess` connects three things: a user, a role, and an application. The name tells you exactly what it links. When you see `_m_`, you know it's a many-to-many relationship table.
 
 - `psb_m_userapproleaccess` — maps user → role → application.
 - `psb_m_appcardroleaccess` — maps card → role.

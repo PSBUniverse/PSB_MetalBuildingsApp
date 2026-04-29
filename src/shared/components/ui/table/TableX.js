@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import TableZ from "@/shared/components/ui/table/TableZ";
 import { createFilterConfig, TABLE_FILTER_TYPES } from "@/shared/components/ui/table/filterSchema";
+import { databindQuery, databindOptions, databindExport } from "@/shared/utils/databind.actions";
 
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                           */
@@ -113,17 +114,11 @@ export default function TableX({
     Promise.all(
       selectFilters.map(async (f) => {
         try {
-          const res = await fetch("/api/databind/options", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              table: f.source,
-              key: f.key,
-              display: f.display,
-            }),
+          const data = await databindOptions({
+            table: f.source,
+            key: f.key,
+            display: f.display,
           });
-          if (!res.ok) return { field: f.key, options: [] };
-          const data = await res.json();
           return { field: f.key, options: data };
         } catch {
           return { field: f.key, options: [] };
@@ -139,7 +134,6 @@ export default function TableX({
   /* ---- Fetch rows ------------------------------------------------ */
   useEffect(() => {
     if (!source || !fieldNames.length) return;
-    const controller = new AbortController();
     setLoading(true);
 
     const activeFilters = {};
@@ -149,27 +143,20 @@ export default function TableX({
       }
     }
 
-    fetch("/api/databind/query", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        table: source,
-        fields: fieldNames,
-        search: tableState.filters.search || "",
-        searchFields: fieldNames,
-        filters: activeFilters,
-        sorting: tableState.sorting,
-        page: tableState.pagination.page,
-        pageSize: tableState.pagination.pageSize,
-      }),
-      signal: controller.signal,
+    let active = true;
+
+    databindQuery({
+      table: source,
+      fields: fieldNames,
+      search: tableState.filters.search || "",
+      searchFields: fieldNames,
+      filters: activeFilters,
+      sorting: tableState.sorting,
+      page: tableState.pagination.page,
+      pageSize: tableState.pagination.pageSize,
     })
-      .then((res) => {
-        if (!res.ok) throw new Error("Failed to load data.");
-        return res.json();
-      })
       .then((payload) => {
-        if (controller.signal.aborted) return;
+        if (!active) return;
         setRows(payload.rows || []);
         setTableState((prev) => ({
           ...prev,
@@ -182,15 +169,15 @@ export default function TableX({
         setError("");
       })
       .catch((err) => {
-        if (controller.signal.aborted) return;
+        if (!active) return;
         setRows([]);
         setError(err.message || "Failed to load data.");
       })
       .finally(() => {
-        if (!controller.signal.aborted) setLoading(false);
+        if (active) setLoading(false);
       });
 
-    return () => controller.abort();
+    return () => { active = false; };
   }, [source, fieldNames, tableState.filters, tableState.sorting, tableState.pagination.page, tableState.pagination.pageSize]);
 
   /* ---- Export handler --------------------------------------------- */
@@ -216,31 +203,23 @@ export default function TableX({
       }
 
       try {
-        const res = await fetch("/api/databind/export", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            table: source,
-            format,
-            columns: visibleKeys,
-            columnLabels: columnLabelMap,
-            search: ctxFilters.search || "",
-            searchFields: fieldNames,
-            filters: activeFilters,
-            sorting: ctxSorting,
-          }),
+        const result = await databindExport({
+          table: source,
+          format,
+          columns: visibleKeys,
+          columnLabels: columnLabelMap,
+          search: ctxFilters.search || "",
+          searchFields: fieldNames,
+          filters: activeFilters,
+          sorting: ctxSorting,
         });
-        if (!res.ok) throw new Error("Export failed.");
+        if (!result.ok) throw new Error(result.error || "Export failed.");
 
-        const blob = await res.blob();
-        const disposition = res.headers.get("content-disposition") || "";
-        const nameMatch = disposition.match(/filename="?([^";]+)"?/i);
-        const fileName = nameMatch?.[1] || `${source}-export.${format === "excel" ? "xls" : "csv"}`;
-
+        const blob = new Blob([result.content], { type: result.mimeType });
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        a.download = fileName;
+        a.download = result.fileName;
         a.click();
         URL.revokeObjectURL(url);
       } catch {

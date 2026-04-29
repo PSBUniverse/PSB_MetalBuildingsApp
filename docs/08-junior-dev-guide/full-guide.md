@@ -4,6 +4,8 @@ This is a rulebook, not a tutorial. If you need to learn how to build your first
 
 Breaking these rules can break RBAC, module consistency, and platform stability.
 
+> **In simple terms:** RBAC (Role-Based Access Control) is the system that controls who can see what. If you break it, users might see pages or data they shouldn't — or lose access to things they need.
+
 ---
 
 ## Your Role
@@ -27,6 +29,8 @@ You build **module features**. You do not redesign architecture.
 1. **Auth:** Do not create your own auth system. Do not use `password_hash` for login. Do not call `supabase.auth.getUser()` directly — use `useAuth()`.
    - *Why dangerous:* Session mismatch, duplicated auth behavior, security risk.
 
+   > **For example:** If you call `supabase.auth.getUser()` in your component and another component calls `useAuth()`, they might return different user data if one refreshes and the other doesn't. Always use `useAuth()` so everyone reads from the same source.
+
 2. **Roles:** Do not create or assign roles in module code. Do not hardcode role names.
    - *Why dangerous:* Permissions stop matching the database. Access becomes impossible to audit.
 
@@ -36,12 +40,16 @@ You build **module features**. You do not redesign architecture.
 4. **Session:** Do not rename or replace the `sb-access-token` cookie. Do not bypass the bootstrap check.
    - *Why dangerous:* Users get redirected back to login after successful sign-in. Server/client auth state can diverge.
 
+   > **In simple terms:** The "bootstrap check" is the system's startup routine that loads the current user's identity and roles when the page first opens. If you skip it, the app doesn't know who's logged in.
+
 5. **Core files:** Do not edit files in `src/core/` or `src/shared/` without lead approval.
 
 6. **API routes:** Do not create files in `src/app/api/`. Use Server Actions instead.
    - *Why dangerous:* Bypasses the standard data flow pattern. Makes modules harder to maintain.
 
 **If your task requires any of these, stop and escalate to your tech lead.**
+
+> **In simple terms:** "Escalate" just means ask your senior dev or tech lead before doing it. It's not a bad thing — it's how you avoid breaking something that affects everyone.
 
 ---
 
@@ -63,6 +71,8 @@ export default {
 - `page` is a string matching a filename in your `pages/` folder (without `.js`).
 - Core auto-discovers your module — no core file edits needed.
 - `app_id` is resolved automatically from `module_key`. You never set it yourself.
+
+> **For example:** If your senior tells you the `module_key` is `"metal-app"`, just put that in your `index.js`. The system will automatically look up the matching `app_id` from the database. You never need to know what number `app_id` is.
 
 For the full module structure and contract details, see [Module System](../02-architecture/module-system.md).
 
@@ -124,7 +134,8 @@ For CRUD patterns and examples, see [CRUD Guide](../05-database/crud-guide.md) a
 1. Define routes in your module's `index.js` with `path` and `page` fields.
 2. `path` must start with `/`.
 3. `path` should match the `route_path` column in your database card records.
-4. Core auto-discovers your module and auto-resolves page files.
+4. Route files in `src/app/` are **auto-generated** by `scripts/generate-routes.js` — do not create or edit them manually.
+5. The generator runs automatically on `npm run dev` and `npm run build`.
 
 For full routing details, see [Module System](../02-architecture/module-system.md).
 
@@ -132,7 +143,7 @@ For full routing details, see [Module System](../02-architecture/module-system.m
 
 ## UI and Styling Rules
 
-1. Use the shared components from `@/shared/components/ui`. Do not create your own Button, Modal, or Table.
+1. Use the shared components from `@/shared/components/ui`. Do not create your own Button, Modal, or TableZ.
 2. Use the core shell layout — do not redesign navigation.
 3. Show clear loading, empty, error, and no-access states.
 4. Keep spacing and typography consistent.
@@ -146,18 +157,18 @@ For the full component list and specs, see [Shared UI System](../04-ui-system/sh
 Import from:
 
 ```js
-import { Table } from "@/shared/components/ui";
+import { TableZ } from "@/shared/components/ui";
 ```
 
 **Hard rules:**
 1. Do not install table libraries inside your module.
 2. Do not build custom tables when the shared table supports the feature.
-3. Keep all data and filter state in your module — pass into Table via props.
-4. Table is controlled mode only.
+3. Keep all data and filter state in your module — pass into TableZ via props.
+4. TableZ is controlled mode only.
 
 **Row action types are limited to:** `primary`, `secondary`, `danger`. Do not use `success` or `warning`.
 
-**Reference implementation:** Open `/examples/data-table` in dev and copy from `src/app/examples/data-table/page.js`.
+**Reference implementation:** Open `/psbpages/examples/data-table` in dev and study `src/modules/psbpages/examples/pages/data-table/DataTablePage.js`.
 
 For the full table API and rules, see [Development Rules](../03-development-rules/rules.md).
 
@@ -202,7 +213,7 @@ const actions = [
 const handleColumnVisibilityChange = (nextColumns) => setColumns(nextColumns);
 const handleColumnResizeChange = (nextColumns) => setColumns(nextColumns);
 
-<Table
+<TableZ
   columns={columns}
   data={rows}
   loading={loading}
@@ -227,7 +238,7 @@ const handleColumnResizeChange = (nextColumns) => setColumns(nextColumns);
 
 Use the built-in examples as your primary reference:
 
-1. Open `/examples` in dev for the full shared UI guide, playground, and reference experience.
+1. Open `/psbpages/examples` in dev for the full shared UI guide, playground, and reference experience.
 2. Use **Quick Start** for the baseline setup sequence.
 3. Use **Playground** for interaction testing.
 4. Use **Reference** for props and pattern contracts.

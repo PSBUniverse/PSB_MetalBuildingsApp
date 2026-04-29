@@ -8,21 +8,27 @@ This document defines every shared UI component, its behavior contract, and the 
 
 | Component | Purpose |
 |-----------|---------|
-| Table | Full data-table: controlled state, filters, sorting, pagination, column resize/visibility, context menu, side panel, export |
-| SetupTable | Lightweight setup grid: simple rows/columns, optional row click, drag reorder, batch row styling |
+| TableZ | Full data-table: controlled state, filters, sorting, pagination, column resize/visibility, context menu, side panel, batch edit, export |
+| TableX | Data-binding wrapper around TableZ: connects to server-side query/filter/export Server Actions |
 | ActionColumn | Row action buttons: inline (1 action) or dropdown (2+ actions) |
-| FilterSchema | Developer-defined filter configuration |
+| InlineEditCell | Inline cell editor for batch edit mode |
 | SearchBar | Debounced global search input |
-| TableContextMenu | Right-click menu for column visibility, export, clear sorting |
-| TableSidePanel | Slide-out panel for row details |
 | Dropdown | Select/menu component |
 | Button | Standard action button |
 | Input | Form text input |
 | Modal | Dialog overlay |
 | Card | Content container |
 | Badge | Inline status label |
-| Toast | Auto-dismiss notification |
+| Toast | Auto-dismiss notification (via `toastSuccess`, `toastError`, etc.) |
 | GlobalToastHost | Single app-level toast container |
+
+**Import all from the barrel export:**
+
+> **In simple terms:** A "barrel export" just means there's one file that re-exports everything. Instead of remembering which subfolder each component lives in, you import them all from one place: `@/shared/components/ui`.
+
+```js
+import { TableZ, TableX, Button, Modal, Badge } from "@/shared/components/ui";
+```
 
 **Hard rule:** Anything outside this list is rejected unless the shared UI system is explicitly extended first.
 
@@ -35,6 +41,8 @@ This document defines every shared UI component, its behavior contract, and the 
 - Display only — emits events, never fetches data.
 - Fully controlled by the parent module.
 
+> **In simple terms:** The table is like a whiteboard. Your module writes on it (passes data) and tells it what to display. When the user clicks "sort" or "filter", the table tells your module "hey, the user wants to sort by name" — but it doesn't sort anything itself. Your module does the sorting and passes the new data back.
+
 ### What the Module Controls
 
 - Data array
@@ -46,47 +54,35 @@ This document defines every shared UI component, its behavior contract, and the 
 ### Data Flow
 
 ```
-User interacts with Table
-  → Table emits event (onSortChange, onFilterChange, etc.)
+User interacts with TableZ
+  → TableZ emits event (onSortChange, onFilterChange, etc.)
   → Module updates its state
-  → Module fetches data from API
-  → Module passes updated data back to Table
+  → Module fetches data via Server Action
+  → Module passes updated data back to TableZ
 ```
 
-### SetupTable vs Table
+### TableZ vs TableX
 
-| Feature | SetupTable | Table |
-|---------|-----------|-------|
-| Purpose | Simple setup grids | Full data tables |
-| State management | None — renders what you pass | Controlled state + onChange |
-| Filters/search/sort | None | Full support |
-| Column resize/visibility | None | Full support |
-| Context menu + side panel | None | Full support |
-| Export | None | Full support |
-| Drag reorder | Supported | Not built-in |
-| Batch row styling | Via `__batchClassName` | Via `__batchState` |
+| Feature | TableZ | TableX |
+|---------|--------|--------|
+| Purpose | Full-featured table for module pages | Data-binding wrapper that connects to Server Actions |
+| State management | Controlled — module manages all state | Manages query/filter/pagination state internally via databind |
+| Filters/search/sort | Full support | Full support (delegates to Server Actions) |
+| Column resize/visibility | Full support | Full support |
+| Batch edit mode | Built-in (via `useTableBatchEdit`) | Inherits from TableZ |
+| Export | Full support | Full support (via databind export) |
+| Drag reorder | Via `useTableDragNDrop` hook | Via `useTableDragNDrop` hook |
+
+**Use `TableZ`** when you manage data fetching yourself (via Server Actions in your module).
+**Use `TableX`** when you want automatic data binding to the databind Server Actions.
+
+> **For example:** If you're building a simple list page and want the table to handle fetching, filtering, and pagination for you, use `TableX`. If you need full control over how data is loaded and transformed, use `TableZ`.
 
 ---
 
-## Action Column
+## Row Actions
 
-### Rendering Rules
-
-- **1 action:** Renders as an inline button.
-- **2+ actions:** Renders as a dropdown menu.
-
-### Config-Driven
-
-- Fully config-driven: the module passes an `actions` array, ActionColumn renders it.
-- Per-row visibility: actions can have a `visible(row)` function.
-- Disabled state: actions can have a `disabled(row)` function.
-- Confirmation modals: actions with `type: "danger"` or `confirm: true` show a modal before executing.
-
-### Action Ordering
-
-1. Primary
-2. Secondary
-3. Danger
+Row actions are config-driven via the `actions` prop on TableZ/TableX. The `ActionColumn` component renders them.
 
 ### Row Action Type Contract
 
@@ -100,18 +96,13 @@ The only supported `type` values for row actions are:
 
 **Do not** pass `success` or `warning` to row actions. If your business meaning is success/warning, map it to a supported type before passing actions.
 
-### Layout Rules
-
-- No wrapping.
-- No multiple inline buttons for multi-action rows.
-
 ---
 
 ## Filter System
 
 - Developer-defined only — no user-created filters.
-- Supports static options or API-resolved options.
-- Module resolves API options and passes them as `options`; the table does not execute API calls.
+- Supports static options or server-resolved options.
+- Module resolves options (via Server Actions) and passes them as `options`; the table does not execute server calls.
 - Filter changes update module state and trigger a data reload.
 
 ---
@@ -121,6 +112,8 @@ The only supported `type` values for row actions are:
 - Must be debounced.
 - Updates the module's filter/query state.
 - Triggers data reload through the module's normal flow.
+
+> **In simple terms:** "Debounced" means the search doesn't fire on every single keystroke. It waits until the user stops typing (usually ~300ms) and then searches. This prevents hammering the server with a request for every letter.
 
 ---
 
@@ -146,7 +139,9 @@ Do not duplicate these controls in a separate toolbar.
 
 ## Design Tokens
 
-All shared components follow these locked design tokens:
+All shared components follow these locked design tokens.
+
+> **In simple terms:** "Design tokens" are just the approved values for spacing, font sizes, and border radius that every component uses. Think of them as the building code for the UI — everyone uses the same measurements so everything looks consistent.
 
 ### Spacing
 
@@ -245,6 +240,8 @@ All shared components follow these locked design tokens:
 - Use labels on form inputs — do not rely on placeholder text alone.
 
 ### Z-Index Layering (Low → High)
+
+> **In simple terms:** Z-index controls what appears on top of what. A dropdown sits below a modal, which sits below a toast notification. This prevents a dropdown from accidentally covering a popup.
 
 1. Dropdown
 2. Modal
@@ -346,8 +343,8 @@ Every module page must handle:
 
 When testing a module's table integration:
 
-1. Filters must match API behavior — selecting a filter should produce the same results as the API query.
-2. Sorting must match backend behavior — the table's sort state should produce the same order as the API.
+1. Filters must match server behavior — selecting a filter should produce the same results as the Server Action query.
+2. Sorting must match backend behavior — the table's sort state should produce the same order as the server.
 3. Actions must respect permission and state constraints — disabled/hidden actions should stay that way.
 
 ---

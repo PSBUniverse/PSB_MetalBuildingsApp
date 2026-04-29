@@ -23,6 +23,8 @@
 
 Every batch edit implementation follows the same **Draft + Baseline + Diff** pattern.
 
+> **In simple terms:** Imagine editing a Word document with "Track Changes" on. The **baseline** is the original saved version. The **draft** is your working copy with edits. The **diff** is the highlighted changes between them. When you click "Save Batch", only the changes get sent to the server — not the whole document.
+
 ### Data Flow
 
 ```
@@ -50,6 +52,8 @@ Diff resets to empty — hasPendingChanges = false
 ```
 
 ### State Variables (Template)
+
+> **In simple terms:** `draft` is what the user sees and edits on screen. `baseline` is a hidden copy of what the server last gave us. We compare the two to figure out what changed.
 
 ```javascript
 const [draft, setDraft] = useState([]);         // Working copy — user edits this
@@ -79,7 +83,7 @@ function cloneBatchRows(rows) {
 
 ## 2. Edit Method A — Modal / Drawer
 
-**Source:** `admin-setup.page.js`
+**Source:** Admin setup view files (e.g. `UserMasterSetupView.jsx`, `ApplicationSetupView.jsx`)
 **Used for:** Complex entities (Users, Companies, Statuses, Applications)
 
 ### How It Works
@@ -210,7 +214,7 @@ const hasAnyPendingBatchChanges =
 
 ## 3. Edit Method B — Inline Cell Editing
 
-**Source:** `core-setup.page.js` → `SetupTable` component
+**Source:** Admin setup modules — inline cell editing via `InlineEditCell` component
 **Used for:** Simple reference tables (Statuses, Colors, Manufacturers)
 
 ### How It Works
@@ -304,22 +308,14 @@ const cancelEditRow = (i) => {
 </div>
 ```
 
-### SetupTable Props
+### InlineEditCell Props
 
 ```javascript
-SetupTable({
-  sectionId,       // Unique key for this table
-  title,           // Display title
-  description,     // Subtitle text
-  tableName,       // DB table name
-  pkColumn,        // Primary key column (e.g. "status_id")
-  columns,         // Array of { key, label, type: "text"|"number" }
-  data,            // Source data from parent
-  onSave,          // Callback after save
-  onStateChange,   // Reports { isDirty, rowCount }
-  cacheNamespace,  // Cache namespace for invalidation
-  cacheKey,        // Cache key to invalidate
-  invalidateKeys,  // Additional cache keys to invalidate
+InlineEditCell({
+  value,           // Current cell value
+  onChange,        // Callback when value changes
+  type,            // Input type: "text" | "number"
+  disabled,        // Whether editing is disabled
 })
 ```
 
@@ -327,7 +323,7 @@ SetupTable({
 
 ## 4. Edit Method C — Modal Only (Hierarchical)
 
-**Source:** `setup-cards-tab.js`
+**Source:** `CardModuleSetupView.jsx`
 **Used for:** Nested structures (Groups → Cards) with drag-to-reorder
 
 ### How It Works
@@ -779,9 +775,6 @@ await fetch("/api/setup/global", {
 
 | File | Role | Size |
 |------|------|------|
-| `src/modules/user-master/components/admin-setup.page.js` | Modal/Drawer edit, multi-section batch | ~5200 lines |
-| `src/modules/user-master/components/core-setup.page.js` | Inline cell edit, reusable SetupTable | ~800 lines |
-| `src/modules/user-master/components/setup-cards-tab.js` | Hierarchical groups+cards, drag-reorder | ~2000 lines |
-| `src/modules/user-master/services/user-master-admin-applications.service.js` | RPC batch save | |
-| `src/modules/user-master/services/user-master-setup-cards.service.js` | Setup cards CRUD service | |
-| `src/app/api/setup/global/route.js` | Global setup delete-then-insert API | |
+| `src/modules/admin/user-master-setup/pages/` | Setup pages (Blazor Mirror pattern) | |
+| `src/modules/admin/user-master-setup/data/` | Server Actions for setup CRUD | |
+| `src/modules/admin/user-master-setup/data/` | Server Actions for setup CRUD | |

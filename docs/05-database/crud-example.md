@@ -1,10 +1,12 @@
 # CRUD Example: Roles Module
 
-A complete, working example of a module with full CRUD operations. Use this as a template when building your own module's data layer.
+A complete, working example of a module with full CRUD operations. Use this as a reference for understanding CRUD layering.
+
+> **Note:** This example uses the **legacy** folder structure (model/repo/service/hook/component). New modules should use the current structure: `index.js` + `data/` + `pages/`. See [Module System](../02-architecture/module-system.md) for the current pattern.
 
 ---
 
-## Folder Structure
+## Folder Structure (Legacy)
 
 ```
 src/modules/roles/
@@ -248,7 +250,7 @@ export default function RolesPage() {
 
 export default {
   key: "roles",
-  app_id: 1,
+  module_key: "roles-app",
   name: "Roles",
   routes: [
     { path: "/roles", page: "RolesPage" },

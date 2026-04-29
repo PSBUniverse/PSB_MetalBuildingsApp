@@ -1,11 +1,8 @@
-import CompanyDepartmentSetupView from "../view/CompanyDepartmentSetupView";
-import { loadCompanyDepartmentSetupData } from "../hooks/companyDepartmentSetupData.js";
+import CompanyDepartmentSetupView from "./CompanyDepartmentSetupView";
+import { loadCompanyDepartmentSetupData } from "../data/companyDepartmentSetup.actions.js";
 
 function parseCompanyId(value) {
-  if (value === undefined || value === null || value === "") {
-    return null;
-  }
-
+  if (value === undefined || value === null || value === "") return null;
   const asNumber = Number(value);
   return Number.isFinite(asNumber) ? asNumber : String(value);
 }
@@ -14,9 +11,7 @@ export default async function CompanyDepartmentSetupPage({ searchParams }) {
   const resolvedSearchParams = await searchParams;
 
   try {
-    const viewModel = await loadCompanyDepartmentSetupData();
-    const companies = Array.isArray(viewModel?.companies) ? viewModel.companies : [];
-    const departments = Array.isArray(viewModel?.departments) ? viewModel.departments : [];
+    const { companies, departments } = await loadCompanyDepartmentSetupData();
 
     const initialSelectedCompanyId =
       parseCompanyId(resolvedSearchParams?.company)

@@ -2,6 +2,8 @@
 
 This document covers how TableZ handles batch editing in its three modes, plus the action logic and row behavior rules that apply across all modes.
 
+> **In simple terms:** Batch editing means the user can make multiple changes (add rows, edit rows, delete rows) and then save everything at once with a single "Save" click, instead of saving each change individually.
+
 ---
 
 ## Quick Summary
@@ -19,6 +21,8 @@ This document covers how TableZ handles batch editing in its three modes, plus t
 ## Mode 1: Without Batch Mode (Default)
 
 This is the mode when `batchMode` is not set (or `false`) on `<TableZ>`.
+
+> **In simple terms:** This is the most common mode. The table just displays data. Your module code handles everything — what happens on edit, delete, save. The table is a dumb screen that shows whatever you give it.
 
 ### How Actions Work
 
@@ -66,6 +70,8 @@ When a row has `__batchState === "deleted"` or `"hardDeleted"` (or `__pendingRem
 ## Mode 2: Internal Batch Mode (`batchMode={true}`)
 
 This mode activates when `batchMode={true}` and `onBatchChange` is **not** provided. TableZ manages everything internally.
+
+> **In simple terms:** In this mode, you hand the table your data and it handles the rest: tracking which rows were added, edited, or deleted, highlighting changes, and giving you a diff when it's time to save. You don't need to write that logic yourself.
 
 ### How Actions Work
 

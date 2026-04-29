@@ -1,282 +1,85 @@
-# Auto-Discovery Module Routing — Proposal
+# Auto-Route Generation
 
-> **Status:** Implemented
+> **Status:** Implemented (April 2026)
 
-## Problem
+## Overview
 
-Previously, every new module required a senior dev to edit the core catch-all route file (`src/app/[...modulePath]/page.js`) to register a `pageImporters` entry. Junior devs should never need to touch core files.
-
-## Solution
-
-Two one-time core changes that eliminate the hardcoded `pageImporters` map. After these changes, adding a new module never requires editing a core file again.
+Route files in `src/app/` are auto-generated from module `index.js` definitions. Junior devs never touch `src/app/` — they only define routes in their module's `index.js` and the system generates everything else.
 
 ---
 
-## Change 1: `src/modules/loadModules.js`
+## How It Works
 
-Added `createPageImporter()` — a function that builds an importer scoped to each module's `pages/` folder. It uses the same `pathToFileURL` + `webpackIgnore` pattern already established.
+`scripts/generate-routes.js` is a Node.js script that:
 
-```javascript
-function createPageImporter(modulePath) {
-  const moduleDir = path.dirname(modulePath);
+1. Recursively scans `src/modules/` for `index.js` files.
+2. Dynamically imports each module definition and reads its `routes` array.
+3. For each route, generates a thin `page.js` wrapper in the corresponding `src/app/` directory.
+4. Marks every generated file with `// @generated — do not edit. Run \`npm run gen:routes\` to regenerate.`
+5. Only overwrites files that have the `@generated` marker (manual files are never touched).
+6. Removes stale generated files when routes are deleted or renamed.
 
-  return async function importPage(pageName) {
-    const pagePath = path.join(moduleDir, "pages", `${pageName}.js`);
+### Generated File Example
 
-    try {
-      await fs.access(pagePath);
-    } catch {
-      return null;
-    }
+For a module with:
 
-    const pageUrl = createModuleUrl(pagePath);
-    return import(/* webpackIgnore: true */ pageUrl.href);
-  };
-}
+```js
+routes: [{ path: "/admin/status-setup", page: "StatusSetupPage" }]
 ```
 
-Each module definition gets `_importPage` attached automatically during `loadModules()`.
+The script produces `src/app/admin/status-setup/page.js`:
 
----
+```js
+// @generated — do not edit. Run `npm run gen:routes` to regenerate.
+import StatusSetupPage from "@/modules/admin/status-setup/pages/StatusSetupPage";
 
-## Change 2: `src/app/[...modulePath]/page.js`
-
-The entire hardcoded `pageImporters` map was deleted. The catch-all route now uses `moduleDefinition._importPage()` to resolve pages dynamically.
-
----
-
-## Result
-
-| Before | After |
-|--------|-------|
-| Junior dev adds module → must edit core `page.js` | Junior dev adds module → only touches module folder |
-| Hardcoded `pageImporters` map grows forever | Map eliminated — auto-discovery via `loadModules` |
-| Core file is a merge-conflict magnet | Core files are stable |
-
----
-
-## Page Component Rule
-
-Because pages are loaded via `webpackIgnore` (Node.js runtime import, not webpack-bundled):
-
-> **Page files in `pages/` must be server components.** Do NOT put `"use client"` at the top.
-
-For client-side interactivity, import client components from the page:
-
-```javascript
-// pages/DashboardPage.js — server component (no directive)
-import MyWidget from "../components/MyWidget";
-
-export default function DashboardPage() {
-  return <MyWidget />;
-}
-```
-
-```javascript
-// components/MyWidget.js — client component
-"use client";
-
-export default function MyWidget() {
-  return <h1>Hello World</h1>;
+export default function Page(props) {
+  return <StatusSetupPage {...props} />;
 }
 ```
 
 ---
 
-## Full Implementation Code
+## npm Scripts
 
-### `src/modules/loadModules.js`
+| Script | Purpose |
+|--------|---------|
+| `npm run gen:routes` | Manually regenerate all route files |
+| `npm run dev` | Auto-runs `gen:routes` via `predev` hook, then starts dev server |
+| `npm run build` | Auto-runs `gen:routes` via `prebuild` hook, then builds |
 
-```javascript
-import fs from "node:fs/promises";
-import path from "node:path";
-import { pathToFileURL } from "node:url";
-import { getSupabaseAdmin } from "@/core/supabase/admin";
+---
 
-async function readModuleEntries(modulesDir) {
-  try {
-    return await fs.readdir(modulesDir, { withFileTypes: true });
-  } catch {
-    return [];
-  }
-}
+## Why This Approach?
 
-async function resolveModulePath(modulesDir, moduleName) {
-  const modulePath = path.join(modulesDir, moduleName, "index.js");
-  try {
-    await fs.access(modulePath);
-    return modulePath;
-  } catch {
-    return null;
-  }
-}
+### Previous: Catch-All Route
 
-function createModuleUrl(modulePath) {
-  const moduleUrl = pathToFileURL(modulePath);
-  if (process.env.NODE_ENV !== "production") {
-    moduleUrl.searchParams.set("t", String(Date.now()));
-  }
-  return moduleUrl;
-}
+The original system used a single `src/app/[...modulePath]/page.js` that dynamically imported modules at runtime via `loadModules()`. This had two problems:
 
-function createPageImporter(modulePath) {
-  const moduleDir = path.dirname(modulePath);
+1. **Dev mode failure** — `import(/* webpackIgnore: true */ url)` does a native Node.js import that can't parse JSX. Works at Turbopack build time but fails at webpack/Turbopack dev runtime.
+2. **Junior dev friction** — when thin route files were added as a workaround, jr devs had to manually create files in `src/app/`, violating the "only touch your module folder" rule.
 
-  return async function importPage(pageName) {
-    const pagePath = path.join(moduleDir, "pages", `${pageName}.js`);
-    try {
-      await fs.access(pagePath);
-    } catch {
-      return null;
-    }
-    const pageUrl = createModuleUrl(pagePath);
-    return import(/* webpackIgnore: true */ pageUrl.href);
-  };
-}
+### Current: Auto-Generated Routes
 
-export async function loadModules() {
-  const modules = [];
-  const seenModuleKeys = new Set();
-  const modulesDir = path.join(process.cwd(), "src", "modules");
-  const entries = await readModuleEntries(modulesDir);
+The generator solves both problems:
+- Route files use standard imports that work in all modes (dev, build, production).
+- Jr devs only define routes in `index.js` — the script handles `src/app/`.
 
-  async function scanDirectory(dir, dirEntries) {
-    for (const entry of dirEntries) {
-      if (!entry.isDirectory()) continue;
+### Key Design Decisions
 
-      const modulePath = await resolveModulePath(dir, entry.name);
+| Decision | Rationale |
+|----------|-----------|
+| `@generated` marker | Protects manual files from being overwritten |
+| `writeIfChanged()` | Avoids unnecessary file writes (preserves HMR stability) |
+| `cleanStaleRoutes()` | Automatically removes routes for deleted modules |
+| Pre-hooks (`predev`, `prebuild`) | Routes are always up-to-date before the server starts |
+| Idempotent | Running the script twice produces identical output |
 
-      if (!modulePath) {
-        const subDir = path.join(dir, entry.name);
-        const subEntries = await readModuleEntries(subDir);
-        if (subEntries.length > 0) {
-          await scanDirectory(subDir, subEntries);
-        }
-        continue;
-      }
+---
 
-      const moduleUrl = createModuleUrl(modulePath);
-      const importedModule = await import(/* webpackIgnore: true */ moduleUrl.href);
-      const moduleDefinition = importedModule.default ?? importedModule;
-      const moduleKey = String(moduleDefinition?.key || entry.name);
+## Rules
 
-      if (seenModuleKeys.has(moduleKey)) continue;
-
-      moduleDefinition._importPage = createPageImporter(modulePath);
-      seenModuleKeys.add(moduleKey);
-      modules.push(moduleDefinition);
-    }
-  }
-
-  await scanDirectory(modulesDir, entries);
-  await resolveAppIds(modules);
-  return modules;
-}
-
-async function resolveAppIds(modules) {
-  const moduleKeysNeeded = new Set();
-  for (const mod of modules) {
-    if (mod.module_key) moduleKeysNeeded.add(String(mod.module_key));
-  }
-  if (moduleKeysNeeded.size === 0) return;
-
-  const supabase = getSupabaseAdmin();
-  const { data, error } = await supabase
-    .from("psb_s_application")
-    .select("app_id, module_key")
-    .in("module_key", Array.from(moduleKeysNeeded))
-    .eq("is_active", true);
-
-  if (error) {
-    throw new Error(`Failed to resolve app_id: ${error.message}`);
-  }
-
-  const keyToAppId = new Map();
-  for (const row of data || []) {
-    keyToAppId.set(row.module_key, row.app_id);
-  }
-
-  const missing = [];
-  for (const mod of modules) {
-    const mk = String(mod.module_key || "");
-    if (!mk) continue;
-    const appId = keyToAppId.get(mk);
-    if (appId == null) {
-      missing.push(`${mod.key} (module_key: "${mk}")`);
-    } else {
-      mod.app_id = appId;
-    }
-  }
-
-  if (missing.length > 0) {
-    throw new Error(
-      `Modules missing from psb_s_application:\n  - ${missing.join("\n  - ")}`
-    );
-  }
-}
-
-export async function resolveAppId(moduleKey) {
-  const supabase = getSupabaseAdmin();
-  const { data, error } = await supabase
-    .from("psb_s_application")
-    .select("app_id")
-    .eq("module_key", moduleKey)
-    .eq("is_active", true)
-    .single();
-
-  if (error || !data) {
-    throw new Error(`No active application found for module_key "${moduleKey}"`);
-  }
-  return data.app_id;
-}
-```
-
-### `src/app/[...modulePath]/page.js`
-
-```javascript
-import { notFound } from "next/navigation";
-import { loadModules } from "@/modules/loadModules";
-import ModuleAccessGate from "@/core/auth/ModuleAccessGate";
-
-function buildPath(segments) {
-  return `/${segments.join("/")}`;
-}
-
-export default async function ModuleRoutePage({ params, searchParams }) {
-  const resolvedParams = await params;
-  const resolvedSearchParams = await searchParams;
-  const currentPath = buildPath(resolvedParams?.modulePath || []);
-  const modules = await loadModules();
-
-  if (!Array.isArray(modules)) {
-    notFound();
-  }
-
-  modules.forEach((mod) => {
-    mod.routes?.sort((a, b) => b.path.length - a.path.length);
-  });
-
-  for (const moduleDefinition of modules) {
-    if (!moduleDefinition?.key || !moduleDefinition?.app_id) continue;
-    if (!moduleDefinition?.routes) continue;
-
-    for (const route of moduleDefinition.routes) {
-      if (!currentPath.startsWith(route.path)) continue;
-      if (!moduleDefinition._importPage || !route.page) continue;
-
-      const pageModule = await moduleDefinition._importPage(route.page);
-      if (!pageModule) continue;
-
-      const Component = pageModule.default;
-
-      return (
-        <ModuleAccessGate appId={moduleDefinition.app_id}>
-          <Component searchParams={resolvedSearchParams} />
-        </ModuleAccessGate>
-      );
-    }
-  }
-
-  notFound();
-}
-```
+1. **Never manually create or edit** `page.js` files in `src/app/admin/` or `src/app/psbpages/`.
+2. Files with the `@generated` marker are owned by the script.
+3. If a generated file looks wrong, fix the module's `index.js` and re-run `npm run gen:routes`.
+4. The script runs as part of `npm run dev` and `npm run build` — no extra steps needed.

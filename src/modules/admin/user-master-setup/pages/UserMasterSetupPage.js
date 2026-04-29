@@ -1,15 +1,11 @@
-import UserMasterSetupView from "../view/UserMasterSetupView";
-import { loadUserMasterSetupData } from "../hooks/useUserMasterSetupData.js";
+import UserMasterSetupView from "./UserMasterSetupView";
+import { loadUserMasterSetupData } from "../data/userMasterSetup.actions.js";
 
 export const dynamic = "force-dynamic";
 
 export default async function UserMasterSetupPage() {
   try {
-    const viewModel = await loadUserMasterSetupData();
-    const users = Array.isArray(viewModel?.users) ? viewModel.users : [];
-    const totalUsers = Number.isFinite(Number(viewModel?.totalUsers))
-      ? Number(viewModel.totalUsers)
-      : users.length;
+    const { users, totalUsers } = await loadUserMasterSetupData();
 
     return <UserMasterSetupView users={users} totalUsers={totalUsers} />;
   } catch (error) {

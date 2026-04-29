@@ -8,13 +8,18 @@ This guide shows how to perform reliable database operations in PSBUniverse Core
 
 PSBUniverse has **two** Supabase clients. Using the wrong one is a security risk.
 
+> **In simple terms:** The browser client is like a regular user — it can only do what the logged-in user is allowed to do. The admin client is like a master key — it can do anything (create users, delete records, etc.). The admin client must only run on the server, never in browser code.
+
 | Client | File | When to Use |
 |--------|------|-------------|
 | Browser client | `src/core/supabase/client.js` | Client components — reads tied to the logged-in user's session |
-| Server admin client | `src/core/supabase/admin.js` | API routes and server-only code — privileged operations like creating users |
+| Server admin client | `src/core/supabase/admin.js` | Server Actions and server-only code — privileged operations like creating users |
 
 **Rules:**
 1. Never expose the service role key in browser code.
+
+   > **In simple terms:** The "service role key" is the master password for your database. If it ends up in browser code, anyone can inspect your page and steal it. Keep it in `.env.local` and only use it in Server Actions.
+
 2. Never use the admin client in client components.
 
 ---
@@ -107,9 +112,9 @@ const { data: cardRoleAccess, error } = await supabase
 if (error) throw new Error(error.message);
 ```
 
-### Resolve Auth User from Cookie Token (Server Route)
+### Resolve Auth User from Cookie Token (Server Action)
 
-This pattern is used by `/api/me/bootstrap`:
+This pattern is used by `src/core/auth/bootstrap.actions.js`:
 
 ```js
 import { cookies } from "next/headers";
@@ -267,6 +272,9 @@ try {
 2. Always include `is_active` when access logic depends on active status.
 3. Use `maybeSingle()` only when zero or one row is expected.
 4. Use `single()` only when exactly one row is required.
+
+   > **For example:** Use `maybeSingle()` when looking up a user by email — they might not exist yet, so getting zero rows is fine. Use `single()` when fetching a record by its primary key — it should always exist, and if it doesn't, that's an error.
+
 5. Keep `SELECT` columns focused in high-traffic paths.
 6. Do not run duplicate auth/role queries — use `useAuth()` central context.
 7. For server bootstrap endpoints, send no-store cache headers.
@@ -274,6 +282,8 @@ try {
 ---
 
 ## Anti-Patterns to Avoid
+
+> **In simple terms:** "Anti-patterns" are common mistakes that seem like they'd work but actually cause problems. Avoid these.
 
 1. Using `auth_user_id` for business joins (use `user_id` instead).
 2. Hardcoding role names in UI checks.

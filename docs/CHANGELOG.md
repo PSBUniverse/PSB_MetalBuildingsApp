@@ -1,5 +1,100 @@
 # Changelog
 
+## 2026-04-29 Auto-Route Generation
+
+Route files in `src/app/` are now auto-generated from module `index.js` definitions.
+
+### Changes
+
+1. **Added `scripts/generate-routes.js`** — scans all module `index.js` files, reads their `routes` arrays, and generates thin `page.js` wrappers in `src/app/`.
+2. **Added npm scripts** — `gen:routes`, `predev`, `prebuild` hooks ensure routes are always up-to-date.
+3. **Removed `src/app/[...modulePath]/page.js`** — the catch-all dynamic route is no longer needed.
+4. **All 11 route files** are now auto-generated with `// @generated` markers.
+
+### Impact
+
+- Junior devs never touch `src/app/` — they only define routes in their module's `index.js`.
+- Running `npm run dev` or `npm run build` automatically regenerates routes.
+- Stale routes are automatically cleaned up when modules are removed.
+
+---
+
+## 2026-04-28 Server Action Migration And Module Consolidation
+
+This release eliminates all API routes, migrates all modules to the Blazor Mirror pattern, and unifies routing through the catch-all.
+
+### 1) All API Routes Removed — Server Actions Only
+
+Removed:
+1. `src/app/api/me/bootstrap/route.js`
+2. `src/app/api/databind/query/route.js`
+3. `src/app/api/databind/options/route.js`
+4. `src/app/api/databind/export/route.js`
+5. `src/app/api/databind/schema/route.js`
+6. `src/app/api/examples/data-table/route.js`, `data.js`, `options/route.js`, `export/route.js`
+7. All `src/app/api/admin/*` route stubs
+
+Added:
+1. `src/core/auth/bootstrap.actions.js` — Server Action replacing `/api/me/bootstrap`. Exports `bootstrapAuthState()` and `hasServerSession()`.
+2. `src/shared/utils/databind.actions.js` — Server Actions replacing all `/api/databind/*` routes. Exports `databindQuery()`, `databindOptions()`, `databindExport()`, `databindSchema()`.
+3. `src/modules/psbpages/examples/data/dataTableExample.actions.js` — Server Actions replacing `/api/examples/data-table/*` routes.
+
+Updated:
+1. `src/core/auth/AuthProvider.js` — now calls `bootstrapAuthState()` instead of fetching `/api/me/bootstrap`.
+2. `src/shared/components/ui/table/TableX.js` — now calls `databindQuery()`, `databindOptions()`, `databindExport()` instead of fetch calls.
+3. `src/modules/psbpages/examples/pages/data-table/useDataTableModuleController.js` — now calls Server Actions instead of fetch.
+4. `src/modules/psbpages/login/data/login.data.js` — now calls `hasServerSession()` instead of fetching `/api/me/bootstrap`.
+
+Behavior changes:
+1. `src/app/api/` directory no longer exists. All server logic uses `"use server"` files.
+2. AbortController replaced with `let active = true` flag pattern (Server Actions don't support AbortController signals).
+3. File export: Server Actions return `{content, fileName, mimeType}`, client creates Blob and triggers download.
+
+### 2) All Modules Migrated to Blazor Mirror Pattern
+
+All 9 modules now follow the standard structure: `index.js` + `data/` + `pages/`.
+
+Admin modules (5): application-setup, card-module-setup, company-department-setup, status-setup, user-master-setup.
+
+PSBPages modules (4): dashboard, login, profile, examples.
+
+Legacy folders removed from all modules: `components/`, `hooks/`, `services/`, `repo/`, `model/`, `utils/`, `view/`.
+
+### 3) PSBPages Route Consolidation
+
+Removed:
+1. `src/app/psbpages/` — all hardcoded route files (dashboard, login, profile, examples, examples/data-table).
+
+Added:
+1. `src/modules/psbpages/dashboard/index.js` — module definition with `public: true`.
+2. `src/modules/psbpages/login/index.js` — module definition with `public: true`.
+3. `src/modules/psbpages/profile/index.js` — module definition with `public: true`.
+4. `src/modules/psbpages/examples/index.js` — module definition with `public: true`.
+
+Updated:
+1. `src/app/[...modulePath]/page.js` — now supports `public: true` modules that skip `ModuleAccessGate`.
+
+Behavior changes:
+1. All pages (admin and psbpages) are routed through the single catch-all `[...modulePath]/page.js`.
+2. Modules with `public: true` render without RBAC checks — used for system pages like login, dashboard, profile.
+3. `src/app/` now contains only: `layout.js`, `page.js`, `providers.js`, `globals.css`, and the catch-all folder.
+
+### 4) Module Definition: `public` Field
+
+New optional field `public: true` in module `index.js`:
+- Skips `ModuleAccessGate` — page renders without app-level RBAC check.
+- Module still needs `module_key` for `app_id` resolution but access is not gated.
+- Used for core system pages that must be accessible without role assignments.
+
+### 5) Documentation Updated
+
+All docs updated to reflect:
+1. No API routes — Server Actions are the only backend pattern.
+2. `public: true` module field documented in module system and field reference.
+3. Routes updated from `/examples` to `/psbpages/examples`.
+4. CRUD example marked as legacy structure with pointer to current Module System docs.
+5. Auth flow docs updated: `bootstrapAuthState()` replaces `/api/me/bootstrap`.
+
 ## 2026-04-17 Shared UI Examples And Playground Update
 
 This release updates the shared UI examples route and documentation flow to improve developer onboarding and sandbox testing.

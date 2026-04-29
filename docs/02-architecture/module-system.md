@@ -44,7 +44,9 @@ The only **required** file is `index.js`. For a simple module you may only need 
 
 ## Module Definition Contract
 
-Every module must export a default object from `index.js`:
+Every module must export a default object from `index.js`.
+
+> **In simple terms:** Think of `index.js` as your module's ID card. It tells the system your module's name, which app it belongs to, and what URLs it serves. Without this file, the system doesn't know your module exists.
 
 ```js
 const myModule = {
@@ -67,6 +69,8 @@ export default myModule;
 
 > **`app_id` is resolved automatically.** The core matches your `module_key` to the `module_key` column in `psb_s_application` and injects `app_id` at load time. If no matching active row exists, the app throws an error.
 
+> **For example:** If your `module_key` is `"metal-app"`, the system looks for a row in the `psb_s_application` table where `module_key = 'metal-app'`. It grabs the `app_id` from that row (say, `5`) and gives it to your module. You never type `app_id: 5` yourself.
+
 ### Field Reference
 
 | Field | Required | Purpose |
@@ -79,6 +83,7 @@ export default myModule;
 | `group_name` | No | Dashboard group this card belongs to |
 | `group_desc` | No | Description for the group |
 | `order` | No | Sort order (lower = appears first) |
+| `public` | No | If `true`, skip `ModuleAccessGate` — page renders without RBAC check. Used for system pages (login, dashboard). |
 | `routes` | Yes | Array of route definitions (see below) |
 
 ### Route Definition
@@ -100,7 +105,9 @@ The system resolves `SettingsPage` to `src/modules/metal-buildings/pages/Setting
 
 ## Server Components vs Client Components
 
-Because pages are loaded via Node.js runtime import (not webpack), there's one important rule:
+Because page entry files are rendered by Next.js App Router as server components, there's one important rule:
+
+> **In simple terms:** Server components run on the server (like a backend). They can talk to the database directly. Client components run in the user's browser — they handle clicks, forms, and animations. You can't do both in one file, so we split them: the Page file loads data on the server, then hands it to the View file which shows it in the browser.
 
 > **Page entry files in `pages/` must be server components.**
 > Do NOT put `"use client"` at the top of a page entry file.
@@ -131,11 +138,17 @@ This is the standard Next.js App Router pattern with the "Blazor Mirror" layout:
 - **Page file** = thin server entry (load data, render view)
 - **View file** = all interactive UI, hooks, sub-components in one file
 
+> **In simple terms:** "Blazor Mirror" is just the name we gave this pattern. It means: one file loads data (Page), another file shows it (View). That's it.
+
 ---
 
 ## Server Actions
 
-Instead of API routes, modules use **Server Actions** for all database mutations. These live in `data/*.actions.js` files with `"use server"` at the top:
+Instead of API routes, modules use **Server Actions** for all database mutations. These live in `data/*.actions.js` files with `"use server"` at the top.
+
+> **In simple terms:** A Server Action is a function you write that runs on the server, but you can call it from the browser like a normal function. You put `"use server"` at the top of the file, and Next.js handles the rest. No need to create API endpoints.
+>
+> **For example:** You write `loadMyData()` in `myModule.actions.js`. Your View file calls `loadMyData()` like any function. Behind the scenes, Next.js sends a request to the server, runs the function, and returns the result. You don't see any of that plumbing.
 
 ```js
 // data/myModule.actions.js
@@ -162,24 +175,56 @@ export async function createRecord(payload) {
 1. All `getSupabaseAdmin()` calls go in actions files only.
 2. Actions files must start with `"use server"`.
 3. Client code (views) can call these functions directly — Next.js handles the network boundary.
+
+   > **For example:** In your View file you just write `const data = await loadMyData()`. You don't need `fetch()` or API URLs. Next.js turns this into a network call automatically.
+
 4. **Do NOT create API routes** (`src/app/api/...`) for module CRUD. Use Server Actions instead.
 
 ---
 
-## How Auto-Discovery Works
+## How Auto-Route Generation Works
 
-When the app starts, core scans every folder inside `src/modules/`. If it finds an `index.js`, it reads the module definition and registers the routes automatically.
+Routes are generated automatically by `scripts/generate-routes.js`. This script scans every module's `index.js` for its `routes` array and creates thin `page.js` wrappers inside `src/app/`.
 
-When a user visits `/metal-buildings`:
+### What the Script Does
 
-1. The catch-all route (`src/app/[...modulePath]/page.js`) receives the URL segments.
-   - **Important:** In Next.js 16, `params` is async and must be `await`ed before reading `modulePath`.
-2. `loadModules()` loads all module definitions.
-3. Routes are sorted by path length (longest first, so `/metal-buildings/settings` matches before `/metal-buildings`).
-4. The first matching route is found.
-5. `ModuleAccessGate` checks if the user has access to this module's `app_id`.
-6. If authorized, the page component renders. If not, a "No Access" screen appears.
-7. If no route matches at all, a 404 page is returned.
+1. Scans all `src/modules/**/index.js` files.
+2. Reads each module's `routes` array.
+3. For each route, generates a `page.js` in the corresponding `src/app/` directory.
+4. Each generated file imports the page component directly from the module.
+5. Generated files are marked with `// @generated` — the script only overwrites files it owns.
+6. Stale generated routes (from deleted modules) are automatically cleaned up.
+
+### Example
+
+Your module's `index.js`:
+
+```js
+routes: [{ path: "/metal-buildings", page: "DashboardPage" }]
+```
+
+The script generates `src/app/metal-buildings/page.js`:
+
+```js
+// @generated — do not edit. Run `npm run gen:routes` to regenerate.
+import DashboardPage from "@/modules/metal-buildings/pages/DashboardPage";
+
+export default function Page(props) {
+  return <DashboardPage {...props} />;
+}
+```
+
+### When It Runs
+
+- **`npm run dev`** — runs automatically via `predev` hook before starting the dev server.
+- **`npm run build`** — runs automatically via `prebuild` hook before building.
+- **`npm run gen:routes`** — run manually at any time.
+
+### Key Rules
+
+- **Never manually create or edit `page.js` files in `src/app/admin/` or `src/app/psbpages/`** — they are auto-generated.
+- Generated files have a `// @generated` marker. The script will not overwrite files that lack this marker.
+- If you rename a route in your `index.js`, the old generated file is automatically removed.
 
 **You never need to edit any file outside your module folder.**
 
@@ -390,11 +435,11 @@ No other files need to change.
 
 ```
 User opens /metal-buildings/settings
-  → catch-all route receives ["metal-buildings", "settings"]
-  → currentPath = /metal-buildings/settings
-  → core loads all module definitions
-  → route matcher finds module route with matching prefix
-  → ModuleAccessGate checks app_id authorization
+  → predev hook ran generate-routes.js at startup
+  → src/app/metal-buildings/settings/page.js was auto-generated
+  → Next.js matches the route to that page.js
+  → page.js imports SettingsPage from your module
+  → ModuleAccessGate checks app_id authorization (if not public)
   → component renders if authorized
   → "No Access" screen if unauthorized
 ```

@@ -22,7 +22,7 @@ Breaking these rules can break RBAC, module consistency, and platform stability.
 - Import all UI from `@/shared/components/ui`:
 
   ```js
-  import { Button, Table, Modal } from "@/shared/components/ui";
+  import { Button, TableZ, Modal } from "@/shared/components/ui";
   ```
 
 - Follow consistent spacing, layout, and styling.
@@ -30,7 +30,7 @@ Breaking these rules can break RBAC, module consistency, and platform stability.
 
 ### Do Not
 
-- Create your own `Button`, `Modal`, or `Table` inside a module.
+- Create your own `Button`, `Modal`, or `TableZ` inside a module.
 - Use random inline styles.
 - Override shared component styles from module code.
 - Redesign the app shell layout.
@@ -39,13 +39,13 @@ Breaking these rules can break RBAC, module consistency, and platform stability.
 
 ## Module Rules
 
-### Structure
+### Module Structure
 
 ```
 src/modules/<module-name>/
   index.js
+  data/
   pages/
-  components/
 ```
 
 ### Module Is Responsible For
@@ -96,7 +96,9 @@ if (row.role !== "Admin") hideColumn("salary");  // NO
 
 ## Table Rules
 
-The shared `Table` component is a **controlled, display-only renderer**. The module owns all data and logic.
+The shared `TableZ` component is a **controlled, display-only renderer**. The module owns all data and logic. For automatic data binding, use `TableX` instead.
+
+> **In simple terms:** `TableZ` is like a TV screen — it just shows whatever you give it. It doesn't fetch data or make decisions. Your module is the remote control: it decides what data to show, how to sort it, and what happens when the user clicks something. You pass everything to `TableZ` via props.
 
 ### Standard Table Features
 
@@ -128,7 +130,7 @@ The shared table supports all of these out of the box:
 ### Standard Table Props
 
 ```js
-<Table
+<TableZ
   columns={columns}
   data={data}
   loading={loading}
@@ -167,6 +169,8 @@ const filtersConfig = [
 - **UI** controls visibility (user toggles columns on/off).
 - **RBAC** controls existence (module decides which columns are in the array at all).
 
+> **For example:** A "Notes" column might be toggleable by the user (visibility). But a "Salary" column for non-HR roles wouldn't even be in the columns array — it's removed by your code before the table ever sees it (existence).
+
 ### Column Resize
 
 - Drag to resize column width.
@@ -176,6 +180,8 @@ const filtersConfig = [
 ### Row Actions
 
 Actions are config-driven, not hardcoded:
+
+> **In simple terms:** Instead of writing `<button onClick={...}>Edit</button>` manually for every row, you define actions as a list of objects. The table reads that list and creates the buttons for you.
 
 ```js
 const actions = [
@@ -202,11 +208,9 @@ Anything outside this list must be proposed and approved before implementation.
 
 The blessed reference implementation is at:
 
-- **Page route:** `/examples/data-table`
-- **Page file:** `src/app/examples/data-table/page.js`
-- **Data API:** `GET /api/examples/data-table`
-- **Filter options API:** `GET /api/examples/data-table/options`
-- **Export API:** `GET /api/examples/data-table/export`
+- **Page route:** `/psbpages/examples/data-table`
+- **Module file:** `src/modules/psbpages/examples/pages/data-table/DataTablePage.js`
+- **Server Actions:** `src/modules/psbpages/examples/data/dataTableExample.actions.js`
 
 ---
 
@@ -258,13 +262,11 @@ Your module is done when:
 
 ### Reference Implementation
 
-- Live example: `/examples/data-table`
-- Page file: `src/app/examples/data-table/page.js`
-- Data API: `GET /api/examples/data-table`
-- Filter options API: `GET /api/examples/data-table/options`
-- Export API: `GET /api/examples/data-table/export`
+- Live example: `/psbpages/examples/data-table`
+- Module file: `src/modules/psbpages/examples/pages/data-table/DataTablePage.js`
+- Server Actions: `src/modules/psbpages/examples/data/dataTableExample.actions.js`
 
-For the full shared UI guide and playground, visit `/examples` in the dev server.
+For the full shared UI guide and playground, visit `/psbpages/examples` in the dev server.
 
 ---
 

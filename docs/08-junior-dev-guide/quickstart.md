@@ -149,16 +149,15 @@ This is not something we invented — it's how Next.js works.
 
 ## How the System Finds Your Module
 
-When the app starts, it scans every folder inside `src/modules/`. If it finds an `index.js`, it reads your module definition and registers your routes automatically.
+When you run `npm run dev` or `npm run build`, a script (`scripts/generate-routes.js`) runs automatically. It:
 
-When a user visits `/metal-buildings`, the system:
+1. Scans every folder inside `src/modules/` for an `index.js`
+2. Reads your `routes` array
+3. Auto-generates the matching route files inside `src/app/`
 
-1. Looks through all discovered modules
-2. Finds yours because its route matches `/metal-buildings`
-3. Loads `pages/DashboardPage.js` from your folder
-4. Renders it on screen
+When a user visits `/metal-buildings`, Next.js finds the auto-generated route file and loads your page component directly.
 
-**You do not need to edit any file outside your module folder.** No registration step, no config file, nothing.
+**You do not need to edit any file outside your module folder.** No registration step, no config file, nothing. Just define your routes in `index.js` and the system handles the rest.
 
 ---
 

@@ -2,6 +2,7 @@
 
 import { createContext, useEffect, useMemo, useRef, useState } from "react";
 import { getSupabase, initSupabase } from "@/core/supabase/client";
+import { bootstrapAuthState } from "@/core/auth/bootstrap.actions";
 
 initSupabase(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
 
@@ -33,17 +34,7 @@ function fallbackUserFromAuth(user) {
 }
 
 async function fetchBootstrapState() {
-  const response = await fetch("/api/me/bootstrap", {
-    method: "GET",
-    cache: "no-store",
-    credentials: "include",
-  });
-
-  if (!response.ok) {
-    throw new Error("Unable to bootstrap auth state");
-  }
-
-  return response.json();
+  return bootstrapAuthState();
 }
 
 function setAccessTokenCookie(session) {

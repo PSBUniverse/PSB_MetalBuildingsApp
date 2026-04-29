@@ -67,6 +67,11 @@ function isExamplesPath(pathname) {
   return path === "/examples" || path.startsWith("/examples/");
 }
 
+function isDocsPath(pathname) {
+  const path = normalizePath(pathname);
+  return path === "/psbpages/documentation" || path.startsWith("/psbpages/documentation/");
+}
+
 function normalizeAccessToken(value) {
   return String(value || "").trim().toUpperCase();
 }
@@ -147,6 +152,13 @@ export default function Header({
         label: "Example",
         href: "/examples",
         active: isExamplesPath(pathname),
+      });
+
+      nextTabs.push({
+        key: "docs",
+        label: "Docs",
+        href: "/psbpages/documentation",
+        active: isDocsPath(pathname),
       });
     }
 

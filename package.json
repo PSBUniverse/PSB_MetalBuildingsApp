@@ -4,7 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "gen:routes": "node scripts/generate-routes.js",
+    "predev": "node scripts/generate-routes.js",
     "dev": "next dev --webpack",
+    "prebuild": "node scripts/generate-routes.js",
     "build": "next build",
     "start": "next start",
     "lint": "eslint"

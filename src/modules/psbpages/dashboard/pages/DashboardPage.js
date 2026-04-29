@@ -1,7 +1,7 @@
 import { loadModules } from "@/modules/loadModules";
 import DashboardModules from "@/core/auth/DashboardModules";
-import { normalizeRoutePath } from "../utils/dashboardHelpers";
-import { loadAssignedCardsFromDatabase, loadAssignedAppsFromDatabase } from "../utils/dashboardData";
+import { normalizeRoutePath } from "../data/dashboard.data";
+import { loadAssignedCardsFromDatabase, loadAssignedAppsFromDatabase } from "../data/dashboard.actions";
 
 export default async function DashboardPage() {
   const setupCards = await loadAssignedCardsFromDatabase();

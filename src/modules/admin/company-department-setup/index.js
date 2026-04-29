@@ -13,3 +13,4 @@ const companyDepartmentSetupModule = {
 };
 
 export default companyDepartmentSetupModule;
+

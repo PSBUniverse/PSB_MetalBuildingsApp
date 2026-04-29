@@ -8,6 +8,8 @@ This is the primary reference for understanding how PSBUniverse Core works. Read
 
 PSBUniverse Core is a **modular SaaS host application**. Think of it like an operating system — it provides the platform, and modules are the installed apps.
 
+> **In simple terms:** Imagine your phone's home screen. The phone itself (Core) handles security, login, and navigation. Each app on your phone (Module) does its own thing — email, calendar, etc. You don't rebuild the phone to add an app.
+
 It separates two concerns:
 
 | Layer | Responsibility |
@@ -22,6 +24,8 @@ It separates two concerns:
 3. Adding a new module doesn't require editing core files.
 4. The existing business table model (INT foreign keys) is preserved — auth UUIDs stay in the auth layer only.
 
+> **In simple terms:** Your business tables use simple numbers (1, 2, 3) as IDs. The login system uses long random strings (UUIDs) as IDs. We keep them separate so your business code stays clean.
+
 ---
 
 ## Key Runtime Files
@@ -33,12 +37,11 @@ It separates two concerns:
 | `src/core/auth/access.js` | `hasAppAccess()` and `hasCardAccess()` helper functions |
 | `src/core/auth/DashboardModules.js` | Filters module list by app access |
 | `src/core/auth/ModuleAccessGate.js` | Blocks unauthorized module routes |
+| `src/core/auth/bootstrap.actions.js` | Server Action — resolves auth user + business user + roles |
 | `src/core/auth/createBusinessUser.js` | Creates auth user + business user + roles (with rollback) |
 | `src/modules/loadModules.js` | Discovers module definitions from `src/modules/*/index.js` |
-| `src/app/[...modulePath]/page.js` | Dynamic route resolution + access gate |
-| `src/app/api/me/bootstrap/route.js` | Server-resolved auth + business user + role payload |
-| `src/app/login/page.js` | Supabase login UI and session handoff |
-| `src/middleware.js` | Redirects unauthenticated requests to `/login` |
+| `scripts/generate-routes.js` | Auto-generates `src/app/` route files from module `index.js` definitions |
+| `src/shared/utils/databind.actions.js` | Server Actions for table query, filter options, and export |
 | `src/core/supabase/client.js` | Browser Supabase client (for user-session operations) |
 | `src/core/supabase/admin.js` | Server-only admin Supabase client (for privileged operations) |
 
@@ -46,7 +49,9 @@ It separates two concerns:
 
 ## Authentication System
 
-PSBUniverse uses **two identity sources** connected by a bridge column:
+PSBUniverse uses **two identity sources** connected by a bridge column.
+
+> **In simple terms:** When someone logs in, Supabase knows them by a long random ID (UUID). But our business tables (like employees, departments) use simple number IDs. The `auth_user_id` column is the bridge — it connects "login user #abc-123" to "employee #7".
 
 | Source | Table | Key | Purpose |
 |--------|-------|-----|---------|
@@ -59,10 +64,10 @@ The `auth_user_id` column in `psb_s_user` bridges the two.
 
 1. User submits login form → `supabase.auth.signInWithPassword()`.
 2. On success, login page sets the `sb-access-token` cookie.
-3. Login waits for `/api/me/bootstrap` to confirm the server can see the session.
-4. Login redirects to `/dashboard` via `window.location.assign()`.
+3. Login calls `hasServerSession()` Server Action to confirm the server can see the session.
+4. Login redirects to `/psbpages/dashboard` via `window.location.assign()`.
 5. `AuthProvider` runs and calls `supabase.auth.getUser()`.
-6. If that fails or is stale, `AuthProvider` falls back to the bootstrap endpoint.
+6. If that fails or is stale, `AuthProvider` calls `bootstrapAuthState()` Server Action.
 7. Core maps `authUser.id` → `psb_s_user` by `auth_user_id`.
 8. Core loads active role rows from `psb_m_userapproleaccess` by `dbUser.user_id`.
 9. Everything is exposed via the `useAuth()` hook.
@@ -74,7 +79,7 @@ The `auth_user_id` column in `psb_s_user` bridges the two.
 | Cookie name | `sb-access-token` |
 | Set by | Login page, AuthProvider (on session events) |
 | Cleared by | AuthProvider on sign-out |
-| Checked by | Middleware (redirects to `/login` if missing) |
+| Checked by | `AuthProvider` (validates session on load) and `ModuleAccessGate` (blocks unauthorized routes) |
 
 ### Using `useAuth()` in Your Code
 
@@ -101,11 +106,15 @@ export default function MyComponent() {
 
 ## RBAC System
 
-RBAC (Role-Based Access Control) has **two layers**:
+RBAC (Role-Based Access Control) has **two layers**.
+
+> **In simple terms:** RBAC answers two questions: "Can this user open this module?" (App Access) and "Can this user see this specific feature inside the module?" (Card Access). The answers come from the database, not from code.
 
 ### Layer 1: App Access (Core Responsibility)
 
 Controls whether a user can enter a module at all.
+
+> **For example:** A user with the "Viewer" role might see the Metal Buildings module on the dashboard, but a user without any Metal Buildings role won't see it at all — and typing the URL directly won't work either.
 
 | What | How |
 |------|-----|
@@ -116,6 +125,8 @@ Controls whether a user can enter a module at all.
 ### Layer 2: Card Access (Module Responsibility)
 
 Controls which features/cards within a module are visible.
+
+> **For example:** Inside the Metal Buildings module, a "Manager" role might see the "Delete Project" card, but a "Viewer" role only sees "View Projects". The module code checks this using `hasCardAccess()`.
 
 | What | How |
 |------|-----|
@@ -168,6 +179,8 @@ The dashboard decides what cards to show using this priority:
 2. **Module metadata fallback** — if setup tables have no data, fall back to dynamic module definitions from `loadModules()`.
 3. **Application tiles fallback** — if module metadata is unavailable, fall back to assigned app tiles from `psb_s_application`.
 
+> **In simple terms:** The dashboard first checks the database for what to show. If the database has no setup data for a module, it falls back to whatever the module's `index.js` says. The database always wins when both exist.
+
 **What this means for you:** Setup table records drive production visibility. Module metadata is a fallback, not the primary source.
 
 ---
@@ -180,6 +193,8 @@ Use the `createBusinessUser` helper (in `src/core/auth/createBusinessUser.js`) f
 2. Inserts business user row in `psb_s_user`.
 3. Inserts role rows in `psb_m_userapproleaccess`.
 4. Rolls back downstream records if any step fails.
+
+> **In simple terms:** "Rollback" means if step 3 fails, the system automatically deletes what was created in steps 1 and 2 so you don't end up with a half-created user.
 
 ---
 
@@ -211,16 +226,17 @@ Use the `createBusinessUser` helper (in `src/core/auth/createBusinessUser.js`) f
 
 ### User gets redirected back to /login after sign in
 
-1. Does `/api/me/bootstrap` return `authUser.id` after login?
+1. Does `bootstrapAuthState()` return `authUser.id` after login?
 2. Is `sb-access-token` present in browser cookies?
-3. Is middleware checking the token value (not just the cookie object)?
+3. Is `AuthProvider` receiving a valid token from the cookie?
 4. Are you testing against the correct server port?
 
 ### Route opens but should be blocked
 
 1. Does `ModuleAccessGate` receive the correct `appId`?
 2. Does `hasAppAccess` compare `role.app_id` correctly?
-3. Does the role row have `is_active = true` unexpectedly?
+3. Is the module marked `public: true`? Public modules skip the access gate.
+4. Does the role row have `is_active = true` unexpectedly?
 
 ### Module cards show incorrectly
 
@@ -235,13 +251,14 @@ Use the `createBusinessUser` helper (in `src/core/auth/createBusinessUser.js`) f
 1. `src/modules` is the canonical module location.
 2. Card-level filtering depends on module implementation — core provides the helper.
 3. `supabase/migrations` folder exists but currently has no SQL files.
+4. There are no API routes — all server logic uses Server Actions (`"use server"` files).
 
 ---
 
 ## What Is Working Today
 
 1. Global auth context is active and exposed via `useAuth()`.
-2. Login/logout and session guard are active (middleware + cookie check).
+2. Login/logout and session guard are active (`AuthProvider` + `ModuleAccessGate` + cookie check).
 3. App-level RBAC is enforced on the dashboard and at the route entry gate.
 4. Module loading and route resolution are fully dynamic (auto-discovery).
 5. Card-level access helper (`hasCardAccess`) exists for modules to use.

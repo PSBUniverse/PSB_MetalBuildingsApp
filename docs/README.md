@@ -22,14 +22,14 @@ Organized reference for the PSBUniverse Core platform. Start at the top and work
 ## 4. UI System
 
 - [Shared Components](04-ui-system/shared-components.md) — Component specs, design tokens, table behavior, styling rules
-- Live reference: `/examples` (dev server) — Shared UI guide, playground, and component reference
-- Data table example: `/examples/data-table` (dev server)
+- Live reference: `/psbpages/examples` (dev server) — Shared UI guide, playground, and component reference
+- Data table example: `/psbpages/examples/data-table` (dev server)
 
 ## 5. Database
 
 - [Naming Conventions](05-database/naming-conventions.md) — Table, column, constraint, and index naming standards
 - [CRUD Guide](05-database/crud-guide.md) — Supabase query patterns, error handling, safety rules
-- [CRUD Example](05-database/crud-example.md) — Complete Roles module with model/repo/service/hook/component/page
+- [CRUD Example](05-database/crud-example.md) — Roles module CRUD layers (legacy structure — see Module System for current pattern)
 
 ## 6. Batch Edit
 

@@ -42,9 +42,6 @@ function isTrackableApiRequest(input) {
     if (parsed.origin !== window.location.origin) return false;
     if (!parsed.pathname.startsWith("/api/")) return false;
 
-    // Keep background auth hydration silent so focus/session events do not look like page reloads.
-    if (parsed.pathname === "/api/me/bootstrap") return false;
-
     return true;
   } catch {
     return false;
