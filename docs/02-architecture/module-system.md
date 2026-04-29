@@ -294,6 +294,54 @@ SELECT * FROM psb_m_appcardroleaccess WHERE is_active = true;
 
 ---
 
+## Scaffolding a New Module
+
+Use the built-in scaffolding command to create a new module with the correct folder structure:
+
+```bash
+npm run create-module -- <module-name>
+```
+
+The module name can include a group prefix with a slash:
+
+```bash
+# Creates src/modules/metal-buildings/
+npm run create-module -- metal-buildings
+
+# Creates src/modules/admin/inventory-tracker/
+npm run create-module -- admin/inventory-tracker
+
+# Creates src/modules/psbpages/reports/
+npm run create-module -- psbpages/reports
+```
+
+### What It Generates
+
+```
+src/modules/<module-name>/
+  index.js                          ← Module definition (pre-filled with your module name)
+  data/
+    <moduleName>.actions.js         ← "use server" — DB queries (with example code)
+    <moduleName>.data.js            ← Client helpers (forms, mappers, constants)
+  pages/
+    <ModuleName>Page.js             ← Server component (loads data, passes to view)
+    <ModuleName>View.jsx            ← "use client" — all UI and interaction
+```
+
+It also auto-runs `generate-routes.js` to create the `src/app/` page entry.
+
+Every generated file includes documentation comments explaining what goes there.
+
+### Group Prefixes
+
+| Prefix | Folder | Route | Sidebar Group |
+|--------|--------|-------|---------------|
+| _(none)_ | `src/modules/metal-buildings/` | `/metal-buildings` | You choose |
+| `admin/` | `src/modules/admin/inventory-tracker/` | `/admin/inventory-tracker` | Administration |
+| `psbpages/` | `src/modules/psbpages/reports/` | `/psbpages/reports` | System |
+
+---
+
 ## Step-by-Step: Building a New Module
 
 ### 1. Register the App in the Database
@@ -314,79 +362,27 @@ Add rows in `psb_m_userapproleaccess` to link users → roles → your app. This
 - Create cards in `psb_s_appcard` (defines feature cards and their route paths).
 - Create card-role mappings in `psb_m_appcardroleaccess` (links cards to roles).
 
-### 5. Create the Module Folder
+### 5. Scaffold the Module
 
-```
-src/modules/my-module/
-  index.js
-  data/
-    myModule.actions.js
-    myModule.data.js
-  pages/
-    DashboardPage.js
-    DashboardView.jsx
+Run the scaffolding command:
+
+```bash
+npm run create-module -- my-module
 ```
 
-### 6. Write `index.js`
+This creates the folder structure with pre-filled files. Then:
 
-```js
-export default {
-  key: "my-module",
-  module_key: "my-app",
-  name: "My Module",
-  routes: [
-    { path: "/my-module", page: "DashboardPage" },
-  ],
-};
-```
+1. Open `index.js` — set `module_key`, `icon`, `group_name`, `order`
+2. Add server actions in `data/myModule.actions.js`
+3. Build your UI in `pages/MyModuleView.jsx`
 
-### 7. Write Data Files
+Each generated file has comments explaining what to do.
 
-```js
-// data/myModule.actions.js
-"use server";
-import { getSupabaseAdmin } from "@/core/supabase/admin";
-
-export async function loadMyData() {
-  const supabase = getSupabaseAdmin();
-  const { data, error } = await supabase.from("my_table").select("*");
-  if (error) throw new Error(error.message);
-  return { items: data || [] };
-}
-```
-
-### 8. Write Pages
-
-```js
-// pages/DashboardPage.js — server entry
-import { loadMyData } from "../data/myModule.actions.js";
-import DashboardView from "./DashboardView.jsx";
-
-export default async function DashboardPage() {
-  const { items } = await loadMyData();
-  return <DashboardView items={items} />;
-}
-```
-
-```js
-// pages/DashboardView.jsx — client UI
-"use client";
-
-export default function DashboardView({ items }) {
-  return (
-    <main className="container py-4">
-      <h4>My Module</h4>
-      <ul>{items.map((item) => <li key={item.id}>{item.name}</li>)}</ul>
-    </main>
-  );
-}
-```
-
-### 9. Apply Card Access Checks
+### 6. Apply Card Access Checks
 
 Use `hasCardAccess()` to hide/disable features the user shouldn't see.
 
-### 10. Test
+### 7. Test
 
 1. Login as a user **with** the role mapping → module appears, page loads.
 2. Login as a user **without** the mapping → module is hidden, direct URL shows "No Access".
@@ -419,11 +415,20 @@ routes: [
 ```
 
 ```js
-// pages/SettingsPage.js
-import SettingsForm from "../components/SettingsForm";
+// pages/SettingsPage.js — server component
+import SettingsView from "./SettingsView.jsx";
 
-export default function SettingsPage() {
-  return <SettingsForm />;
+export default async function SettingsPage() {
+  return <SettingsView />;
+}
+```
+
+```js
+// pages/SettingsView.jsx — client component
+"use client";
+
+export default function SettingsView() {
+  return <h1>Settings</h1>;
 }
 ```
 

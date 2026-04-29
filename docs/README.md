@@ -6,9 +6,7 @@ Organized reference for the PSBUniverse Core platform. Start at the top and work
 
 ## 1. Getting Started
 
-- [Project Setup](01-getting-started/setup.md) — Install, configure, and run the project locally
-- [Syncing Core Updates](01-getting-started/syncing-core1.md) — Pull core updates into downstream app repos
-- [Step-by-Step Git Setup & Push](01-getting-started/syncing-core2.md) — Beginner-friendly: clone, configure git, push, sync (for junior devs)
+- [Getting Started](01-getting-started/getting-started.md) — Install, configure, and run the project locally
 
 ## 2. Architecture
 
@@ -29,7 +27,7 @@ Organized reference for the PSBUniverse Core platform. Start at the top and work
 
 - [Naming Conventions](05-database/naming-conventions.md) — Table, column, constraint, and index naming standards
 - [CRUD Guide](05-database/crud-guide.md) — Supabase query patterns, error handling, safety rules
-- [CRUD Example](05-database/crud-example.md) — Roles module CRUD layers (legacy structure — see Module System for current pattern)
+- [CRUD Example](05-database/crud-example.md) — Roles module CRUD: Server Actions, Page, View (full working example)
 
 ## 6. Batch Edit
 

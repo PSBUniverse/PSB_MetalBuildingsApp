@@ -683,3 +683,94 @@
   gap: 6px;
   flex-wrap: wrap;
 }
+
+/* -----------------------------------------------------------------------
+   Design Tokens — color palette grid
+----------------------------------------------------------------------- */
+
+.colorGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.colorSwatch {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  background: #ffffff;
+  border: 1px solid #d8e8f3;
+  border-radius: 8px;
+}
+
+.colorBox {
+  width: 36px;
+  height: 36px;
+  border-radius: 6px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  flex-shrink: 0;
+}
+
+.colorInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+/* -----------------------------------------------------------------------
+   Icon library grid
+----------------------------------------------------------------------- */
+
+.iconGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.iconItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border: 1px solid #d8e8f3;
+  border-radius: 6px;
+  background: #ffffff;
+  cursor: pointer;
+  transition: background 120ms, border-color 120ms;
+  text-align: left;
+  color: #1a4364;
+}
+
+.iconItem:hover {
+  background: #eaf4fc;
+  border-color: #aecfe8;
+}
+
+.iconItemCopied {
+  background: #e8f5e9;
+  border-color: #81c784;
+}
+
+.iconName {
+  font-size: 11px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  color: #1a4364;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.iconGroup {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 700;
+  color: #8aa4b8;
+  flex-shrink: 0;
+}

@@ -1,280 +1,327 @@
 # CRUD Example: Roles Module
 
-A complete, working example of a module with full CRUD operations. Use this as a reference for understanding CRUD layering.
-
-> **Note:** This example uses the **legacy** folder structure (model/repo/service/hook/component). New modules should use the current structure: `index.js` + `data/` + `pages/`. See [Module System](../02-architecture/module-system.md) for the current pattern.
+A complete, working example of a module with full CRUD operations. Copy this pattern for your own modules.
 
 ---
 
-## Folder Structure (Legacy)
+## Folder Structure
 
 ```
 src/modules/roles/
-  index.js
+  index.js                    ← Module definition
+  data/
+    roles.actions.js          ← "use server" — all database queries
+    roles.data.js             ← Client helpers — column defs, form builders
   pages/
-    RolesPage.jsx
-  components/
-    RolesTable.jsx
-  services/
-    useRoles.js
-  repo/
-    roles.repo.js
-  model/
-    roles.model.js
-  hooks/
-    useRolesTable.js
+    RolesPage.js              ← Server component — loads data
+    RolesView.jsx             ← "use client" — all UI, state, interaction
 ```
+
+To scaffold this, run:
+
+```bash
+npm run create-module -- roles
+```
+
+Then fill in the files below.
 
 ---
 
-## 1. Model — Maps Database Columns to UI Fields
-
-The model is a simple function that converts a raw database row into the shape your UI expects. This is your **protection layer** — if the database schema changes, you only update this one file.
+## 1. `index.js` — Module Definition
 
 ```js
-// model/roles.model.js
-
-export function mapRole(row) {
-  return {
-    id: row.role_id,
-    name: row.role_name,
-    description: row.role_desc,
-    isActive: row.is_active,
-    createdAt: row.created_at,
-  };
-}
-```
-
----
-
-## 2. Repo — Supabase Queries Only
-
-The repo is the only place that talks to Supabase. It sends queries and returns mapped data. No business logic here.
-
-```js
-// repo/roles.repo.js
-
-import { supabase } from "@/core/supabase/client";
-import { mapRole } from "../model/roles.model";
-
-const TABLE = "psb_s_role";
-
-export const rolesRepo = {
-  async getAll() {
-    const { data, error } = await supabase
-      .from(TABLE)
-      .select("*")
-      .order("created_at", { ascending: false });
-
-    if (error) throw new Error(error.message);
-    return data.map(mapRole);
-  },
-
-  async insert(payload) {
-    const { data, error } = await supabase
-      .from(TABLE)
-      .insert({
-        role_name: payload.name,
-        role_desc: payload.description,
-        is_active: true,
-      })
-      .select("*")
-      .single();
-
-    if (error) throw new Error(error.message);
-    return mapRole(data);
-  },
-
-  async update(payload) {
-    const { data, error } = await supabase
-      .from(TABLE)
-      .update({
-        role_name: payload.name,
-        role_desc: payload.description,
-        is_active: payload.isActive,
-        updated_at: new Date(),
-      })
-      .eq("role_id", payload.id)
-      .select("*")
-      .single();
-
-    if (error) throw new Error(error.message);
-    return mapRole(data);
-  },
-
-  async delete(id) {
-    const { error } = await supabase
-      .from(TABLE)
-      .delete()
-      .eq("role_id", id);
-
-    if (error) throw new Error(error.message);
-    return true;
-  },
-};
-```
-
----
-
-## 3. Service — Business Validation
-
-The service adds any business rules on top of the repo. For simple modules this may be thin, but it's the right place for validation.
-
-```js
-// services/useRoles.js
-
-import { rolesRepo } from "../repo/roles.repo";
-
-export const useRolesService = {
-  async getRoles() {
-    return await rolesRepo.getAll();
-  },
-
-  async createRole(data) {
-    if (!data.name) throw new Error("Role name is required");
-    return await rolesRepo.insert(data);
-  },
-
-  async updateRole(data) {
-    return await rolesRepo.update(data);
-  },
-
-  async deleteRole(id) {
-    return await rolesRepo.delete(id);
-  },
-};
-```
-
----
-
-## 4. Hook — UI State Management
-
-The hook connects the service to React state. Components use the hook instead of calling the service directly.
-
-```js
-// hooks/useRolesTable.js
-
-import { useEffect, useState } from "react";
-import { useRolesService } from "../services/useRoles";
-
-export function useRolesTable() {
-  const [data, setData] = useState([]);
-
-  async function load() {
-    const res = await useRolesService.getRoles();
-    setData(res);
-  }
-
-  useEffect(() => {
-    load();
-  }, []);
-
-  return {
-    data,
-    reload: load,
-  };
-}
-```
-
----
-
-## 5. Component — Pure UI
-
-The component renders data and calls callbacks. It has no knowledge of where data comes from.
-
-```js
-// components/RolesTable.jsx
-
-export default function RolesTable({ data, onDelete }) {
-  return (
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Status</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>
-        {data.map((role) => (
-          <tr key={role.id}>
-            <td>{role.name}</td>
-            <td>{role.isActive ? "Active" : "Inactive"}</td>
-            <td>
-              <button onClick={() => onDelete(role.id)}>Delete</button>
-            </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  );
-}
-```
-
----
-
-## 6. Page — Orchestrator
-
-The page wires everything together. It uses the hook for data and the service for actions.
-
-```js
-// pages/RolesPage.jsx
-
-import RolesTable from "../components/RolesTable";
-import { useRolesTable } from "../hooks/useRolesTable";
-import { useRolesService } from "../services/useRoles";
-
-export default function RolesPage() {
-  const { data, reload } = useRolesTable();
-
-  async function handleDelete(id) {
-    await useRolesService.deleteRole(id);
-    reload();
-  }
-
-  return (
-    <div>
-      <h1>Roles</h1>
-      <RolesTable data={data} onDelete={handleDelete} />
-    </div>
-  );
-}
-```
-
----
-
-## 7. Module Index
-
-```js
-// index.js
-
-export default {
+const rolesModule = {
   key: "roles",
-  module_key: "roles-app",
+  module_key: "roles-app",       // ← must match psb_s_application
   name: "Roles",
+  description: "Manage user roles.",
+  icon: "bi-shield-lock",
+  group_name: "Administration",
+  group_desc: "Tools for system configuration and management.",
+  order: 150,
   routes: [
     { path: "/roles", page: "RolesPage" },
   ],
 };
+
+export default rolesModule;
 ```
 
 ---
 
-## Why This Structure Works
+## 2. `data/roles.actions.js` — Server Actions (All DB Access)
 
-| Layer | Responsibility | Depends On |
-|-------|---------------|------------|
-| Model | Maps DB columns → UI fields | Nothing |
-| Repo | Sends Supabase queries, returns mapped data | Model |
-| Service | Business rules and validation | Repo |
-| Hook | Connects service to React state | Service |
-| Component | Renders UI, calls callbacks | Nothing (pure props) |
-| Page | Wires hook + service + component together | Hook, Service, Component |
-
-The key line is:
+This is the **only** file that talks to the database. Every function here runs on the server.
 
 ```js
-return data.map(mapRole);
+"use server";
+
+import { getSupabaseAdmin } from "@/core/supabase/admin";
+
+const TABLE = "psb_s_role";
+
+// ─── READ ──────────────────────────────────────────────────
+
+export async function loadRoles() {
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from(TABLE)
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  if (error) throw new Error(error.message);
+  return { roles: data ?? [] };
+}
+
+// ─── CREATE ────────────────────────────────────────────────
+
+export async function createRole(payload) {
+  if (!payload?.role_name?.trim()) throw new Error("Role name is required.");
+
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from(TABLE)
+    .insert({
+      role_name: payload.role_name.trim(),
+      role_desc: payload.role_desc?.trim() || null,
+      is_active: true,
+    })
+    .select("*")
+    .single();
+
+  if (error) throw new Error(error.message);
+  return data;
+}
+
+// ─── UPDATE ────────────────────────────────────────────────
+
+export async function updateRole(roleId, updates) {
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from(TABLE)
+    .update({
+      role_name: updates.role_name,
+      role_desc: updates.role_desc,
+      is_active: updates.is_active,
+    })
+    .eq("role_id", roleId)
+    .select("*")
+    .single();
+
+  if (error) throw new Error(error.message);
+  return data;
+}
+
+// ─── DELETE ────────────────────────────────────────────────
+
+export async function deleteRole(roleId) {
+  const supabase = getSupabaseAdmin();
+  const { error } = await supabase
+    .from(TABLE)
+    .delete()
+    .eq("role_id", roleId);
+
+  if (error) throw new Error(error.message);
+}
 ```
 
-That's your entire protection layer between the database and your UI. Remove it and your system degrades fast.
+---
+
+## 3. `data/roles.data.js` — Client Helpers
+
+Helper functions used by the View. No database calls here.
+
+```js
+// Column definitions for TableZ
+export const ROLE_COLUMNS = [
+  { key: "role_name", label: "Name",        sortable: true },
+  { key: "role_desc", label: "Description", sortable: true },
+  { key: "is_active", label: "Active",      sortable: true, width: 100 },
+];
+
+// Empty form for creating a new role
+export function createEmptyRoleForm() {
+  return { role_name: "", role_desc: "", is_active: true };
+}
+
+// Convert a DB row into a form-compatible shape
+export function createFormFromRole(role) {
+  return {
+    role_name: role.role_name ?? "",
+    role_desc: role.role_desc ?? "",
+    is_active: role.is_active ?? true,
+  };
+}
+```
+
+---
+
+## 4. `pages/RolesPage.js` — Server Component
+
+Loads data on the server, passes it to the View.
+
+```js
+import { loadRoles } from "../data/roles.actions";
+import RolesView from "./RolesView";
+
+export const dynamic = "force-dynamic";
+
+export default async function RolesPage() {
+  const { roles } = await loadRoles();
+  return <RolesView roles={roles} />;
+}
+```
+
+---
+
+## 5. `pages/RolesView.jsx` — Client Component (All UI)
+
+All state, interaction, and rendering in one file.
+
+```jsx
+"use client";
+
+import { useState, useCallback } from "react";
+import { createRole, updateRole, deleteRole } from "../data/roles.actions";
+import { ROLE_COLUMNS, createEmptyRoleForm, createFormFromRole } from "../data/roles.data";
+import { toastSuccess, toastError } from "@/shared/utils/toast";
+import { useRouter } from "next/navigation";
+
+export default function RolesView({ roles = [] }) {
+  const router = useRouter();
+  const [rows, setRows] = useState(roles);
+  const [form, setForm] = useState(createEmptyRoleForm());
+  const [editingId, setEditingId] = useState(null);
+  const [saving, setSaving] = useState(false);
+
+  // ─── CREATE / UPDATE ──────────────────────────────────────
+
+  const handleSave = useCallback(async () => {
+    setSaving(true);
+    try {
+      if (editingId) {
+        await updateRole(editingId, form);
+        toastSuccess("Role updated.");
+      } else {
+        await createRole(form);
+        toastSuccess("Role created.");
+      }
+      setForm(createEmptyRoleForm());
+      setEditingId(null);
+      router.refresh(); // re-runs the server component to reload data
+    } catch (err) {
+      toastError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  }, [editingId, form, router]);
+
+  // ─── EDIT ─────────────────────────────────────────────────
+
+  const handleEdit = useCallback((role) => {
+    setEditingId(role.role_id);
+    setForm(createFormFromRole(role));
+  }, []);
+
+  // ─── DELETE ───────────────────────────────────────────────
+
+  const handleDelete = useCallback(async (roleId) => {
+    try {
+      await deleteRole(roleId);
+      toastSuccess("Role deleted.");
+      router.refresh();
+    } catch (err) {
+      toastError(err.message);
+    }
+  }, [router]);
+
+  // ─── RENDER ───────────────────────────────────────────────
+
+  return (
+    <main className="container py-4">
+      <h2>Roles</h2>
+
+      {/* Form */}
+      <div className="card mb-3 p-3">
+        <div className="row g-2">
+          <div className="col">
+            <input
+              className="form-control"
+              placeholder="Role name"
+              value={form.role_name}
+              onChange={(e) => setForm({ ...form, role_name: e.target.value })}
+            />
+          </div>
+          <div className="col">
+            <input
+              className="form-control"
+              placeholder="Description"
+              value={form.role_desc}
+              onChange={(e) => setForm({ ...form, role_desc: e.target.value })}
+            />
+          </div>
+          <div className="col-auto">
+            <button className="btn btn-primary" disabled={saving} onClick={handleSave}>
+              {editingId ? "Update" : "Create"}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Table */}
+      <table className="table">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Description</th>
+            <th>Active</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((role) => (
+            <tr key={role.role_id}>
+              <td>{role.role_name}</td>
+              <td>{role.role_desc}</td>
+              <td>{role.is_active ? "Yes" : "No"}</td>
+              <td>
+                <button className="btn btn-sm btn-outline-primary me-1" onClick={() => handleEdit(role)}>
+                  Edit
+                </button>
+                <button className="btn btn-sm btn-outline-danger" onClick={() => handleDelete(role.role_id)}>
+                  Delete
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </main>
+  );
+}
+```
+
+---
+
+## How It All Connects
+
+```
+User visits /roles
+  → RolesPage.js runs on the server
+    → calls loadRoles() from roles.actions.js
+    → passes data to RolesView
+  → RolesView.jsx runs in the browser
+    → renders table from roles data
+    → user clicks "Create" → calls createRole() server action
+    → user clicks "Edit"   → populates form, then updateRole()
+    → user clicks "Delete" → calls deleteRole() server action
+    → router.refresh() reloads server data after each change
+```
+
+| File | What It Does |
+|------|-------------|
+| `index.js` | Registers the module and its routes |
+| `data/roles.actions.js` | All database operations (server only) |
+| `data/roles.data.js` | Column defs, form builders, helpers (browser) |
+| `pages/RolesPage.js` | Loads data on the server, passes to View |
+| `pages/RolesView.jsx` | All UI, state, and user interaction |

@@ -1,4 +1,4 @@
-# Junior Developer — Full Guide
+# Full Guide
 
 This is a rulebook, not a tutorial. If you need to learn how to build your first module, start with [quickstart.md](quickstart.md). Come back here for the rules you must follow.
 
@@ -252,7 +252,7 @@ Use the built-in examples as your primary reference:
 
 ## Building a Module (Step by Step)
 
-1. Copy an existing module folder as a template.
+1. Run `npm run create-module -- my-module` to scaffold the module (see [quickstart.md](quickstart.md)).
 2. Register the app in `psb_s_application` (if it doesn't exist).
 3. Create groups in `psb_m_appcardgroup`.
 4. Create cards in `psb_s_appcard`.

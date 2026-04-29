@@ -4,63 +4,53 @@ This is a beginner-friendly walkthrough for creating your first module. If you'v
 
 ---
 
-## What Is a Module?
+## Step 1: Create Your Module
 
-A module is your own mini-app that lives inside the main project. Think of it like a folder that the system automatically finds and turns into a working page on the website.
+Open a terminal and run:
 
-**You never need to edit files outside your module folder.**
-
----
-
-## Where Does Your Code Go?
-
-Everything you write goes inside **one folder**:
-
-```
-src/modules/Metal-Buildings/
+```bash
+npm run create-module -- metal-buildings
 ```
 
-That's it. You don't touch anything outside this folder.
-
----
-
-## Your Folder Structure
-
-Every module has the same basic shape:
+This creates your module folder with all the files you need:
 
 ```
-src/modules/Metal-Buildings/
+src/modules/metal-buildings/
   index.js                        ← The ID card for your module
   data/
     metalBuildings.actions.js     ← Server Actions (database access)
     metalBuildings.data.js        ← Shared helpers (used by the view)
   pages/
-    DashboardPage.js              ← Server entry (loads data)
-    DashboardView.jsx             ← The interactive UI (runs in the browser)
+    MetalBuildingsPage.js         ← Server entry (loads data)
+    MetalBuildingsView.jsx        ← The interactive UI (runs in the browser)
 ```
 
-For a simple module you might only have `index.js` + `pages/`. As your module grows, add a `data/` folder.
+It also auto-generates the route file so Next.js knows about your page.
 
-Let's walk through each file.
+If your module belongs under a group, use a slash:
+
+```bash
+npm run create-module -- admin/metal-buildings
+```
 
 ---
 
-## File 1: `index.js` — Your Module's ID Card
+## Step 2: Update `index.js`
 
-This tells the system: "Hey, I exist. Here's my name and my URL."
+Open `index.js` — the scaffolding already filled in most fields. Update these:
 
 ```javascript
 const metalBuildingsModule = {
   key: "metal-buildings",
-  module_key: "metal-app",
+  module_key: "metal-app",      // ← ask your senior for this value
   name: "Metal Buildings",
   description: "Metal Buildings application.",
-  icon: "bi-building",
+  icon: "bi-building",          // ← pick from https://icons.getbootstrap.com
   group_name: "Applications",
   group_desc: "Business applications.",
   order: 200,
   routes: [
-    { path: "/metal-buildings", page: "DashboardPage" },
+    { path: "/metal-buildings", page: "MetalBuildingsPage" },
   ],
 };
 
@@ -87,15 +77,18 @@ The `routes` array is the most important part. Each entry says:
 
 ---
 
-## File 2: `pages/DashboardPage.js` — The Page (Server Component)
+## Step 3: Edit `pages/MetalBuildingsPage.js` — The Page (Server Component)
 
-This is the entry point for your page. It runs on the **server**, loads data, and passes it to the view.
+This is the entry point. It runs on the **server**, loads data, and passes it to the view.
+The scaffolding already created this file — open it and add your data loading:
 
 ```javascript
-import DashboardView from "./DashboardView.jsx";
+import MetalBuildingsView from "./MetalBuildingsView.jsx";
+// import { loadMetalBuildingsData } from "../data/metalBuildings.actions";
 
-export default async function DashboardPage() {
-  return <DashboardView />;
+export default async function MetalBuildingsPage() {
+  // const { items } = await loadMetalBuildingsData();
+  return <MetalBuildingsView />;
 }
 ```
 
@@ -107,14 +100,15 @@ export default async function DashboardPage() {
 
 ---
 
-## File 3: `pages/DashboardView.jsx` — The UI (Client Component)
+## Step 4: Edit `pages/MetalBuildingsView.jsx` — The UI (Client Component)
 
 This is where your actual visible UI code goes. It runs in the **browser**.
+The scaffolding already created a placeholder — open it and start building:
 
 ```javascript
 "use client";
 
-export default function DashboardView() {
+export default function MetalBuildingsView() {
   return (
     <div className="container mt-4">
       <h1>Hello World!</h1>
@@ -149,15 +143,11 @@ This is not something we invented — it's how Next.js works.
 
 ## How the System Finds Your Module
 
-When you run `npm run dev` or `npm run build`, a script (`scripts/generate-routes.js`) runs automatically. It:
-
-1. Scans every folder inside `src/modules/` for an `index.js`
-2. Reads your `routes` array
-3. Auto-generates the matching route files inside `src/app/`
+When you run `npm run create-module`, it auto-runs a script (`scripts/generate-routes.js`) that creates the matching route file inside `src/app/`. The same script also runs on `npm run dev` and `npm run build`.
 
 When a user visits `/metal-buildings`, Next.js finds the auto-generated route file and loads your page component directly.
 
-**You do not need to edit any file outside your module folder.** No registration step, no config file, nothing. Just define your routes in `index.js` and the system handles the rest.
+**You do not need to edit any file outside your module folder.** No registration step, no config file, nothing.
 
 ---
 
@@ -169,7 +159,7 @@ Want a second page at `/metal-buildings/settings`?
 
 ```javascript
 routes: [
-  { path: "/metal-buildings", page: "DashboardPage" },
+  { path: "/metal-buildings", page: "MetalBuildingsPage" },
   { path: "/metal-buildings/settings", page: "SettingsPage" },  // ← new
 ],
 ```
@@ -200,7 +190,8 @@ That's it. No other files to touch.
 
 ## Quick Checklist
 
-- [ ] Created `src/modules/My-Module/index.js` with module definition
+- [ ] Created module with `npm run create-module -- my-module`
+- [ ] Updated `index.js` with correct `module_key` (ask your senior)
 - [ ] `key` is lowercase with dashes (no spaces)
 - [ ] `module_key` matches a value in `psb_s_application` (ask your senior)
 - [ ] `routes` array has at least one entry

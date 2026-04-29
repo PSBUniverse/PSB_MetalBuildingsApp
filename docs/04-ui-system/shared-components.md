@@ -34,6 +34,294 @@ import { TableZ, TableX, Button, Modal, Badge } from "@/shared/components/ui";
 
 ---
 
+## Live Reference & Playground
+
+> **Start here.** Open `/psbpages/examples` in your dev server to see every component rendered live. Use the playground to click, type, and interact with real components. The examples below are copy-paste starting points — the live page is the visual reference.
+
+---
+
+## Usage Examples
+
+These are real, working code snippets you can copy into your view files. Every example uses only shared components.
+
+### Button
+
+```jsx
+import { Button } from "@/shared/components/ui";
+
+// Variants
+<Button variant="primary">Save</Button>
+<Button variant="secondary">Cancel</Button>
+<Button variant="danger">Delete</Button>
+<Button variant="ghost">Skip</Button>
+
+// With loading state (spinner + disabled automatically)
+const [saving, setSaving] = useState(false);
+<Button variant="primary" loading={saving} onClick={handleSave}>
+  Save Changes
+</Button>
+
+// Disabled
+<Button variant="primary" disabled>Not Allowed</Button>
+```
+
+**What you'll see:** A styled button matching the platform look. `loading={true}` shows a spinner inside the button and disables clicks — you don't need to handle that yourself.
+
+---
+
+### Input
+
+```jsx
+import { Input } from "@/shared/components/ui";
+
+// Basic text input
+<Input
+  type="text"
+  placeholder="Enter company name"
+  value={name}
+  onChange={(e) => setName(e.target.value)}
+/>
+
+// With error styling
+<Input
+  type="email"
+  placeholder="Email address"
+  value={email}
+  onChange={(e) => setEmail(e.target.value)}
+  isInvalid={!!emailError}
+/>
+{emailError && <div className="text-danger small mt-1">{emailError}</div>}
+
+// Password input
+<Input type="password" placeholder="Enter password" />
+```
+
+**What you'll see:** A clean form input that matches Button height. `isInvalid` adds a red border (Bootstrap built-in).
+
+---
+
+### SearchBar
+
+```jsx
+import { SearchBar } from "@/shared/components/ui";
+
+// Debounced search — fires onDebouncedChange 350ms after the user stops typing
+<SearchBar
+  placeholder="Search employees..."
+  onDebouncedChange={(query) => handleSearch(query)}
+/>
+
+// Custom debounce delay
+<SearchBar
+  placeholder="Search..."
+  debounceMs={500}
+  onDebouncedChange={(query) => handleSearch(query)}
+/>
+```
+
+**What you'll see:** A search input with a small search icon. It waits until the user stops typing before calling your handler — prevents firing on every keystroke.
+
+---
+
+### Dropdown
+
+```jsx
+import { Dropdown } from "@/shared/components/ui";
+
+<Dropdown>
+  <Dropdown.Toggle variant="secondary">
+    Actions
+  </Dropdown.Toggle>
+  <Dropdown.Menu>
+    <Dropdown.Item onClick={() => handleEdit(row)}>Edit</Dropdown.Item>
+    <Dropdown.Item onClick={() => handleDuplicate(row)}>Duplicate</Dropdown.Item>
+    <Dropdown.Divider />
+    <Dropdown.Item onClick={() => handleDelete(row)} className="text-danger">
+      Delete
+    </Dropdown.Item>
+  </Dropdown.Menu>
+</Dropdown>
+```
+
+**What you'll see:** A button that opens a floating menu below it. Items are clickable rows. The divider is a thin line separating groups.
+
+---
+
+### Card
+
+```jsx
+import { Card } from "@/shared/components/ui";
+
+// Simple card with title
+<Card title="Department Summary">
+  <p>Total employees: {total}</p>
+  <p>Active: {active}</p>
+</Card>
+
+// Card with subtitle and footer
+<Card
+  title="Metal Buildings"
+  subtitle="Application overview"
+  footer={<Button variant="primary">Open</Button>}
+>
+  <p>Status: Active</p>
+</Card>
+```
+
+**What you'll see:** A bordered container with a header area (title + subtitle), a body area (your content), and an optional footer. Cards are used for dashboard tiles and content sections.
+
+---
+
+### Badge
+
+```jsx
+import { Badge } from "@/shared/components/ui";
+
+// Default (light background, dark text)
+<Badge>Draft</Badge>
+
+// Colored variants using Bootstrap bg names
+<Badge bg="success" text="white">Active</Badge>
+<Badge bg="danger" text="white">Rejected</Badge>
+<Badge bg="warning" text="dark">Pending</Badge>
+<Badge bg="info" text="white">In Review</Badge>
+```
+
+**What you'll see:** A small rounded label. Use it inside table cells or next to headings to show status. Default is gray — use `bg` to change the color.
+
+---
+
+### Modal
+
+```jsx
+import { Modal, Button } from "@/shared/components/ui";
+
+const [showModal, setShowModal] = useState(false);
+
+<Button onClick={() => setShowModal(true)}>Open Dialog</Button>
+
+<Modal
+  show={showModal}
+  onHide={() => setShowModal(false)}
+  title="Confirm Delete"
+  footer={
+    <>
+      <Button variant="secondary" onClick={() => setShowModal(false)}>Cancel</Button>
+      <Button variant="danger" loading={deleting} onClick={handleDelete}>Delete</Button>
+    </>
+  }
+>
+  <p>Are you sure you want to delete this record? This cannot be undone.</p>
+</Modal>
+```
+
+**What you'll see:** A centered popup with a dim background. The title shows at the top with a close button. Your footer buttons appear at the bottom right. Clicking outside or pressing Escape closes it.
+
+---
+
+### Toast
+
+```jsx
+import { toastSuccess, toastError, toastWarning, toastInfo } from "@/shared/utils/toast";
+
+// After a successful save
+toastSuccess("Record saved successfully.");
+
+// After an error
+toastError("Failed to save. Please try again.");
+
+// Warning
+toastWarning("This action cannot be undone.");
+
+// Info
+toastInfo("New updates available.");
+```
+
+**What you'll see:** A small notification slides in at the top-right corner and disappears after 4 seconds. Green for success, red for error, yellow for warning, blue for info. You don't need to render anything — just call the function from any event handler.
+
+---
+
+## Putting It Together
+
+Here's what a real module view looks like using shared components:
+
+```jsx
+"use client";
+
+import { useState } from "react";
+import { Card, Button, Modal, Badge, Input } from "@/shared/components/ui";
+import { toastSuccess, toastError } from "@/shared/utils/toast";
+
+export default function MetalBuildingsView({ items = [] }) {
+  const [showAdd, setShowAdd] = useState(false);
+  const [name, setName] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  async function handleSave() {
+    setSaving(true);
+    try {
+      // await createBuilding({ name });
+      toastSuccess("Building added.");
+      setShowAdd(false);
+      setName("");
+    } catch {
+      toastError("Failed to add building.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="container mt-4">
+      <div className="d-flex justify-content-between align-items-center mb-3">
+        <h1>Metal Buildings</h1>
+        <Button variant="primary" onClick={() => setShowAdd(true)}>
+          Add Building
+        </Button>
+      </div>
+
+      {items.length === 0 ? (
+        <p className="text-muted">No buildings found.</p>
+      ) : (
+        <div className="row g-3">
+          {items.map((item) => (
+            <div key={item.id} className="col-md-4">
+              <Card title={item.name}>
+                <Badge bg={item.is_active ? "success" : "secondary"} text="white">
+                  {item.is_active ? "Active" : "Inactive"}
+                </Badge>
+              </Card>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <Modal
+        show={showAdd}
+        onHide={() => setShowAdd(false)}
+        title="Add Building"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setShowAdd(false)}>Cancel</Button>
+            <Button variant="primary" loading={saving} onClick={handleSave}>Save</Button>
+          </>
+        }
+      >
+        <Input
+          placeholder="Building name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+        />
+      </Modal>
+    </div>
+  );
+}
+```
+
+This example uses Button, Card, Badge, Modal, Input, and Toast — all from shared components, zero custom UI.
+
+---
+
 ## Table System
 
 ### Behavior

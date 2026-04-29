@@ -44,6 +44,7 @@ export default function Page(props) {
 
 | Script | Purpose |
 |--------|---------|
+| `npm run create-module -- <name>` | Scaffolds a new module, then auto-runs `gen:routes` |
 | `npm run gen:routes` | Manually regenerate all route files |
 | `npm run dev` | Auto-runs `gen:routes` via `predev` hook, then starts dev server |
 | `npm run build` | Auto-runs `gen:routes` via `prebuild` hook, then builds |

@@ -305,6 +305,7 @@ git rebase --abort
 
 | Command | What It Does |
 |---------|-------------|
+| `npm run create-module -- <name>` | Scaffold a new module with all required files (e.g. `npm run create-module -- metal-buildings`) |
 | `npm run dev` | Auto-generates routes, starts local dev server on port 3000 |
 | `npm run build` | Auto-generates routes, creates a production build (run before every PR) |
 | `npm run gen:routes` | Manually regenerate route files from module definitions |
@@ -343,7 +344,7 @@ docs/           ← Documentation
 ```
 
 **Rules:**
-1. Your work goes inside `src/modules/`.
+1. Your work goes inside `src/modules/`. Use `npm run create-module -- <name>` to scaffold a new module.
 2. Do **not** edit files in `src/core/`, `src/shared/`, `src/app/`, or `scripts/` without lead approval.
 3. Route files in `src/app/` are auto-generated — never create or edit them manually.
 

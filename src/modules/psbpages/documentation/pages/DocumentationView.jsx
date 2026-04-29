@@ -223,15 +223,22 @@ function extractHeadings(md) {
   return headings;
 }
 
-function ContentToc({ headings }) {
+function ContentToc({ headings, contentRef }) {
   if (headings.length < 2) return null;
+
+  const handleClick = (e, anchor) => {
+    e.preventDefault();
+    const target = contentRef?.current?.querySelector(`#${CSS.escape(anchor)}`);
+    if (target) target.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
   return (
     <div className={styles.toc}>
       <div className={styles.tocTitle}>On this page</div>
       <ul className={styles.tocList}>
         {headings.map((h, i) => (
           <li key={`${h.anchor}-${i}`} className={h.level === 3 ? styles.tocIndent : ""}>
-            <a href={`#${h.anchor}`} className={styles.tocLink}>{h.text}</a>
+            <a href={`#${h.anchor}`} className={styles.tocLink} onClick={(e) => handleClick(e, h.anchor)}>{h.text}</a>
           </li>
         ))}
       </ul>
@@ -328,7 +335,7 @@ export default function DocumentationView({ manifest, initialSection }) {
                 className={styles.article}
                 dangerouslySetInnerHTML={{ __html: html }}
               />
-              <ContentToc headings={headings} />
+              <ContentToc headings={headings} contentRef={contentRef} />
             </div>
             <SectionNav manifest={manifest} activeSectionId={section.id} onSelect={handleSelect} />
           </>

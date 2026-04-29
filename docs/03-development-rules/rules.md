@@ -218,8 +218,8 @@ The blessed reference implementation is at:
 
 ### Junior Developer Flow
 
-1. Copy an existing module folder as a template.
-2. Update `index.js` with your module's key, app_id, name, and routes.
+1. Run `npm run create-module -- <module-name>` to scaffold the module.
+2. Update `index.js` with your module's `module_key`, name, icon, and routes.
 3. Register database records (app, groups, cards, card-role mappings).
 4. Build pages and components.
 5. Apply card access checks.

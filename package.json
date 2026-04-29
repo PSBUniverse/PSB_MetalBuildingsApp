@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "create-module": "node scripts/create-module.js",
     "gen:routes": "node scripts/generate-routes.js",
     "predev": "node scripts/generate-routes.js",
     "dev": "next dev --webpack",

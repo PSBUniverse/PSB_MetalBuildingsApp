@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo, useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faPlus, faChevronUp, faChevronDown } from "@fortawesome/free-solid-svg-icons";
+import { faPlus, faChevronUp, faChevronDown, faCopy } from "@fortawesome/free-solid-svg-icons";
 import {
   Badge,
   Button,
@@ -19,6 +19,7 @@ import {
   toastSuccess,
   toastWarning,
 } from "@/shared/components/ui";
+import AppIcon from "@/shared/components/ui/AppIcon";
 import styles from "./ExamplesPage.module.css";
 
 // ---------------------------------------------------------------------------
@@ -88,7 +89,7 @@ const SNIPPET_TABLE_STATE = `const [tableState, setTableState] = useState({
 const SNIPPET_TABLE_DATABIND = `// --- FULL END-TO-END: How data flows from Database to your Table ---
 //
 // This shows the COMPLETE journey of data in a real module.
-// Read each layer top to bottom — this is the exact pattern every module follows.
+// Read each layer top to bottom â€” this is the exact pattern every module follows.
 //
 // DATA SOURCE
 //   Table: psb_s_appcard (Supabase)
@@ -96,43 +97,42 @@ const SNIPPET_TABLE_DATABIND = `// --- FULL END-TO-END: How data flows from Data
 //            route_path, icon, display_order, is_active
 //
 // LAYER STACK (each layer has ONE job)
-//   1. Model   – maps raw DB row → UI-friendly shape (so UI never sees raw columns)
-//   2. Repo    – Supabase queries (ONLY layer that calls .from())
-//   3. Service – business logic, validation, orchestration
-//   4. Hook    – calls service, returns data for the page (runs on server)
-//   5. API     – Next.js route handler (POST /api/admin/card-module-setup/cards)
-//   6. Page    – server component that loads data and passes to View
-//   7. View    – client component that wires hook → components → <TableZ />
+//   1. Server Action â€“ "use server" file, queries Supabase, returns data
+//   2. Page          â€“ server component, calls action, passes data to View
+//   3. View          â€“ "use client" component, renders TableZ with data
 
-// -- 1. MODEL -- src/modules/admin/card-module-setup/model/card.model.js
-export function isCardActive(card) {
-  if (card?.is_active === false || card?.is_active === 0) return false;
-  const text = String(card?.is_active ?? "").trim().toLowerCase();
-  return !(text === "false" || text === "0");
-}
+// -- 1. SERVER ACTION -- data/cardModuleSetup.actions.js
+"use server";
+import { getSupabaseAdmin } from "@/core/supabase/admin";
 
-export function getCardDisplayName(card) {
-  return card?.card_name || card?.name || "Unknown";
-}
-
-// -- 2. REPO -- src/modules/admin/card-module-setup/repo/cards.repo.js
-const TABLE = "psb_s_appcard";
-
-export async function fetchCardsByGroupId(supabase, groupId) {
+export async function loadCards(groupId) {
+  const supabase = getSupabaseAdmin();
   const { data, error } = await supabase
-    .from(TABLE)
+    .from("psb_s_appcard")
     .select("*")
     .eq("group_id", groupId)
     .order("display_order", { ascending: true });
 
   if (error) throw new Error(error.message);
-  return Array.isArray(data) ? data : [];
+  return data ?? [];
 }
 
-export async function createCard(supabase, payload) {
+export async function createCard(payload) {
+  const cardName = String(payload?.card_name ?? "").trim();
+  if (!cardName) throw new Error("Card name is required.");
+  if (!payload?.group_id) throw new Error("Group ID is required.");
+
+  const supabase = getSupabaseAdmin();
   const { data, error } = await supabase
-    .from(TABLE)
-    .insert(payload)
+    .from("psb_s_appcard")
+    .insert({
+      group_id: payload.group_id,
+      card_name: cardName,
+      card_desc: payload?.card_desc ?? "",
+      route_path: payload?.route_path ?? "#",
+      icon: payload?.icon ?? "bi-grid-3x3-gap",
+      is_active: true,
+    })
     .select("*")
     .single();
 
@@ -140,62 +140,16 @@ export async function createCard(supabase, payload) {
   return data;
 }
 
-// -- 3. SERVICE -- src/modules/admin/card-module-setup/services/cardModuleSetup.service.js
-import { fetchCardsByGroupId, createCard } from "../repo/cards.repo.js";
-
-export async function getCardList(supabase) {
-  const rows = await fetchAllCards(supabase);
-  return rows.sort((a, b) =>
-    Number(a.display_order || 0) - Number(b.display_order || 0)
-  );
-}
-
-export async function createCardRecord(supabase, payload) {
-  const cardName = String(payload?.card_name ?? "").trim();
-  if (!cardName) throw new Error("Card name is required.");
-  if (!payload?.group_id) throw new Error("Group ID is required.");
-
-  return createCard(supabase, {
-    group_id: payload.group_id,
-    card_name: cardName,
-    card_desc: payload?.card_desc ?? "",
-    route_path: payload?.route_path ?? "#",
-    icon: payload?.icon ?? "bi-grid-3x3-gap",
-    is_active: true,
-  });
-}
-
-// -- 4. HOOK -- src/modules/admin/card-module-setup/hooks/cardModuleSetupData.js
-import { getSupabase } from "../utils/supabase.js";
-import { getCardModuleSetupViewModel } from "../services/cardModuleSetup.service.js";
-
-export async function loadCardModuleSetupData() {
-  const supabase = await getSupabase();
-  return getCardModuleSetupViewModel(supabase);
-}
-
-// -- 5. API ROUTE -- src/app/api/admin/card-module-setup/cards/route.js
-import { NextResponse } from "next/server";
-import { getSupabase } from "@/modules/admin/card-module-setup/utils/supabase.js";
-import { createCardRecord } from "@/modules/admin/card-module-setup/services/cardModuleSetup.service.js";
-
-export async function POST(request) {
-  const body = await request.json().catch(() => ({}));
-  const supabase = await getSupabase();
-  const card = await createCardRecord(supabase, body);
-  return NextResponse.json({ ok: true, card });
-}
-
-// -- 6. CLIENT PAGE -- src/app/admin/card-module-setup/page.js (server component)
-import CardModuleSetupPage from "@/modules/admin/card-module-setup/pages/CardModuleSetupPage";
-import { loadCardModuleSetupData } from "@/modules/admin/card-module-setup/hooks/cardModuleSetupData.js";
+// -- 2. PAGE -- pages/CardModuleSetupPage.js (server component)
+import { loadCards } from "../data/cardModuleSetup.actions";
+import CardModuleSetupView from "./CardModuleSetupView.jsx";
 
 export default async function CardModuleSetupPage() {
-  const { cardGroups, cards } = await loadCardModuleSetupData();
-  return <CardModuleSetupClient seedCardGroups={cardGroups} seedCards={cards} />;
+  const cards = await loadCards();
+  return <CardModuleSetupView seedCards={cards} />;
 }
 
-// -- 7. CLIENT COMPONENT -- binds data to TableZ
+// -- 3. VIEW -- pages/CardModuleSetupView.jsx ("use client")
 const selectedGroupCards = useMemo(() =>
   allCards
     .filter((card) => card.group_id === selectedGroup?.group_id)
@@ -229,7 +183,7 @@ const cardColumns = useMemo(() => [
 
 const SNIPPET_TABLE_FILTERS_HARDCODE = `// Hardcoded filter items (use when options are fixed/known at build time)
 //
-// Real example: Card Module Setup — filter cards by active status
+// Real example: Card Module Setup â€” filter cards by active status
 const filterConfig = createFilterConfig([
   {
     key: "is_active",
@@ -242,25 +196,26 @@ const filterConfig = createFilterConfig([
   },
 ]);`;
 
-const SNIPPET_TABLE_FILTERS_DATABIND = `// Databind filter items from API (use when options come from the database)
+const SNIPPET_TABLE_FILTERS_DATABIND = `// Databind filter items from Server Action (use when options come from the database)
 //
-// Real example: User Master Setup — role filter loaded from psb_s_app_roles
-// API endpoint: GET /api/admin/user-master-setup/lookups
+// Real example: User Master Setup â€” role filter loaded from psb_s_app_roles
+// Server Action: loadRoleOptions() in data/userMaster.actions.js
 //
-// Backend returns: { roles: [{ role_id: 1, role_name: "Admin" }, ...] }
+// Action returns: [{ role_id: 1, role_name: "Admin" }, ...]
 const [roleOptions, setRoleOptions] = useState([]);
 
 useEffect(() => {
-  fetch("/api/admin/user-master-setup/lookups")
-    .then((r) => r.json())
-    .then((data) => {
-      // Map API response to the { label, value } shape the filter expects
-      const mapped = (data.roles || []).map((role) => ({
-        label: role.role_name,
-        value: role.role_id,
-      }));
-      setRoleOptions(mapped);
-    });
+  let active = true;
+  async function load() {
+    const roles = await loadRoleOptions();
+    if (!active) return;
+    setRoleOptions(roles.map((role) => ({
+      label: role.role_name,
+      value: role.role_id,
+    })));
+  }
+  load();
+  return () => { active = false; };
 }, []);
 
 const filterConfig = createFilterConfig([
@@ -268,17 +223,17 @@ const filterConfig = createFilterConfig([
     key: "role_id",
     label: "Role",
     type: TABLE_FILTER_TYPES.SELECT,
-    options: roleOptions,   // ? populated from the API response
+    options: roleOptions,   // â† populated from the Server Action
   },
   {
     key: "created_at",
     label: "Created Date",
     type: TABLE_FILTER_TYPES.DATERANGE,
-    // No options needed — date range uses a date picker
+    // No options needed â€” date range uses a date picker
   },
 ]);`;
 
-const SNIPPET_TABLE_COLUMNS = `// Real example: Card Module Setup — card groups table columns
+const SNIPPET_TABLE_COLUMNS = `// Real example: Card Module Setup â€” card groups table columns
 // Source table: psb_m_appcardgroup
 // Columns map directly to database fields
 const groupColumns = useMemo(() => [
@@ -288,9 +243,9 @@ const groupColumns = useMemo(() => [
   { key: "group_name",    label: "Group Name",  sortable: true,  width: 220 },
   // "Description" is optional context
   { key: "group_desc",    label: "Description", sortable: false, width: 250 },
-  // "Icon" — hidden by default, available via Customize Table panel
+  // "Icon" â€” hidden by default, available via Customize Table panel
   { key: "icon",          label: "Icon",        sortable: false, width: 120, defaultVisible: false },
-  // "Active" — render with Badge for visual status
+  // "Active" â€” render with Badge for visual status
   {
     key: "is_active",
     label: "Active",
@@ -305,14 +260,14 @@ const groupColumns = useMemo(() => [
 ], []);
 
 // Column options:
-//   key            — matches the field name in the row object (from DB)
-//   label          — column header text
-//   sortable       — enables click-to-sort on this column
-//   width          — pixel width
-//   defaultVisible — set to false to hide on first render (still in Customize panel)
-//   render         — custom cell renderer: (row) => ReactNode`;
+//   key            â€” matches the field name in the row object (from DB)
+//   label          â€” column header text
+//   sortable       â€” enables click-to-sort on this column
+//   width          â€” pixel width
+//   defaultVisible â€” set to false to hide on first render (still in Customize panel)
+//   render         â€” custom cell renderer: (row) => ReactNode`;
 
-const SNIPPET_TABLE_ACTIONS = `// Real example: Card Module Setup — row actions for the card groups table
+const SNIPPET_TABLE_ACTIONS = `// Real example: Card Module Setup â€” row actions for the card groups table
 // Actions appear as a dropdown in the leftmost "Actions" column
 //
 // Each action needs: key, label, type, onClick
@@ -455,16 +410,16 @@ const SNIPPET_BUTTON = `import { Button } from "@/shared/components/ui";
   Add Group
 </Button>
 
-// Disabled state — prevents all interaction
+// Disabled state â€” prevents all interaction
 <Button variant="primary" disabled>Disabled</Button>`;
 
 const SNIPPET_INPUT = `import { Input } from "@/shared/components/ui";
 
-// Real example: Card Module Setup — Add Card Group dialog form fields
+// Real example: Card Module Setup â€” Add Card Group dialog form fields
 // Draft state holds the form values
 const [groupDraft, setGroupDraft] = useState({ name: "", desc: "", icon: "" });
 
-// Group name input — required field
+// Group name input â€” required field
 <Input
   value={groupDraft.name}
   onChange={(e) => setGroupDraft((prev) => ({ ...prev, name: e.target.value }))}
@@ -472,7 +427,7 @@ const [groupDraft, setGroupDraft] = useState({ name: "", desc: "", icon: "" });
   isInvalid={!groupDraft.name.trim()}   // red border when empty
 />
 
-// Description input — optional field
+// Description input â€” optional field
 <Input
   value={groupDraft.desc}
   onChange={(e) => setGroupDraft((prev) => ({ ...prev, desc: e.target.value }))}
@@ -487,7 +442,7 @@ const SNIPPET_SEARCHBAR = `import { SearchBar } from "@/shared/components/ui";
 // SearchBar debounces input so API calls don't fire on every keystroke.
 // onDebouncedChange fires after the user stops typing for debounceMs.
 //
-// Real example: Data Table Example — search bar triggers table reload
+// Real example: Data Table Example â€” search bar triggers table reload
 <SearchBar
   value={tableState.filters?.search || ""}
   debounceMs={350}
@@ -504,7 +459,7 @@ const SNIPPET_SEARCHBAR = `import { SearchBar } from "@/shared/components/ui";
 
 const SNIPPET_DROPDOWN_BASIC = `import { Dropdown } from "@/shared/components/ui";
 
-// Basic dropdown — static menu items, click handlers
+// Basic dropdown â€” static menu items, click handlers
 // Used for: row action menus, toolbar option menus
 <Dropdown>
   <Dropdown.Toggle variant="secondary" size="sm">
@@ -518,37 +473,19 @@ const SNIPPET_DROPDOWN_BASIC = `import { Dropdown } from "@/shared/components/ui
   </Dropdown.Menu>
 </Dropdown>`;
 
-const SNIPPET_DROPDOWN_DATABIND = `// Databind dropdown from API
+const SNIPPET_DROPDOWN_DATABIND = `// Databind dropdown from Server Action
 //
-// Real example: Card Module Setup — Application Selector
+// Real example: Card Module Setup â€” Application Selector
 // Data source: psb_s_application table
-// API: loaded via server component props (seedApplications)
+// Server Action: loadApplications() in data/cardModuleSetup.actions.js
 //
-// The page.js server component fetches applications:
+// The Page (server component) loads applications and passes them as props:
 //   const applications = await loadApplications();
-//   return <CardModuleSetupClient seedApplications={applications} />;
+//   return <CardModuleSetupView seedApplications={applications} />;
 //
-// Client component binds to a <select> (or Dropdown):
+// View (client component) binds to Dropdown:
 const [selectedApp, setSelectedApp] = useState(null);
 
-// Using native <select> for application selector (simpler for single-value):
-<Form.Select
-  value={selectedApp?.app_id ?? ""}
-  onChange={(e) => {
-    const appId = Number(e.target.value);
-    const app = applications.find((a) => a.app_id === appId);
-    setSelectedApp(app);
-  }}
->
-  <option value="" disabled>Select Application</option>
-  {applications.map((app) => (
-    <option key={app.app_id} value={app.app_id}>
-      {app.app_name}
-    </option>
-  ))}
-</Form.Select>
-
-// Using Dropdown for richer display:
 <Dropdown>
   <Dropdown.Toggle variant="secondary" size="sm">
     {selectedApp?.app_name || "Select Application"}
@@ -583,9 +520,9 @@ const statusItems = [
   ))}
 </Dropdown.Menu>`;
 
-const SNIPPET_INPUT_VALIDATION = `// Input with validation — show error only after user interaction
+const SNIPPET_INPUT_VALIDATION = `// Input with validation â€” show error only after user interaction
 //
-// Real example: Card Module Setup — validate group name before saving
+// Real example: Card Module Setup â€” validate group name before saving
 const [groupDraft, setGroupDraft] = useState({ name: "", desc: "", icon: "" });
 const [touched, setTouched] = useState(false);
 const nameError = touched && !groupDraft.name.trim();
@@ -613,7 +550,7 @@ const SNIPPET_MODAL = `import { Modal, Button } from "@/shared/components/ui";
 
 // Modal is used for: confirmation dialogs, add/edit forms, workflow actions
 //
-// Real example: Card Module Setup — Add Card Group dialog
+// Real example: Card Module Setup â€” Add Card Group dialog
 const [dialog, setDialog] = useState({ kind: null });
 const [isMutatingAction, setIsMutatingAction] = useState(false);
 
@@ -646,33 +583,26 @@ const [isMutatingAction, setIsMutatingAction] = useState(false);
 
 const SNIPPET_SEARCHBAR_WITH_API = `// SearchBar with server-side search (for large datasets)
 //
-// Real example: Data Table Example — server-side search via API
-// API endpoint: GET /api/examples/data-table?search=query&page=1&pageSize=10
+// Real example: Data Table Example â€” server-side search via Server Action
+// Server Action: loadEmployees() in data/dataTableExample.actions.js
 //
-// The controller hook sends the search term as a query parameter:
+// The view calls the Server Action when filters change:
 const loadData = useCallback(async () => {
   setLoading(true);
   try {
-    const params = new URLSearchParams({
-      page: String(tableState.pagination.page),
-      pageSize: String(tableState.pagination.pageSize),
+    const result = await loadEmployees({
+      page: tableState.pagination.page,
+      pageSize: tableState.pagination.pageSize,
       search: tableState.filters?.search || "",
       sortKey: tableState.sorting?.key || "",
       sortDir: tableState.sorting?.direction || "",
+      filters: tableState.filters,
     });
 
-    // Append active filters
-    Object.entries(tableState.filters || {}).forEach(([key, value]) => {
-      if (key !== "search" && value) params.set(key, String(value));
-    });
-
-    const response = await fetch(\`/api/examples/data-table?\${params}\`);
-    const payload = await response.json();
-
-    setRows(payload.rows || []);
+    setRows(result.rows || []);
     setTableState((prev) => ({
       ...prev,
-      pagination: { ...prev.pagination, total: payload.total || 0 },
+      pagination: { ...prev.pagination, total: result.total || 0 },
     }));
   } finally {
     setLoading(false);
@@ -691,12 +621,13 @@ const loadData = useCallback(async () => {
   }}
 />`;
 
-const SNIPPET_MODAL_SAVE_FLOW = `// Modal with full save-to-API flow
+const SNIPPET_MODAL_SAVE_FLOW = `// Modal with full save-to-server flow
 //
-// Real example: Card Module Setup — Add Card Group with API call
-// API: POST /api/admin/card-module-setup/card-groups
-// Request body: { app_id, group_name, group_desc, icon }
+// Real example: Card Module Setup â€” Add Card Group via Server Action
+// Server Action: createCardGroup() in data/cardModuleSetup.actions.js
 //
+import { createCardGroup } from "../data/cardModuleSetup.actions";
+
 const [dialog, setDialog] = useState({ kind: null });
 const [isMutatingAction, setIsMutatingAction] = useState(false);
 const [groupDraft, setGroupDraft] = useState({ name: "", desc: "", icon: "" });
@@ -710,21 +641,14 @@ const handleConfirmAddGroup = async () => {
 
   setIsMutatingAction(true);
   try {
-    const response = await fetch("/api/admin/card-module-setup/card-groups", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        app_id: selectedApp.app_id,
-        group_name: groupName,
-        group_desc: groupDraft.desc.trim(),
-        icon: groupDraft.icon.trim() || "bi-collection",
-      }),
+    await createCardGroup({
+      app_id: selectedApp.app_id,
+      group_name: groupName,
+      group_desc: groupDraft.desc.trim(),
+      icon: groupDraft.icon.trim() || "bi-collection",
     });
 
-    const payload = await response.json();
-    if (!response.ok) throw new Error(payload?.error || "Failed to create group.");
-
-    toastSuccess("Card group added to batch.", "Add Group");
+    toastSuccess("Card group added.", "Add Group");
     setDialog({ kind: null });
     setGroupDraft({ name: "", desc: "", icon: "" });
   } catch (err) {
@@ -758,7 +682,7 @@ const SNIPPET_BADGE = `import { Badge } from "@/shared/components/ui";
 // Badge displays status labels with color-coded backgrounds.
 // Used inside table column renderers to show row status visually.
 //
-// Real example: Card Module Setup — is_active column renderer
+// Real example: Card Module Setup â€” is_active column renderer
 {
   key: "is_active",
   label: "Active",
@@ -770,7 +694,7 @@ const SNIPPET_BADGE = `import { Badge } from "@/shared/components/ui";
   ),
 }
 
-// Real example: User Master Setup — user status column
+// Real example: User Master Setup â€” user status column
 {
   key: "status",
   label: "Status",
@@ -790,7 +714,7 @@ const SNIPPET_BADGE = `import { Badge } from "@/shared/components/ui";
 const SNIPPET_TOAST = `import { toastSuccess, toastError, toastWarning, toastInfo } from "@/shared/components/ui";
 
 // Toast shows temporary notification messages in the top-right corner.
-// GlobalToastHost is already mounted once in the app layout — do NOT add it again.
+// GlobalToastHost is already mounted once in the app layout â€” do NOT add it again.
 //
 // Real examples from Card Module Setup:
 //
@@ -817,7 +741,7 @@ const SNIPPET_CARD_SURFACE = `import { Card } from "@/shared/components/ui";
 // Card is a container surface with optional title, subtitle, and toolbar.
 // Used to wrap tables, forms, and content sections on setup pages.
 //
-// Real example: Card Module Setup — left panel wraps Card Groups table
+// Real example: Card Module Setup â€” left panel wraps Card Groups table
 <Card
   title="Card Groups"
   subtitle="Drag rows to reorder groups"
@@ -839,10 +763,10 @@ const SNIPPET_CARD_SURFACE = `import { Card } from "@/shared/components/ui";
 </Card>
 
 // Props:
-//   title    (string)    — Card header text
-//   subtitle (string)    — Smaller text below title
-//   toolbar  (ReactNode) — Right-aligned header content (buttons, etc.)
-//   children (ReactNode) — Card body content`;
+//   title    (string)    â€” Card header text
+//   subtitle (string)    â€” Smaller text below title
+//   toolbar  (ReactNode) â€” Right-aligned header content (buttons, etc.)
+//   children (ReactNode) â€” Card body content`;
 
 const SNIPPET_TOKENS = `/* Design tokens \u2014 from src/styles/variables.css */
 
@@ -859,400 +783,260 @@ const SNIPPET_TOKENS = `/* Design tokens \u2014 from src/styles/variables.css */
 /* Transitions */
 --psb-transition-150  --psb-transition-200`;
 
-const SNIPPET_MODULE_STRUCTURE = `src/modules/admin/<module-name>/
-  index.js              ← module entry point (routes, metadata)
-  pages/                ← server components (data loading, access gate)
-  view/                 ← client components ("use client" layout layer)
-  components/           ← pure UI (props only, no logic)
-  hooks/                ← state management + side effects
-  services/             ← business logic + validation
-  repo/
-    <module>.repo.js    ← Supabase queries (ONLY place that calls .from())
-  model/
-    <module>.model.js   ← maps DB rows → UI-friendly objects
-  utils/                ← helpers, constants, formatters`;
+const SNIPPET_MODULE_STRUCTURE = `src/modules/my-module/
+  index.js                    â† Module identity + routes
+  data/
+    myModule.actions.js       â† "use server" â€” all DB calls go here
+    myModule.data.js          â† Client-safe helpers (optional)
+  pages/
+    MyModulePage.js            â† Server entry: loads data, renders view
+    MyModuleView.jsx           â† "use client" â€” all UI, hooks, state`;
 
-const SNIPPET_MODULE_MANIFEST = `// index.js — this is your module's registration file.
+const SNIPPET_MODULE_MANIFEST = `// index.js â€” this is your module's registration file.
 // The module loader reads this to know your module exists.
 //
-// key      → unique slug (used in URLs and the dynamic router)
-// app_id   → must match the row in psb_s_application table
-// routes   → page: string name that maps to a file in pages/
+// key        â†’ unique slug (used in URLs)
+// module_key â†’ must match a module_key in psb_s_application (ask your senior)
+// routes     â†’ page: string name that maps to a file in pages/
 
-export default {
-  key: "gutter",
-  app_id: 1001,
-  name: "Gutter",
-  description: "Gutter ordering and configuration.",
-  icon: "bi-bucket",
+const myModule = {
+  key: "my-module",
+  module_key: "my-app",         // â† ask your senior for this value
+  name: "My Module",
+  description: "My Module application.",
+  icon: "bi-grid",
+  group_name: "Applications",
+  group_desc: "Business applications.",
+  order: 200,
   routes: [
-    { path: "/admin/gutter", page: "DashboardPage" },
+    { path: "/my-module", page: "MyModulePage" },
   ],
-};`;
+};
 
-const SNIPPET_MODULE_BUILD_SEQUENCE = `1. Create folder: src/modules/admin/<module-name>/
-2. Create required subfolders: pages/, view/, components/, hooks/, services/, repo/, model/, utils/
-3. Register app in psb_s_application table
+export default myModule;`;
+
+const SNIPPET_MODULE_BUILD_SEQUENCE = `1. Run: npm run create-module -- my-module
+2. Update index.js with correct module_key (ask your senior)
+3. Register app in psb_s_application table (if it doesn't exist)
 4. Create groups in psb_m_appcardgroup
 5. Create cards in psb_s_appcard
 6. Assign role access in psb_m_appcardroleaccess
-7. Create index.js with module manifest (key, app_id, routes)
-8. Create page route: src/app/admin/<module-name>/page.js
-9. Build UI using shared components (TableZ, Card, Modal, etc.)
-10. Apply card access checks via ModuleAccessGate
-11. Test authorized and unauthorized flows
-12. Run npm run build — must pass clean`;
+7. Write Server Actions in data/*.actions.js
+8. Build your Page (server) + View (client) in pages/
+9. Apply card access checks with hasCardAccess()
+10. Test with authorized and unauthorized users
+11. Run npm run build â€” must pass clean`;
 
-const SNIPPET_CRUD_REPOSITORY_PATTERN = `// hooks/useUsersData.js
-import { usersService } from "../services/users.service";
+const SNIPPET_CRUD_SERVER_ACTIONS = `// data/roles.actions.js â€” "use server"
+// ALL database access goes here. No other file calls Supabase.
+"use server";
+import { getSupabaseAdmin } from "@/core/supabase/admin";
 
-export async function useUsersData() {
-  return usersService.createUser(payload);
+export async function loadRoles() {
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("psb_s_role")
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  if (error) throw new Error(error.message);
+  return data ?? [];
 }
 
-// services/users.service.js
-import { getSupabase } from "../utils/supabase";
-import { userRepository } from "../repo/user.repo";
+export async function createRole({ name, description }) {
+  if (!name?.trim()) throw new Error("Role name is required.");
 
-export const usersService = {
-  async createUser(payload) {
-    const supabase = await getSupabase();
-    return userRepository.create(supabase, payload);
-  },
-};
-
-// repo/user.repo.js
-export const userRepository = {
-  async create(supabase, payload) {
-    const { data, error } = await supabase
-    .from("psb_s_user")
-    .insert(payload)
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("psb_s_role")
+    .insert({
+      role_name: name.trim(),
+      role_desc: description?.trim() ?? "",
+      is_active: true,
+    })
     .select("*")
     .single();
 
-    if (error) throw new Error(error.message);
-    return data;
-  },
-};
-
-// Rule: UI -> Hooks -> Services -> Repository -> Database`;
-
-const SNIPPET_MODEL_MAPPER = `// model/appRole.model.js
-
-export function mapAppRole(row) {
-  return {
-    roleId: row.role_id,
-    roleName: row.role_name,
-    description: row.description,
-    isActive: row.is_active
-  };
-}`;
-
-const SNIPPET_REPO_SUPABASE = `// utils/supabase.js
-//
-// ?? Every module MUST use this helper instead of calling getSupabase() directly.
-// Modules are loaded at runtime via a dynamic filesystem loader.
-// The core Supabase singleton may not be initialized yet at that point.
-//
-export async function getSupabase() {
-  const mod = await import("../../../../core/supabase/client.js");
-
-  try {
-    // Case 1: core already initialized the singleton
-    return mod.getSupabase();
-  } catch {
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-    if (url && anonKey) {
-      // Case 2: initialize it ourselves with public env keys
-      return mod.initSupabase(url, anonKey);
-    }
-
-    // Case 3: server-side — fall back to admin client
-    const { getSupabaseAdmin } = await import("../../../../core/supabase/admin.js");
-    return getSupabaseAdmin();
-  }
+  if (error) throw new Error(error.message);
+  return data;
 }
 
-// repo/appRole.repo.js
-// ? Repo receives supabase as a parameter — it never imports it directly.
-import { mapAppRole } from "../model/appRole.model";
+export async function updateRole({ id, name, description, isActive }) {
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("psb_s_role")
+    .update({
+      role_name: name?.trim(),
+      role_desc: description?.trim(),
+      is_active: isActive,
+    })
+    .eq("role_id", id)
+    .select("*")
+    .single();
 
-export const appRoleRepo = {
-  async getAll(supabase) {
-    const { data, error } = await supabase
-      .from("psb_s_app_roles")
-      .select("*");
+  if (error) throw new Error(error.message);
+  return data;
+}
 
-    if (error) throw new Error(error.message);
-    return data.map(mapAppRole);
-  },
-};`;
+export async function deleteRole(id) {
+  const supabase = getSupabaseAdmin();
+  const { error } = await supabase
+    .from("psb_s_role")
+    .delete()
+    .eq("role_id", id);
 
-const SNIPPET_SERVICE_LAYER = `// services/appRole.service.js
-import { getSupabase } from "../utils/supabase";
-import { appRoleRepo } from "../repo/appRole.repo";
+  if (error) throw new Error(error.message);
+  return true;
+}
 
-export const appRoleService = {
-  async create(data) {
-    const supabase = await getSupabase();
-    return appRoleRepo.insert(supabase, data);
-  },
-};`;
+// Rule: View â†’ Server Action â†’ Supabase. That's it.
+// No model, no repo, no service, no hook files needed.`;
 
 const SNIPPET_ROLES_STRUCTURE = `src/modules/admin/roles/
-  index.js
+  index.js                    â† Module identity + routes
+  data/
+    roles.actions.js          â† "use server" â€” all DB calls (CRUD)
+    roles.data.js             â† Client-safe helpers (optional)
   pages/
-    RolesPage.jsx         ← server component (loads data, wraps in access gate)
-    DashboardPage.js      ← static landing page
-  view/
-    RolesView.jsx         ← "use client" layout (wires hook → components)
-  components/
-    RolesTable.jsx        ← pure UI table (receives data via props)
-  hooks/
-    useRolesTable.js      ← manages state, calls service
-  services/
-    roles.service.js      ← business logic + validation
-  repo/
-    roles.repo.js         ← Supabase CRUD queries
-  model/
-    roles.model.js        ← maps DB rows → clean objects
-  utils/
-    supabase.js           ← module-local Supabase client helper`;
+    RolesPage.js              â† Server entry: loads data, renders view
+    RolesView.jsx             â† "use client" â€” all UI, hooks, state`;
 
-const SNIPPET_ROLES_MODEL = `// model/roles.model.js
+const SNIPPET_ROLES_ACTIONS = `// data/roles.actions.js
+"use server";
+import { getSupabaseAdmin } from "@/core/supabase/admin";
 
-export function mapRole(row) {
-  return {
-    id: row.role_id,
-    name: row.role_name,
-    description: row.role_desc,
-    isActive: row.is_active,
-    createdAt: row.created_at
-  };
+export async function loadRoles() {
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("psb_s_role")
+    .select("*")
+    .order("created_at", { ascending: false });
+  if (error) throw new Error(error.message);
+  return data ?? [];
+}
+
+export async function createRole({ name, description }) {
+  if (!name?.trim()) throw new Error("Role name is required.");
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("psb_s_role")
+    .insert({ role_name: name.trim(), role_desc: description?.trim() ?? "", is_active: true })
+    .select("*")
+    .single();
+  if (error) throw new Error(error.message);
+  return data;
 }`;
 
-const SNIPPET_ROLES_REPO = `// repo/roles.repo.js
-
-import { mapRole } from "../model/roles.model";
-
-const TABLE = "psb_s_role";
-
-export const rolesRepo = {
-
-  async getAll(supabase) {
-    const { data, error } = await supabase
-      .from(TABLE)
-      .select("*")
-      .order("created_at", { ascending: false });
-
-    if (error) throw new Error(error.message);
-
-    return data.map(mapRole);
-  },
-
-  async insert(supabase, payload) {
-    const { data, error } = await supabase
-      .from(TABLE)
-      .insert({
-        role_name: payload.name,
-        role_desc: payload.description,
-        is_active: true
-      })
-      .select("*")
-      .single();
-
-    if (error) throw new Error(error.message);
-
-    return mapRole(data);
-  },
-
-  async update(supabase, payload) {
-    const { data, error } = await supabase
-      .from(TABLE)
-      .update({
-        role_name: payload.name,
-        role_desc: payload.description,
-        is_active: payload.isActive,
-        updated_at: new Date()
-      })
-      .eq("role_id", payload.id)
-      .select("*")
-      .single();
-
-    if (error) throw new Error(error.message);
-
-    return mapRole(data);
-  },
-
-  async delete(supabase, id) {
-    // First, remove all user-role access mappings for this role
-    const { error: accessError } = await supabase
-      .from("psb_m_userapproleaccess")
-      .delete()
-      .eq("role_id", id);
-
-    if (accessError) throw new Error(accessError.message);
-
-    // Then delete the role itself
-    const { error: roleError } = await supabase
-      .from(TABLE)
-      .delete()
-      .eq("role_id", id);
-
-    if (roleError) throw new Error(roleError.message);
-
-    return true;
-  }
-};`;
-
-const SNIPPET_ROLES_SERVICE = `// services/roles.service.js
-
-import { getSupabase } from "../utils/supabase";
-import { rolesRepo } from "../repo/roles.repo";
-
-export const rolesService = {
-
-  async getRoles() {
-    const supabase = await getSupabase();
-    return rolesRepo.getAll(supabase);
-  },
-
-  async createRole(data) {
-    if (!data.name) throw new Error("Role name is required");
-    const supabase = await getSupabase();
-    return rolesRepo.insert(supabase, data);
-  },
-
-  async updateRole(data) {
-    const supabase = await getSupabase();
-    return rolesRepo.update(supabase, data);
-  },
-
-  async deleteRole(id) {
-    const supabase = await getSupabase();
-    return rolesRepo.delete(supabase, id);
-  }
-};`;
-
-const SNIPPET_ROLES_HOOK = `// hooks/useRolesTable.js
-
-import { useEffect, useState } from "react";
-import { rolesService } from "../services/roles.service";
-
-export function useRolesTable() {
-  const [data, setData] = useState([]);
-
-  async function load() {
-    const res = await rolesService.getRoles();
-    setData(res);
-  }
-
-  useEffect(() => {
-    load();
-  }, []);
-
-  return {
-    data,
-    reload: load
-  };
-}`;
-
-const SNIPPET_ROLES_COMPONENT = `// components/RolesTable.jsx
-
-export default function RolesTable({ data, onDelete }) {
-  return (
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Status</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>
-        {data.map(role => (
-          <tr key={role.id}>
-            <td>{role.name}</td>
-            <td>{role.isActive ? "Active" : "Inactive"}</td>
-            <td>
-              <button onClick={() => onDelete(role.id)}>Delete</button>
-            </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  );
-}`;
-
-const SNIPPET_ROLES_PAGE = `// pages/RolesPage.jsx — SERVER COMPONENT (no "use client")
+const SNIPPET_ROLES_PAGE = `// pages/RolesPage.js â€” SERVER COMPONENT (no "use client")
 // This runs on the server. It loads data and passes it to the View.
 
-import ModuleAccessGate from "@/core/auth/ModuleAccessGate";
-import RolesView from "../view/RolesView";
-import { rolesService } from "../services/roles.service";
-
-const APP_ID = 1001; // must match psb_s_application row
+import { loadRoles } from "../data/roles.actions";
+import RolesView from "./RolesView.jsx";
 
 export default async function RolesPage() {
-  const data = await rolesService.getRoles();
-
-  return (
-    <ModuleAccessGate appId={APP_ID}>
-      <RolesView roles={data} />
-    </ModuleAccessGate>
-  );
+  const roles = await loadRoles();
+  return <RolesView seedRoles={roles} />;
 }`;
 
-const SNIPPET_ROLES_VIEW = `// view/RolesView.jsx — CLIENT COMPONENT ("use client")
-// This is the glue between the hook and the UI components.
-// It calls the hook and spreads its return values to components.
+const SNIPPET_ROLES_VIEW = `// pages/RolesView.jsx â€” CLIENT COMPONENT ("use client")
+// All UI, state, and event handlers go here.
 
 "use client";
 
-import { useRolesTable } from "../hooks/useRolesTable";
-import RolesTable from "../components/RolesTable";
-import { Card } from "@/shared/components/ui";
-import { rolesService } from "../services/roles.service";
+import { useState } from "react";
+import { createRole, deleteRole } from "../data/roles.actions";
+import { Card, Button, Modal, Input, Badge } from "@/shared/components/ui";
+import { toastSuccess, toastError } from "@/shared/utils/toast";
 
-export default function RolesView({ roles }) {
-  // The hook manages ALL state and returns everything the UI needs
-  const { data, reload } = useRolesTable({ roles });
+export default function RolesView({ seedRoles }) {
+  const [roles, setRoles] = useState(seedRoles);
+  const [showAdd, setShowAdd] = useState(false);
+  const [name, setName] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  async function handleAdd() {
+    setSaving(true);
+    try {
+      const role = await createRole({ name });
+      setRoles((prev) => [role, ...prev]);
+      toastSuccess("Role created.");
+      setShowAdd(false);
+      setName("");
+    } catch (err) {
+      toastError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDelete(id) {
+    try {
+      await deleteRole(id);
+      setRoles((prev) => prev.filter((r) => r.role_id !== id));
+      toastSuccess("Role deleted.");
+    } catch (err) {
+      toastError(err.message);
+    }
+  }
 
   return (
-    <main className="container py-4">
-      <Card title="Roles">
-        <RolesTable data={data} onDelete={async (id) => {
-          await rolesService.deleteRole(id);
-          reload();
-        }} />
+    <div className="container mt-4">
+      <Card title="Roles" toolbar={
+        <Button variant="primary" onClick={() => setShowAdd(true)}>Add Role</Button>
+      }>
+        {roles.map((role) => (
+          <div key={role.role_id} className="d-flex justify-content-between p-2 border-bottom">
+            <span>{role.role_name}</span>
+            <Badge bg={role.is_active ? "success" : "secondary"}>
+              {role.is_active ? "Active" : "Inactive"}
+            </Badge>
+          </div>
+        ))}
       </Card>
-    </main>
+      <Modal show={showAdd} onHide={() => setShowAdd(false)} title="Add Role" footer={
+        <>
+          <Button variant="secondary" onClick={() => setShowAdd(false)}>Cancel</Button>
+          <Button variant="primary" loading={saving} onClick={handleAdd}>Save</Button>
+        </>
+      }>
+        <Input placeholder="Role name" value={name} onChange={(e) => setName(e.target.value)} />
+      </Modal>
+    </div>
   );
 }`;
 
-const SNIPPET_ROLES_INDEX = `// index.js — module manifest
+const SNIPPET_ROLES_INDEX = `// index.js â€” module manifest
 // The module loader scans for this file to register your module.
+// Run: npm run create-module -- admin/roles
 
-export default {
+const rolesModule = {
   key: "roles",
-  app_id: 1001,
+  module_key: "roles-app",     // â† must match psb_s_application.module_key
   name: "Roles",
   description: "Manage user roles and permissions.",
   icon: "bi-shield-lock",
+  group_name: "Admin",
+  group_desc: "Admin modules.",
+  order: 100,
   routes: [
-    { path: "/admin/roles", page: "DashboardPage" },
+    { path: "/admin/roles", page: "RolesPage" },
   ],
-};`;
+};
+
+export default rolesModule;`;
 
 const SNIPPET_MODULE_DEPLOY_CHECKLIST = `Before release:
-- Build passes
+- Build passes (npm run build)
+- Lint passes (npm run lint)
+- Module structure: index.js + data/ + pages/
+- module_key matches psb_s_application
 - Login/session flow verified
 - Unauthorized route access blocked
 - Dashboard visibility verified for multiple users
 - Module cards verified against role mappings
 - No hardcoded role names/permissions
+- All DB access in data/*.actions.js with "use server"
+- No API routes created (src/app/api/...)
 - Table row action types use only: primary | secondary | danger`;
 
 // ---------------------------------------------------------------------------
@@ -1431,7 +1215,7 @@ function PatternToggle({ modes, active, onChange }) {
 const MODULE_CREATION_STEPS = [
   {
     key: "step-0",
-    title: "Step 0: Project Architecture (How Everything Fits Together)",
+    title: "Step 0: How the Project Works",
     content: (
       <div className={styles.refBody}>
         <p className={styles.stepNote}>
@@ -1441,65 +1225,56 @@ const MODULE_CREATION_STEPS = [
         <div style={{ marginTop: "1rem", padding: "1rem", backgroundColor: "#f5f5f5", borderRadius: "4px" }}>
           <pre style={{ fontSize: "0.85rem", overflow: "auto", margin: 0 }}>{`PSBUniverse-core/
   src/
-    app/                        ← Next.js routing (URLs)
-      admin/                    ← Admin page routes (/admin/application-setup, etc.)
-        <module>/page.js        ← Thin wrapper that imports the module's Page component
-      api/                      ← API routes (server-side endpoints)
-        admin/                  ← Admin API routes (/api/admin/application-setup/...)
-          <module>/route.js     ← Handles GET/POST/PATCH/DELETE
-        databind/               ← Generic data engine (query, options, export, schema)
-      login/                    ← Login page
-      dashboard/                ← Dashboard page
-      [...modulePath]/page.js   ← Dynamic router (catches all module routes)
+    app/                        â† Next.js routing (auto-generated â€” DO NOT EDIT)
+      admin/                    â† Admin page routes
+        <module>/page.js        â† Auto-generated by scripts/generate-routes.js
+      psbpages/                 â† System page routes (dashboard, login, etc.)
 
-    modules/                    ← All business logic lives here
-      admin/                    ← Admin modules
-        application-setup/      ← Each module has the same folder structure
-        card-module-setup/
-        company-department-setup/
-        status-setup/
-        user-master-setup/
-      examples/                 ← This examples page
-      loadModules.js            ← Scans modules/ for index.js files at startup
+    modules/                    â† All your code lives here
+      admin/                    â† Admin modules
+        application-setup/      â† Each module follows the same structure:
+          index.js              â†   Module identity + routes
+          data/                 â†   Server Actions ("use server" â€” DB calls)
+          pages/                â†   Page (server) + View (client)
+      psbpages/                 â† System modules (dashboard, login, etc.)
 
-    core/                       ← Framework code (DO NOT modify)
-      auth/                     ← Login, session, RBAC, access gates
-      supabase/                 ← Database client setup (admin + browser)
-      layout/                   ← App shell (navbar, sidebar)
+    core/                       â† Framework code (DO NOT modify)
+      auth/                     â† Login, session, RBAC, access gates
+      supabase/                 â† Database client setup (admin + browser)
+      layout/                   â† App shell (navbar, sidebar)
 
-    shared/                     ← Reusable UI components
-      components/ui/            ← TableX, TableZ, Button, Input, Modal, Badge, etc.
-      utils/                    ← toast.js, navbar-loader.js
+    shared/                     â† Reusable UI components
+      components/ui/            â† TableZ, TableX, Button, Input, Modal, Badge, etc.
+      utils/                    â† toast.js, navbar-loader.js
 
-    styles/                     ← CSS variables, theme, globals`}</pre>
+  scripts/
+    create-module.js            â† npm run create-module -- my-module
+    generate-routes.js          â† Auto-generates src/app/ route files`}</pre>
         </div>
         <div style={{ marginTop: "1.5rem" }}>
-          <p className={styles.ruleHeading}>How a Page Request Works (Simplified)</p>
+          <p className={styles.ruleHeading}>How a Page Request Works</p>
           <pre style={{ fontSize: "0.85rem", overflow: "auto", padding: "1rem", backgroundColor: "#f5f5f5", borderRadius: "4px" }}>{`User visits /admin/application-setup
-  → Next.js matches src/app/admin/application-setup/page.js
-    → page.js imports ApplicationSetupPage from src/modules/admin/application-setup/pages/
-      → ApplicationSetupPage (server) loads data via hook → service → repo → Supabase
-      → Wraps in ModuleAccessGate (checks if user has permission)
-      → Passes data to ApplicationSetupView (client "use client" component)
-        → View calls useApplicationSetup hook (manages all state)
-          → Hook returns state + handlers to components
-            → Components render using shared UI (TableZ, Card, Modal, Badge)`}</pre>
+  â†’ Next.js matches src/app/admin/application-setup/page.js (auto-generated)
+    â†’ page.js imports ApplicationSetupPage from src/modules/admin/application-setup/pages/
+      â†’ Page (server component) calls Server Actions to load data from Supabase
+      â†’ Page passes data to View (client component)
+        â†’ View renders using shared UI components (TableZ, Card, Modal, Badge)`}</pre>
         </div>
         <div style={{ marginTop: "1.5rem" }}>
-          <p className={styles.ruleHeading}>Key Concepts for New Devs</p>
+          <p className={styles.ruleHeading}>Key Concepts</p>
           <div className={styles.ruleGrid}>
             <div className={styles.ruleCol}>
               <ul className={styles.ruleList}>
-                <li><strong>Modules are self-contained</strong> — each module has its own pages, hooks, services, repo, and model. No module imports from another module.</li>
-                <li><strong>Core is off-limits</strong> — never edit files in <code>src/core/</code>. It handles auth, layout, and database setup.</li>
-                <li><strong>Shared UI is your toolkit</strong> — import from <code>@/shared/components/ui</code> for all UI components. Never build your own table or modal.</li>
+                <li><strong>Modules are self-contained</strong> â€” each module has its own data/ and pages/. No module imports from another module.</li>
+                <li><strong>Core is off-limits</strong> â€” never edit files in <code>src/core/</code>. It handles auth, layout, and database setup.</li>
+                <li><strong>Shared UI is your toolkit</strong> â€” import from <code>@/shared/components/ui</code> for all UI components.</li>
               </ul>
             </div>
             <div className={styles.ruleCol}>
               <ul className={styles.ruleList}>
-                <li><strong>API routes are optional</strong> — the <code>/api/databind/</code> engine handles CRUD for any table. Only create custom API routes when you need special business logic.</li>
-                <li><strong>Admin prefix</strong> — all admin modules live under <code>src/modules/admin/</code> and their routes start with <code>/admin/</code>.</li>
-                <li><strong>Server vs Client</strong> — Pages load data on the server. Views render on the client with <code>&quot;use client&quot;</code>. This separation is important for performance and security.</li>
+                <li><strong>Server Actions only</strong> â€” all database access goes in <code>data/*.actions.js</code> files with <code>&quot;use server&quot;</code>. No API routes.</li>
+                <li><strong>Auto-generated routes</strong> â€” <code>src/app/</code> files are auto-generated. Never edit them manually.</li>
+                <li><strong>Server vs Client</strong> â€” Pages load data on the server. Views render on the client with <code>&quot;use client&quot;</code>.</li>
               </ul>
             </div>
           </div>
@@ -1509,323 +1284,177 @@ const MODULE_CREATION_STEPS = [
   },
   {
     key: "step-1",
-    title: "Step 1: Core System Purpose (Foundation, Not Features)",
+    title: "Step 1: Scaffold Your Module",
     content: (
       <div className={styles.refBody}>
-        <p className={styles.stepNote}>Core enforces architecture and shared engines; modules implement business features. Keep core generic.</p>
-        <div className={styles.ruleGrid}>
-          <div className={styles.ruleCol}>
-            <p className={styles.ruleHeading}>Core Owns</p>
-            <ul className={styles.ruleList}>
-              <li>Auth/session lifecycle</li>
-              <li>RBAC enforcement</li>
-              <li>Shared UI engines (table/forms/components)</li>
-              <li>Global rules and contracts</li>
-            </ul>
-          </div>
-          <div className={styles.ruleCol}>
-            <p className={styles.ruleHeading}>Core Must Not</p>
-            <ul className={styles.ruleList}>
-              <li>Contain module-specific business logic</li>
-              <li>Contain one-off feature behavior</li>
-              <li>Allow architecture drift across modules</li>
-            </ul>
-          </div>
+        <p className={styles.stepNote}>Run one command to create a module with the correct structure:</p>
+        <Snippet title="Create a module" code={`npm run create-module -- metal-buildings\n\n# For admin modules, use a group prefix:\nnpm run create-module -- admin/inventory-tracker`} />
+        <p className={styles.stepNote}>This generates all the files you need and auto-generates the route file so Next.js knows about your page.</p>
+        <Snippet title="Generated structure" code={SNIPPET_MODULE_STRUCTURE} />
+        <div style={{ marginTop: "1rem", padding: "1rem", backgroundColor: "#fff3cd", borderRadius: "4px", borderLeft: "4px solid #ffc107" }}>
+          <p style={{ margin: 0, fontSize: "0.9rem" }}>
+            <strong>You do not need to create any files outside your module folder.</strong> No registration step, no config file, no route file. The scaffolding command does everything.
+          </p>
         </div>
       </div>
     ),
   },
   {
     key: "step-2",
-    title: "Step 2: Module Structure + Role Of Each Part (No Optional Sections)",
+    title: "Step 2: Module Structure (3 Folders)",
     content: (
       <div className={styles.refBody}>
         <Snippet title="Required module structure" code={SNIPPET_MODULE_STRUCTURE} />
         <div className={styles.ruleGrid}>
           <div className={styles.ruleCol}>
-            <p className={styles.ruleHeading}>Role Breakdown</p>
+            <p className={styles.ruleHeading}>Role of Each Part</p>
             <ul className={styles.ruleList}>
-              <li><code>index.js</code>: Acts as the module entry point. Registers routes, exports module config, and integrates with core loader.</li>
-              <li><code>pages/</code>: Server components (<code>async</code> functions). Load data from services, wrap in <code>ModuleAccessGate</code>, and pass data down to the view. No <code>&quot;use client&quot;</code> here.</li>
-              <li><code>view/</code>: Client layout components (<code>&quot;use client&quot;</code>). Wire the hook to components. This is where you call <code>useMyModuleSetup()</code> and spread its return values to child components. Think of it as the &quot;glue&quot; between the hook and the UI.</li>
-              <li><code>components/</code>: Pure UI only. Receives data and handlers via props. MUST NOT contain business logic or data fetching.</li>
-              <li><code>services/</code>: Contains all business logic and workflows (e.g. create, approve, reject). Acts as the only layer UI interacts with for actions. MUST NOT call Supabase directly.</li>
-              <li><code>repo/&lt;module&gt;.repo.js</code>: Handles ALL Supabase/database operations. Responsible for CRUD execution. MUST NOT contain business logic. MUST transform payloads before sending to DB.</li>
-              <li><code>model/&lt;module&gt;.model.js</code>: Maps database response into application-friendly structure. Acts as a lightweight data normalization layer. MUST be used on all read operations from repo.</li>
-              <li><code>hooks/</code>: Encapsulates reusable UI logic and state handling. Can call services. MUST NOT contain business logic duplication. The main hook is the &quot;brain&quot; of the module — it holds all state and returns everything the view needs.</li>
-              <li><code>utils/</code>: Contains pure helper functions (formatters, transformers, constants). No side effects, no API calls. Also contains <code>supabase.js</code> — the module-local database client helper.</li>
+              <li><code>index.js</code>: Module identity â€” key, module_key, name, routes. The module loader reads this file to discover your module.</li>
+              <li><code>data/*.actions.js</code>: Server Actions with <code>&quot;use server&quot;</code> directive. ALL database calls go here. This is the only place that calls Supabase.</li>
+              <li><code>data/*.data.js</code>: Optional client-safe helpers â€” formatters, constants, shared logic used by the view. No <code>&quot;use server&quot;</code> here.</li>
+              <li><code>pages/*Page.js</code>: Server component. Loads data by calling Server Actions, passes it to the view as props. No <code>&quot;use client&quot;</code>.</li>
+              <li><code>pages/*View.jsx</code>: Client component with <code>&quot;use client&quot;</code>. All UI, hooks, state, event handlers go here.</li>
             </ul>
           </div>
           <div className={styles.ruleCol}>
-            <p className={styles.ruleHeading}>How They Work Together</p>
+            <p className={styles.ruleHeading}>Data Flow</p>
+            <pre style={{ fontSize: "0.85rem", overflow: "auto", padding: "0.5rem", backgroundColor: "#f5f5f5", borderRadius: "4px" }}>{`Page (server)
+  â†’ calls Server Action
+    â†’ Server Action queries Supabase
+    â†’ returns data
+  â†’ passes data as props to View
+
+View (client, "use client")
+  â†’ receives data via props
+  â†’ manages UI state (useState, useEffect)
+  â†’ calls Server Actions for mutations
+  â†’ renders shared UI components`}</pre>
+            <p className={styles.ruleHeading} style={{ marginTop: "1rem" }}>Strict Rules</p>
             <ul className={styles.ruleList}>
-              <li><strong>Page</strong> (server) loads data via hook/service, wraps in access gate, passes data to <strong>View</strong></li>
-              <li><strong>View</strong> (client) calls the main hook, spreads its return values to <strong>Components</strong></li>
-              <li><strong>Hook</strong> manages all state, calls services for business logic</li>
-              <li><strong>Services</strong> call repo for data access</li>
-              <li><strong>Repo</strong> communicates with Supabase, returns data through <strong>Model</strong> mapper</li>
-              <li><strong>Components</strong> receive clean, mapped data via props — they never fetch or compute</li>
+              <li><strong>NEVER</strong> call Supabase from page or view files â€” only from <code>data/*.actions.js</code></li>
+              <li><strong>NEVER</strong> put <code>&quot;use client&quot;</code> on a page file</li>
+              <li><strong>NEVER</strong> create API routes in <code>src/app/api/</code></li>
             </ul>
           </div>
         </div>
-        <div style={{ marginTop: "1.5rem", padding: "1rem", backgroundColor: "#f5f5f5", borderRadius: "4px" }}>
-          <p className={styles.ruleHeading}>Enforced Data Flow (Mandatory)</p>
-          <pre style={{ fontSize: "0.85rem", overflow: "auto" }}>{`Page (server, loads data)
-  → View ("use client", wires hook to components)
-    → Hook (state + handlers)
-      → Services (business logic)
-        → Repo (Supabase queries)
-          → Model (maps DB rows → clean objects)
-
-Why this order?
-  • Pages run on the server = secrets stay safe, data loads fast
-  • Views run on the client = React state, interactivity, "use client"
-  • Hooks hold ALL state = one place to debug, one place to change
-  • Services hold ALL rules = validation lives here, not scattered in UI
-  • Repo is the ONLY layer that calls .from() = easy to find all DB queries
-  • Model maps EVERY read = UI never sees raw DB column names`}</pre>
-        </div>
-        <div style={{ marginTop: "1.5rem", padding: "1rem", backgroundColor: "#fff3cd", borderRadius: "4px", borderLeft: "4px solid #ff6b6b" }}>
-          <p className={styles.ruleHeading}>Strict Rules (Non-Negotiable)</p>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
-            <div>
-              <p style={{ fontWeight: "600", marginBottom: "0.5rem", color: "#d32f2f" }}>NEVER call Supabase (<code>.from()</code>) directly from:</p>
-              <ul style={{ marginTop: "0.5rem", paddingLeft: "1.5rem" }}>
-                <li>components (they&apos;re just UI — no data fetching)</li>
-                <li>pages (they delegate to services via hooks)</li>
-                <li>hooks (they call services, not the database)</li>
-                <li>services (use utils/supabase.js to get the client, then pass it to repo)</li>
-              </ul>
-              <p style={{ fontSize: "0.85rem", color: "#666", marginTop: "0.5rem" }}>Why? Because if DB calls are everywhere, bugs are impossible to track. One layer = one place to fix.</p>
-            </div>
-            <div>
-              <p style={{ fontWeight: "600", marginBottom: "0.5rem", color: "#d32f2f" }}>NEVER place business logic inside:</p>
-              <ul style={{ marginTop: "0.5rem", paddingLeft: "1.5rem" }}>
-                <li>repo (it only does database reads/writes)</li>
-                <li>components (they only render what they&apos;re given)</li>
-                <li>hooks (they manage state, not business rules)</li>
-              </ul>
-              <p style={{ fontSize: "0.85rem", color: "#666", marginTop: "0.5rem" }}>Why? Because business rules in UI code get duplicated and forgotten. Keep them in services/ so there&apos;s one source of truth.</p>
-            </div>
-            <div>
-              <p style={{ fontWeight: "600", marginBottom: "0.5rem", color: "#2e7d32" }}>ALWAYS map database responses using:</p>
-              <ul style={{ marginTop: "0.5rem", paddingLeft: "1.5rem" }}>
-                <li>model/&lt;module&gt;.model.js</li>
-              </ul>
-              <p style={{ fontSize: "0.85rem", color: "#666", marginTop: "0.5rem" }}>Why? If you pass raw DB rows to the UI, a column rename breaks every component. The model is your safety layer.</p>
-            </div>
-            <div>
-              <p style={{ fontWeight: "600", marginBottom: "0.5rem", color: "#2e7d32" }}>ALWAYS centralize workflows inside:</p>
-              <ul style={{ marginTop: "0.5rem", paddingLeft: "1.5rem" }}>
-                <li>services/</li>
-              </ul>
-              <p style={{ fontSize: "0.85rem", color: "#666", marginTop: "0.5rem" }}>Why? When a feature needs changes (e.g. &quot;add email notification on create&quot;), you change ONE file in services/ instead of hunting through 10 components.</p>
-            </div>
-          </div>
-        </div>
         <hr style={{ margin: "2rem 0", borderColor: "#ddd" }} />
-        <div style={{ marginTop: "2rem" }}>
-          <h4 style={{ marginBottom: "1rem", color: "#333" }}>Step 2.1: Example</h4>
-          <Accordion items={[
-            {
-              key: "roles-structure",
-              title: "STRUCTURE",
-              content: (
-                <div>
-                  <p className={styles.stepNote}>
-                    This folder layout is the contract for every module. It keeps responsibilities separated so the codebase stays predictable and easy to maintain.
-                  </p>
-                  <p className={styles.stepNote}>
-                    Use it as your starting scaffold before writing business code.
-                  </p>
-                  <Snippet code={SNIPPET_ROLES_STRUCTURE} />
-                </div>
-              )
-            },
-            {
-              key: "roles-model",
-              title: "1. MODEL (maps DB ? UI)",
-              content: (
-                <div>
-                  <p className={styles.stepNote}>
-                    The model is a mapper between database column names and UI-friendly names. It protects the UI from raw table shapes and makes future schema changes safer.
-                  </p>
-                  <p className={styles.stepNote}>
-                    Every read path should normalize rows here before they reach components.
-                  </p>
-                  <Snippet code={SNIPPET_ROLES_MODEL} />
-                </div>
-              )
-            },
-            {
-              key: "roles-repo",
-              title: "2. REPO (Supabase only)",
-              content: (
-                <div>
-                  <p className={styles.stepNote}>
-                    The repository is the only layer that talks to Supabase. It owns SQL-like query construction, persistence details, and DB payload transformation.
-                  </p>
-                  <p className={styles.stepNote}>
-                    Keep business decisions out of this layer; focus only on data access and returning mapped results.
-                  </p>
-                  <Snippet code={SNIPPET_ROLES_REPO} />
-                </div>
-              )
-            },
-            {
-              key: "roles-service",
-              title: "3. SERVICE (business layer)",
-              content: (
-                <div>
-                  <p className={styles.stepNote}>
-                    The service layer is where business rules live, such as validation and workflow decisions.
-                  </p>
-                  <p className={styles.stepNote}>
-                    UI code should call services, not repositories, so logic stays centralized and reusable.
-                  </p>
-                  <Snippet code={SNIPPET_ROLES_SERVICE} />
-                </div>
-              )
-            },
-            {
-              key: "roles-hook",
-              title: "4. HOOK (UI state control)",
-              content: (
-                <div>
-                  <p className={styles.stepNote}>
-                    Hooks manage view state and lifecycle behavior for a screen. They coordinate loading and refresh patterns while keeping components clean.
-                  </p>
-                  <p className={styles.stepNote}>
-                    Hooks can call services, but should avoid duplicating business logic.
-                  </p>
-                  <Snippet code={SNIPPET_ROLES_HOOK} />
-                </div>
-              )
-            },
-            {
-              key: "roles-component",
-              title: "5. COMPONENT (pure UI)",
-              content: (
-                <div>
-                  <p className={styles.stepNote}>
-                    Components are presentation-only. They receive data and callbacks through props and render the interface.
-                  </p>
-                  <p className={styles.stepNote}>
-                    No direct data fetching and no business workflow code belongs here.
-                  </p>
-                  <Snippet code={SNIPPET_ROLES_COMPONENT} />
-                </div>
-              )
-            },
-            {
-              key: "roles-page",
-              title: "6. PAGE (server component — loads data)",
-              content: (
-                <div>
-                  <p className={styles.stepNote}>
-                    The page is a <strong>server component</strong> (no &quot;use client&quot;). It loads data from the service layer,
-                    wraps the content in <code>ModuleAccessGate</code> (permission check), and passes data to the <strong>View</strong>.
-                  </p>
-                  <p className={styles.stepNote}>
-                    Think of it as the entry point that says: &quot;load data, check permissions, hand off to the client.&quot;
-                  </p>
-                  <Snippet code={SNIPPET_ROLES_PAGE} />
-                </div>
-              )
-            },
-            {
-              key: "roles-view",
-              title: "7. VIEW (client layout — wires hook to components)",
-              content: (
-                <div>
-                  <p className={styles.stepNote}>
-                    The view is a <strong>client component</strong> (<code>&quot;use client&quot;</code>). It&apos;s the glue between
-                    the hook and the UI components. It calls your main hook and passes its return values to child components as props.
-                  </p>
-                  <p className={styles.stepNote}>
-                    <strong>Why do we need this?</strong> Because pages are server components (they can&apos;t use React state or hooks),
-                    but your UI needs interactivity. The View bridges that gap — it receives server data as props and enables client-side state.
-                  </p>
-                  <Snippet code={SNIPPET_ROLES_VIEW} />
-                </div>
-              )
-            },
-            {
-              key: "roles-index",
-              title: "8. INDEX (module entry)",
-              content: (
-                <div>
-                  <p className={styles.stepNote}>
-                    The module index is the registration point consumed by the module loader. It declares route metadata and the root page component.
-                  </p>
-                  <p className={styles.stepNote}>
-                    Keep this file small and declarative so module bootstrapping stays consistent.
-                  </p>
-                  <Snippet code={SNIPPET_ROLES_INDEX} />
-                </div>
-              )
-            },
-            {
-              key: "roles-proof",
-              title: "WHAT THIS PROVES",
-              content: (
-                <div style={{ padding: "1rem", backgroundColor: "#f5f5f5", borderRadius: "4px" }}>
-                  <p className={styles.stepNote}>
-                    These outcomes show the architecture is practical in real feature work: clean separation, real CRUD, and scalability without unnecessary complexity.
-                  </p>
-                  <p>This is now:</p>
-                  <ul style={{ marginTop: "0.5rem", paddingLeft: "1.5rem" }}>
-                    <li>? Real DB (your table)</li>
-                    <li>? Real CRUD</li>
-                    <li>? Clean separation</li>
-                    <li>? No overengineering</li>
-                    <li>? No DTO/interface bloat</li>
-                    <li>? Still scalable</li>
-                  </ul>
-                </div>
-              )
-            },
-            {
-              key: "roles-important",
-              title: "Important (don't miss this)",
-              content: (
-                <div style={{ padding: "1rem", backgroundColor: "#fff3cd", borderRadius: "4px", borderLeft: "4px solid #ff6b6b" }}>
-                  <p className={styles.stepNote}>
-                    This is the key guardrail in the pattern: map DB rows before exposing them to the app.
-                  </p>
-                  <p>This line:</p>
-                  <pre style={{ margin: "0.5rem 0", padding: "0.5rem", backgroundColor: "#fff", borderRadius: "4px", overflow: "auto" }}>return data.map(mapRole);</pre>
-                  <p style={{ marginTop: "0.5rem" }}>?? That&apos;s your entire protection layer</p>
-                  <p>Remove that — your system degrades fast.</p>
-                </div>
-              )
-            }
-          ]} />
-        </div>
+        <p className={styles.ruleHeading}>Full Example: Roles Module</p>
+        <Accordion items={[
+          {
+            key: "roles-structure",
+            title: "STRUCTURE",
+            content: (
+              <div>
+                <p className={styles.stepNote}>Three folders. That&apos;s it. No model, no repo, no service, no hooks folder.</p>
+                <Snippet code={SNIPPET_ROLES_STRUCTURE} />
+              </div>
+            )
+          },
+          {
+            key: "roles-actions",
+            title: "1. SERVER ACTIONS (data/roles.actions.js)",
+            content: (
+              <div>
+                <p className={styles.stepNote}>
+                  This is where ALL database calls go. The <code>&quot;use server&quot;</code> directive at the top tells Next.js this code runs only on the server.
+                  Import <code>getSupabaseAdmin</code> from core to get the database client.
+                </p>
+                <Snippet code={SNIPPET_ROLES_ACTIONS} />
+              </div>
+            )
+          },
+          {
+            key: "roles-page",
+            title: "2. PAGE (pages/RolesPage.js â€” server component)",
+            content: (
+              <div>
+                <p className={styles.stepNote}>
+                  The page is a <strong>server component</strong> (no &quot;use client&quot;). It calls the Server Action to load data, then passes it to the View.
+                </p>
+                <Snippet code={SNIPPET_ROLES_PAGE} />
+              </div>
+            )
+          },
+          {
+            key: "roles-view",
+            title: "3. VIEW (pages/RolesView.jsx â€” client component)",
+            content: (
+              <div>
+                <p className={styles.stepNote}>
+                  The view is a <strong>client component</strong> (<code>&quot;use client&quot;</code>). It receives data from the page, manages UI state, and calls Server Actions for mutations (create, delete, etc.).
+                </p>
+                <Snippet code={SNIPPET_ROLES_VIEW} />
+              </div>
+            )
+          },
+          {
+            key: "roles-index",
+            title: "4. INDEX (index.js â€” module manifest)",
+            content: (
+              <div>
+                <p className={styles.stepNote}>
+                  The module index tells the system your module exists. The <code>module_key</code> must match a row in <code>psb_s_application</code> â€” ask your senior for the value.
+                </p>
+                <Snippet code={SNIPPET_ROLES_INDEX} />
+              </div>
+            )
+          },
+        ]} />
       </div>
     ),
   },
   {
     key: "step-3",
-    title: "Step 3: Styling Approach + Standards",
+    title: "Step 3: Writing Server Actions (Backend)",
     content: (
       <div className={styles.refBody}>
-        <p className={styles.stepNote}>Use a single design system with shared components and tokens only.</p>
+        <p className={styles.stepNote}>All database access must go through Server Actions in <code>data/*.actions.js</code> files. Here is the full CRUD pattern:</p>
+        <Snippet title="Complete CRUD Server Actions" code={SNIPPET_CRUD_SERVER_ACTIONS} />
+        <div className={styles.ruleGrid}>
+          <div className={styles.ruleCol}>
+            <p className={styles.ruleHeading}>Required Pattern</p>
+            <ul className={styles.ruleList}>
+              <li>Add <code>&quot;use server&quot;</code> at the top of the file</li>
+              <li>Import <code>getSupabaseAdmin</code> from <code>@/core/supabase/admin</code></li>
+              <li>Export async functions for each operation</li>
+              <li>Validate inputs before querying</li>
+              <li>Throw errors â€” the view catches them</li>
+            </ul>
+          </div>
+          <div className={styles.ruleCol}>
+            <p className={styles.ruleHeading}>Not Allowed</p>
+            <ul className={styles.ruleList}>
+              <li>Calling Supabase from view or page files</li>
+              <li>Creating API route files (<code>src/app/api/...</code>)</li>
+              <li>Importing <code>getSupabaseAdmin</code> in client components</li>
+              <li>Duplicating query logic across files</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    ),
+  },
+  {
+    key: "step-4",
+    title: "Step 4: Styling & Shared Components",
+    content: (
+      <div className={styles.refBody}>
+        <p className={styles.stepNote}>Use shared components and design tokens only. Do not build custom UI for things the shared library already provides.</p>
         <div className={styles.ruleGrid}>
           <div className={styles.ruleCol}>
             <p className={styles.ruleHeading}>Standards</p>
             <ul className={styles.ruleList}>
-              <li>Use predefined tokens for color, spacing, typography, radius</li>
-              <li>Apply theme consistently (e.g., gold + gray) with contrast/accessibility</li>
+              <li>Import from <code>@/shared/components/ui</code> for all components</li>
+              <li>Use predefined tokens for spacing, typography, radius</li>
               <li>Keep states explicit: loading, empty, error, no-access</li>
             </ul>
           </div>
           <div className={styles.ruleCol}>
             <p className={styles.ruleHeading}>Restrictions</p>
             <ul className={styles.ruleList}>
-              <li>No inline style hacks unless promoted into system standards</li>
-              <li>No one-off visual overrides that drift from shared UI</li>
-              <li>No module-specific redesign of core shell patterns</li>
+              <li>No inline style hacks</li>
+              <li>No custom tables, modals, or buttons</li>
+              <li>No module-specific redesign of core shell</li>
             </ul>
           </div>
         </div>
@@ -1834,76 +1463,19 @@ Why this order?
     ),
   },
   {
-    key: "step-4",
-    title: "Step 4: Database + File Naming Conventions",
-    content: (
-      <div className={styles.refBody}>
-        <div className={styles.ruleGrid}>
-          <div className={styles.ruleCol}>
-            <p className={styles.ruleHeading}>Database Naming</p>
-            <ul className={styles.ruleList}>
-              <li>Use predictable snake_case naming</li>
-              <li>Keep table/column names descriptive and consistent</li>
-              <li>Use stable key patterns for PK/FK fields</li>
-              <li>Keep naming governance consistent across all modules</li>
-            </ul>
-          </div>
-          <div className={styles.ruleCol}>
-            <p className={styles.ruleHeading}>File Naming</p>
-            <ul className={styles.ruleList}>
-              <li>Use strict, consistent file patterns across modules</li>
-              <li>Service/repository naming must communicate purpose clearly</li>
-              <li>Keep module folder hierarchy aligned to the required structure</li>
-              <li>No ad hoc naming patterns</li>
-            </ul>
-          </div>
-        </div>
-      </div>
-    ),
-  },
-  {
     key: "step-5",
-    title: "Step 5: Supabase CRUD Through Repository Layer",
+    title: "Step 5: Database & Access Setup",
     content: (
       <div className={styles.refBody}>
-        <p className={styles.stepNote}>All CRUD must flow through repository + service layers. UI must not call Supabase directly.</p>
-        <Snippet title="Service + repository CRUD pattern" code={SNIPPET_CRUD_REPOSITORY_PATTERN} />
-        <div className={styles.ruleGrid}>
-          <div className={styles.ruleCol}>
-            <p className={styles.ruleHeading}>Required Pattern</p>
-            <ul className={styles.ruleList}>
-              <li>UI to hook/page to service to repository to Supabase</li>
-              <li>Centralize business logic in service layer</li>
-              <li>Standardize response/error transformation</li>
-            </ul>
-          </div>
-          <div className={styles.ruleCol}>
-            <p className={styles.ruleHeading}>Not Allowed</p>
-            <ul className={styles.ruleList}>
-              <li>Direct Supabase calls inside UI components</li>
-              <li>Duplicated query/error logic across pages</li>
-            </ul>
-          </div>
-        </div>
-        <hr style={{ margin: "2rem 0", borderColor: "#ddd" }} />
-        <div style={{ marginTop: "2rem" }}>
-          <h4 style={{ marginBottom: "1rem", color: "#333" }}>Final Clean Pattern (3-Layer Example)</h4>
-          <Snippet title="1. MODEL (light mapper)" code={SNIPPET_MODEL_MAPPER} />
-          <Snippet title="2. REPO (Supabase only)" code={SNIPPET_REPO_SUPABASE} />
-          <Snippet title="3. SERVICE (your brain)" code={SNIPPET_SERVICE_LAYER} />
-          <div style={{ marginTop: "1.5rem", padding: "1rem", backgroundColor: "#f5f5f5", borderRadius: "4px" }}>
-            <p className={styles.ruleHeading}>Final Flow</p>
-            <pre style={{ fontSize: "0.85rem", overflow: "auto" }}>UI to Service to Repo to Supabase
-              |
-            Model (mapping)</pre>
-          </div>
-        </div>
-        <div style={{ marginTop: "1.5rem", padding: "1rem", backgroundColor: "#fff3cd", borderRadius: "4px", borderLeft: "4px solid #ff6b6b" }}>
-          <p className={styles.ruleHeading}>Non-negotiables (even in simplified version)</p>
-          <ul style={{ marginTop: "0.5rem", paddingLeft: "1.5rem" }}>
-            <li>ALWAYS map response: <code>return mapAppRole(data);</code></li>
-            <li>NEVER call supabase in UI: Still banned.</li>
-            <li>Keep payload transformation in repo: Do not scatter it in UI.</li>
+        <p className={styles.stepNote}>Define your module manifest and set up access tables before testing.</p>
+        <Snippet title="Module manifest (index.js)" code={SNIPPET_MODULE_MANIFEST} />
+        <Snippet title="Build sequence" code={SNIPPET_MODULE_BUILD_SEQUENCE} />
+        <div style={{ marginTop: "1.5rem" }}>
+          <p className={styles.ruleHeading}>Database Naming</p>
+          <ul className={styles.ruleList}>
+            <li>Use predictable snake_case naming</li>
+            <li>Keep table/column names descriptive and consistent</li>
+            <li>Use stable key patterns for PK/FK fields</li>
           </ul>
         </div>
       </div>
@@ -1911,18 +1483,7 @@ Why this order?
   },
   {
     key: "step-6",
-    title: "Step 6: Define Module Contract + Access Setup",
-    content: (
-      <div className={styles.refBody}>
-        <p className={styles.stepNote}>Define manifest and seed access tables before feature testing.</p>
-        <Snippet title="Module manifest" code={SNIPPET_MODULE_MANIFEST} />
-        <Snippet title="Build sequence (from docs/dev)" code={SNIPPET_MODULE_BUILD_SEQUENCE} />
-      </div>
-    ),
-  },
-  {
-    key: "step-7",
-    title: "Step 7: Validate Module End-To-End",
+    title: "Step 6: Validate & Deploy",
     content: (
       <div className={styles.refBody}>
         <div className={styles.ruleGrid}>
@@ -1932,26 +1493,20 @@ Why this order?
               <li>Authorized users can open module routes</li>
               <li>Unauthorized users are blocked by core gate</li>
               <li>Card visibility follows hasCardAccess mappings</li>
-              <li>Shared Table remains controlled by module state</li>
+              <li><code>npm run build</code> passes clean</li>
+              <li><code>npm run lint</code> passes clean</li>
             </ul>
           </div>
           <div className={styles.ruleCol}>
             <p className={styles.ruleHeading}>Hard Fails</p>
             <ul className={styles.ruleList}>
               <li>Hardcoded roles or permissions</li>
+              <li>API routes created in <code>src/app/api/</code></li>
+              <li>Supabase calls outside <code>data/*.actions.js</code></li>
               <li>Unsupported row action types</li>
-              <li>Business logic inside shared UI components</li>
             </ul>
           </div>
         </div>
-      </div>
-    ),
-  },
-  {
-    key: "step-8",
-    title: "Step 8: Deployment + Release Checklist",
-    content: (
-      <div className={styles.refBody}>
         <Snippet title="Pre-deploy checklist" code={SNIPPET_MODULE_DEPLOY_CHECKLIST} />
       </div>
     ),
@@ -2037,6 +1592,8 @@ function PlaygroundTab() {
   const [modalOpen,      setModalOpen]      = useState(false);
   const [modalSaving,    setModalSaving]    = useState(false);
   const [toastCount,     setToastCount]     = useState(0);
+  const [cardModalOpen,  setCardModalOpen]  = useState(false);
+  const [copiedIcon,     setCopiedIcon]     = useState(null);
 
   const tableColumns = useMemo(() => [
     { key: "employee_code", label: "Code",    sortable: true, width: 130 },
@@ -2181,13 +1738,236 @@ function PlaygroundTab() {
     window.setTimeout(() => { setModalSaving(false); setModalOpen(false); toastSuccess("Saved.", "Modal"); }, 900);
   };
 
+  const copyIconName = (name) => {
+    navigator.clipboard.writeText(name).then(() => {
+      setCopiedIcon(name);
+      window.setTimeout(() => setCopiedIcon(null), 1200);
+    });
+  };
+
   const playgroundItems = [
+    /* ------------------------------------------------------------------ */
+    /*  1. Design Tokens — Colors, Typography, Spacing                    */
+    /* ------------------------------------------------------------------ */
     {
-      key: "play-workflow",
-      title: "Workflow Actions (Buttons)",
+      key: "play-design-tokens",
+      title: "1. Design Tokens (Colors, Typography, Spacing)",
       content: (
         <div className={styles.playBody}>
-          <p className={styles.playLabel}>Click buttons to trigger actions:</p>
+          <p className={styles.playLabel}>Project Color Palette</p>
+          <p style={{ fontSize: 12, color: "#4f6a7d", margin: 0 }}>
+            All colors come from <code>src/styles/variables.css</code>. Use CSS variables — never hard-code hex values in modules.
+          </p>
+          <div className={styles.colorGrid}>
+            {[
+              { var: "--psb-brand",   hex: "#1d597f", label: "Brand (Primary)",   use: "Primary buttons, links, active tabs" },
+              { var: "--psb-brand-2", hex: "#2b7b89", label: "Brand 2 (Secondary)", use: "Secondary accents, hover states" },
+              { var: "--psb-gold",    hex: "#c4a06b", label: "Gold (Accent)",     use: "Highlights, premium badges" },
+              { var: "--psb-ink",     hex: "#102736", label: "Ink (Dark)",        use: "Headers, bold text" },
+              { var: "--psb-text",    hex: "#173348", label: "Text (Body)",       use: "Default body text" },
+              { var: "--psb-muted",   hex: "#4f6578", label: "Muted",            use: "Captions, secondary labels" },
+              { var: "--psb-bg",      hex: "#eef3f8", label: "Background",       use: "Page background" },
+              { var: "--psb-surface", hex: "#ffffff", label: "Surface",          use: "Cards, modals, panels" },
+              { var: "--psb-border",  hex: "#c8d7e4", label: "Border",           use: "Dividers, card borders" },
+            ].map((c) => (
+              <div key={c.var} className={styles.colorSwatch}>
+                <div className={styles.colorBox} style={{ backgroundColor: c.hex }} />
+                <div className={styles.colorInfo}>
+                  <code style={{ fontSize: 11 }}>{c.var}</code>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: "#1a4364" }}>{c.label}</span>
+                  <span style={{ fontSize: 11, color: "#5a7a91" }}>{c.use}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <p className={styles.playLabel} style={{ marginTop: 16 }}>Bootstrap Badge Colors</p>
+          <p style={{ fontSize: 12, color: "#4f6a7d", margin: 0 }}>
+            Badges use Bootstrap <code>bg</code> prop. These are the standard colors for status display.
+          </p>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 6 }}>
+            {[
+              { bg: "success",   text: undefined, label: "Active / Approved", name: "success" },
+              { bg: "warning",   text: "dark",    label: "Pending / Review",  name: "warning" },
+              { bg: "danger",    text: undefined, label: "Error / Rejected",  name: "danger" },
+              { bg: "secondary", text: undefined, label: "Inactive / Draft",  name: "secondary" },
+              { bg: "dark",      text: undefined, label: "Suspended / Void",  name: "dark" },
+              { bg: "info",      text: "dark",    label: "Information",       name: "info" },
+              { bg: "light",     text: "dark",    label: "Default / Neutral", name: "light" },
+            ].map((b) => (
+              <div key={b.name} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+                <Badge bg={b.bg} text={b.text}>{b.label}</Badge>
+                <code style={{ fontSize: 10, color: "#5a7a91" }}>bg=&quot;{b.name}&quot;</code>
+              </div>
+            ))}
+          </div>
+
+          <p className={styles.playLabel} style={{ marginTop: 16 }}>Typography</p>
+          <div style={{ display: "grid", gap: 6, padding: "8px 12px", background: "#f5faff", borderRadius: 8, border: "1px solid #d3e5f3" }}>
+            <p style={{ margin: 0, fontFamily: "Inter, sans-serif", fontSize: 14, color: "#173348" }}>
+              <strong>Inter</strong> — Primary body font. Used for all text, labels, and UI controls.
+              <br /><code style={{ fontSize: 11 }}>var(--psb-font-primary)</code>
+            </p>
+            <p style={{ margin: 0, fontFamily: "Manrope, sans-serif", fontSize: 14, color: "#173348" }}>
+              <strong>Manrope</strong> — Secondary display font. Used for headings and titles.
+              <br /><code style={{ fontSize: 11 }}>var(--psb-font-secondary)</code>
+            </p>
+          </div>
+
+          <p className={styles.playLabel} style={{ marginTop: 16 }}>Spacing & Sizing</p>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 6 }}>
+            {[
+              { token: "--psb-space-4",  val: "4px",  use: "Tight gaps" },
+              { token: "--psb-space-8",  val: "8px",  use: "Icon gaps" },
+              { token: "--psb-space-12", val: "12px", use: "Card padding" },
+              { token: "--psb-space-16", val: "16px", use: "Section gaps" },
+              { token: "--psb-space-24", val: "24px", use: "Large padding" },
+              { token: "--psb-radius-6", val: "6px",  use: "Buttons" },
+              { token: "--psb-radius-8", val: "8px",  use: "Cards" },
+              { token: "--psb-radius-12", val: "12px", use: "Modals" },
+            ].map((s) => (
+              <div key={s.token} style={{ background: "#fff", border: "1px solid #d8e8f3", borderRadius: 6, padding: "6px 8px" }}>
+                <code style={{ fontSize: 10, color: "#1e6fa8" }}>{s.token}</code>
+                <p style={{ margin: 0, fontSize: 12, color: "#1a4364", fontWeight: 700 }}>{s.val}</p>
+                <p style={{ margin: 0, fontSize: 11, color: "#5a7a91" }}>{s.use}</p>
+              </div>
+            ))}
+          </div>
+
+          <Snippet title="How to use design tokens in CSS Modules" code={`/* In your .module.css file */
+.myCard {
+  background: var(--psb-surface);
+  border: 1px solid var(--psb-border);
+  border-radius: var(--psb-radius-8);
+  padding: var(--psb-space-16);
+  color: var(--psb-text);
+}
+
+.myHeading {
+  font-family: var(--psb-font-secondary);
+  color: var(--psb-ink);
+}
+
+.myCaption {
+  color: var(--psb-muted);
+  font-size: var(--psb-font-12);
+}`} />
+        </div>
+      ),
+    },
+    /* ------------------------------------------------------------------ */
+    /*  2. Icon Library                                                    */
+    /* ------------------------------------------------------------------ */
+    {
+      key: "play-icons",
+      title: "2. Icon Library (AppIcon)",
+      content: (
+        <div className={styles.playBody}>
+          <p className={styles.playLabel}>Available Icons</p>
+          <p style={{ fontSize: 12, color: "#4f6a7d", margin: 0 }}>
+            All icons are registered in <code>src/shared/utils/icons.js</code>. Use <code>AppIcon</code> component
+            or string names in action configs. Click any icon to copy its name.
+          </p>
+          <div className={styles.iconGrid}>
+            {[
+              { name: "pencil-square", group: "CRUD", desc: "Edit" },
+              { name: "trash",         group: "CRUD", desc: "Delete" },
+              { name: "plus",          group: "CRUD", desc: "Add / Create" },
+              { name: "eye",           group: "CRUD", desc: "View / Preview" },
+              { name: "eye-slash",     group: "CRUD", desc: "Hide" },
+              { name: "save",          group: "CRUD", desc: "Save" },
+              { name: "ban",           group: "CRUD", desc: "Deactivate" },
+              { name: "restore",       group: "CRUD", desc: "Undo / Restore" },
+              { name: "cancel",        group: "CRUD", desc: "Cancel / Close" },
+              { name: "check2",        group: "Status", desc: "Check mark" },
+              { name: "check-circle",  group: "Status", desc: "Success" },
+              { name: "x-circle",      group: "Status", desc: "Error / Blocked" },
+              { name: "grid-3x3-gap",  group: "Dashboard", desc: "Grid layout" },
+              { name: "collection",    group: "Dashboard", desc: "Groups" },
+              { name: "card-list",     group: "Dashboard", desc: "List view" },
+              { name: "envelope-at-fill", group: "Contact", desc: "Email" },
+              { name: "telephone-fill",   group: "Contact", desc: "Phone" },
+              { name: "grip-vertical",    group: "Misc", desc: "Drag handle" },
+              { name: "three-dots-vertical", group: "Misc", desc: "Menu" },
+              { name: "shield-lock",   group: "Misc", desc: "Permissions" },
+              { name: "bucket",        group: "Misc", desc: "Reset / Clear" },
+              { name: "sort-up",       group: "Sort", desc: "Sort ascending" },
+              { name: "sort-down",     group: "Sort", desc: "Sort descending" },
+              { name: "chevron-down",  group: "Sort", desc: "Expand" },
+              { name: "chevron-up",    group: "Sort", desc: "Collapse" },
+            ].map((ic) => (
+              <button
+                key={ic.name}
+                type="button"
+                className={[styles.iconItem, copiedIcon === ic.name ? styles.iconItemCopied : ""].filter(Boolean).join(" ")}
+                onClick={() => copyIconName(ic.name)}
+                title={`${ic.desc} — click to copy "${ic.name}"`}
+              >
+                <AppIcon icon={ic.name} style={{ fontSize: 18 }} />
+                <span className={styles.iconName}>{ic.name}</span>
+                <span className={styles.iconGroup}>{ic.group}</span>
+              </button>
+            ))}
+          </div>
+          <Snippet title="Using icons in your code" code={`// Option 1: AppIcon component (for any JSX)
+import AppIcon from "@/shared/components/ui/AppIcon";
+<AppIcon icon="pencil-square" className="text-primary" />
+<AppIcon icon="trash" className="text-danger" />
+
+// Option 2: In table row actions (string name)
+const actions = [
+  { key: "edit",   label: "Edit",   icon: "pencil-square", type: "secondary" },
+  { key: "delete", label: "Delete", icon: "trash",         type: "danger"    },
+  { key: "view",   label: "View",   icon: "eye",           type: "primary"   },
+];
+
+// Option 3: In database (psb_s_appcard.icon column)
+// Store: "grid-3x3-gap", "collection", "card-list", etc.`} />
+        </div>
+      ),
+    },
+    /* ------------------------------------------------------------------ */
+    /*  3. Button Component                                                */
+    /* ------------------------------------------------------------------ */
+    {
+      key: "play-buttons",
+      title: "3. Button (Variants, Loading, Sizes)",
+      content: (
+        <div className={styles.playBody}>
+          <p className={styles.playLabel}>Button Variants</p>
+          <p style={{ fontSize: 12, color: "#4f6a7d", margin: 0 }}>
+            <code>variant</code> controls the color. Use <code>primary</code> for the main action,
+            <code> secondary</code> for alternatives, <code>danger</code> for destructive, <code>ghost</code> for subtle.
+          </p>
+          <div className={styles.toolbarRow}>
+            <Button variant="primary">Primary</Button>
+            <Button variant="secondary">Secondary</Button>
+            <Button variant="danger">Danger</Button>
+            <Button variant="ghost">Ghost</Button>
+          </div>
+
+          <p className={styles.playLabel} style={{ marginTop: 12 }}>Size Variants</p>
+          <div className={styles.toolbarRow} style={{ alignItems: "center" }}>
+            <Button size="sm">Small</Button>
+            <Button>Default</Button>
+          </div>
+
+          <p className={styles.playLabel} style={{ marginTop: 12 }}>Loading State</p>
+          <p style={{ fontSize: 12, color: "#4f6a7d", margin: 0 }}>
+            Set <code>loading=&#123;true&#125;</code> to show spinner and auto-disable. No extra logic needed.
+          </p>
+          <div className={styles.toolbarRow}>
+            <Button loading>Saving...</Button>
+            <Button variant="danger" loading>Deleting...</Button>
+          </div>
+
+          <p className={styles.playLabel} style={{ marginTop: 12 }}>Disabled State</p>
+          <div className={styles.toolbarRow}>
+            <Button disabled>Disabled</Button>
+            <Button variant="secondary" disabled>Disabled</Button>
+          </div>
+
+          <p className={styles.playLabel} style={{ marginTop: 12 }}>Workflow Actions (try clicking)</p>
           <div className={styles.toolbarRow}>
             {WORKFLOW_ACTIONS.map((a) => (
               <Button key={a.key} size="sm" variant={toButtonVariantByType(a.type)} loading={workflowKey === a.key} onClick={() => runWorkflow(a)}>
@@ -2195,34 +1975,57 @@ function PlaygroundTab() {
               </Button>
             ))}
           </div>
-
           <Modal
             show={Boolean(pendingWorkflowAction)}
             onHide={() => setPendingWorkflowAction(null)}
             title={`Confirm: ${pendingWorkflowAction?.label || "Action"}`}
             footer={(
               <>
-                <Button variant="secondary" onClick={() => setPendingWorkflowAction(null)}>
-                  Cancel
-                </Button>
+                <Button variant="secondary" onClick={() => setPendingWorkflowAction(null)}>Cancel</Button>
                 <Button variant={toButtonVariantByType(pendingWorkflowAction?.type)} onClick={confirmWorkflowAction}>
                   Yes, {pendingWorkflowAction?.label || "Continue"}
                 </Button>
               </>
             )}
           >
-            <p style={{ margin: 0, fontSize: 14 }}>
-              Continue with {pendingWorkflowAction?.label || "this action"}?
-            </p>
+            <p style={{ margin: 0, fontSize: 14 }}>Continue with {pendingWorkflowAction?.label || "this action"}?</p>
           </Modal>
+
+          <Snippet title="Button usage" code={`import { Button } from "@/shared/components/ui";
+
+// Variants
+<Button variant="primary">Save</Button>
+<Button variant="secondary">Cancel</Button>
+<Button variant="danger">Delete</Button>
+<Button variant="ghost">Skip</Button>
+
+// Loading state — automatically shows spinner + disables
+<Button loading={saving} onClick={handleSave}>Save Changes</Button>
+
+// Size
+<Button size="sm">Small Button</Button>
+
+// Disabled
+<Button disabled>Cannot Click</Button>`} />
+
+          <div style={{ padding: "8px 12px", background: "#fff3cd", borderRadius: 6, borderLeft: "4px solid #ffc107", marginTop: 4 }}>
+            <p style={{ margin: 0, fontSize: 12, color: "#664d03" }}>
+              <strong>Rule:</strong> One primary button per view. Use secondary for alternatives. Use danger only for destructive actions.
+              Always use <code>loading</code> prop during async operations — never disable manually.
+            </p>
+          </div>
         </div>
       ),
     },
+    /* ------------------------------------------------------------------ */
+    /*  4. Input Field                                                     */
+    /* ------------------------------------------------------------------ */
     {
       key: "play-input",
-      title: "Input Field",
+      title: "4. Input Field (Text, Validation)",
       content: (
         <div className={styles.playBody}>
+          <p className={styles.playLabel}>Interactive Input</p>
           <div className={styles.formStack}>
             <Input
               value={inputValue}
@@ -2230,19 +2033,56 @@ function PlaygroundTab() {
               placeholder="Enter text"
               isInvalid={inputInvalid}
             />
-            <Button size="sm" onClick={() => setInputInvalid(!inputInvalid)}>
-              {inputInvalid ? "Clear Error" : "Show Error"}
-            </Button>
+            <div className={styles.toolbarRow}>
+              <Button size="sm" onClick={() => setInputInvalid(!inputInvalid)}>
+                {inputInvalid ? "Clear Error" : "Show Error"}
+              </Button>
+              <Button size="sm" variant="secondary" onClick={() => setInputValue("")}>Clear</Button>
+            </div>
           </div>
-          <p style={{ fontSize: 12, color: "#666", marginTop: 8 }}>Value: <code>{inputValue}</code></p>
+          <p style={{ fontSize: 12, color: "#666", marginTop: 4 }}>Value: <code>{inputValue || "(empty)"}</code></p>
+
+          <Snippet title="Input usage" code={`import { Input } from "@/shared/components/ui";
+
+// Basic controlled input
+<Input
+  value={name}
+  onChange={(e) => setName(e.target.value)}
+  placeholder="Enter full name"
+/>
+
+// With validation error
+<Input
+  value={email}
+  onChange={(e) => setEmail(e.target.value)}
+  isInvalid={touched && !isValidEmail(email)}
+  placeholder="e.g. user@company.com"
+/>
+{touched && !isValidEmail(email) && (
+  <p className={styles.fieldError}>Enter a valid email.</p>
+)}
+
+// Disabled
+<Input value="Read-only value" disabled />`} />
+
+          <div style={{ padding: "8px 12px", background: "#d1ecf1", borderRadius: 6, borderLeft: "4px solid #0dcaf0", marginTop: 4 }}>
+            <p style={{ margin: 0, fontSize: 12, color: "#055160" }}>
+              <strong>Tip:</strong> Input is always controlled (<code>value</code> + <code>onChange</code>). Use <code>isInvalid</code>
+              for red border — pair it with an error message below the field. Supports all native <code>&lt;input&gt;</code> props (type, maxLength, etc.).
+            </p>
+          </div>
         </div>
       ),
     },
+    /* ------------------------------------------------------------------ */
+    /*  5. SearchBar                                                       */
+    /* ------------------------------------------------------------------ */
     {
       key: "play-searchbar",
-      title: "SearchBar (with Debounce)",
+      title: "5. SearchBar (Debounced Search)",
       content: (
         <div className={styles.playBody}>
+          <p className={styles.playLabel}>Try typing below — fires after 300ms pause</p>
           <SearchBar
             value={searchValue}
             debounceMs={300}
@@ -2252,16 +2092,50 @@ function PlaygroundTab() {
               if (v) toastInfo(`Searching: ${v}`, "Search");
             }}
           />
-          <p style={{ fontSize: 12, color: "#666", marginTop: 8 }}>Value: <code>{searchValue}</code></p>
+          <p style={{ fontSize: 12, color: "#666", marginTop: 4 }}>Debounced value: <code>{searchValue || "(empty)"}</code></p>
+
+          <Snippet title="SearchBar usage" code={`import { SearchBar } from "@/shared/components/ui";
+
+// Basic — fires onDebouncedChange after user stops typing (350ms default)
+<SearchBar
+  value={query}
+  onDebouncedChange={(value) => setQuery(value)}
+  placeholder="Search employees..."
+/>
+
+// Custom delay
+<SearchBar
+  value={query}
+  debounceMs={500}
+  onDebouncedChange={(value) => fetchResults(value)}
+  placeholder="Search with 500ms delay..."
+/>
+
+// With Server Action
+const handleSearch = async (value) => {
+  const results = await searchUsers(value);  // Server Action
+  setRows(results);
+};
+<SearchBar value={query} onDebouncedChange={handleSearch} />`} />
+
+          <div style={{ padding: "8px 12px", background: "#d1ecf1", borderRadius: 6, borderLeft: "4px solid #0dcaf0", marginTop: 4 }}>
+            <p style={{ margin: 0, fontSize: 12, color: "#055160" }}>
+              <strong>Tip:</strong> SearchBar prevents firing on every keystroke. Default delay is 350ms.
+              Built into TableZ automatically — you only need SearchBar for custom search outside tables.
+            </p>
+          </div>
         </div>
       ),
     },
+    /* ------------------------------------------------------------------ */
+    /*  6. Dropdown                                                        */
+    /* ------------------------------------------------------------------ */
     {
       key: "play-dropdown",
-      title: "Dropdown (Combo Box)",
+      title: "6. Dropdown (Combo Box / Action Menu)",
       content: (
         <div className={styles.playBody}>
-          <p className={styles.playLabel}>Click to open menu:</p>
+          <p className={styles.playLabel}>Selection Dropdown</p>
           <Dropdown show={dropdownShow} onToggle={(show) => setDropdownShow(show)}>
             <Dropdown.Toggle variant="secondary" size="sm">
               {dropdownValue?.label || "Select Status"}
@@ -2281,16 +2155,231 @@ function PlaygroundTab() {
               ))}
             </Dropdown.Menu>
           </Dropdown>
-          <p style={{ fontSize: 12, color: "#666", marginTop: 8 }}>Selected: <code>{dropdownValue?.label || "None"}</code></p>
+          <p style={{ fontSize: 12, color: "#666", marginTop: 4 }}>Selected: <code>{dropdownValue?.label || "None"}</code></p>
+
+          <p className={styles.playLabel} style={{ marginTop: 12 }}>Action Menu with Divider</p>
+          <Dropdown>
+            <Dropdown.Toggle variant="secondary" size="sm">Actions</Dropdown.Toggle>
+            <Dropdown.Menu>
+              <Dropdown.Item onClick={() => toastInfo("View clicked", "Action")}>
+                <AppIcon icon="eye" style={{ marginRight: 6, width: 14 }} /> View
+              </Dropdown.Item>
+              <Dropdown.Item onClick={() => toastInfo("Edit clicked", "Action")}>
+                <AppIcon icon="pencil-square" style={{ marginRight: 6, width: 14 }} /> Edit
+              </Dropdown.Item>
+              <Dropdown.Divider />
+              <Dropdown.Item className="text-danger" onClick={() => toastError("Delete clicked", "Action")}>
+                <AppIcon icon="trash" style={{ marginRight: 6, width: 14 }} /> Delete
+              </Dropdown.Item>
+            </Dropdown.Menu>
+          </Dropdown>
+
+          <Snippet title="Dropdown usage" code={`import { Dropdown } from "@/shared/components/ui";
+
+// Selection dropdown
+<Dropdown>
+  <Dropdown.Toggle variant="secondary" size="sm">
+    {selectedItem?.label || "Select..."}
+  </Dropdown.Toggle>
+  <Dropdown.Menu>
+    {options.map((o) => (
+      <Dropdown.Item key={o.value} onClick={() => setSelected(o)}>
+        {o.label}
+      </Dropdown.Item>
+    ))}
+  </Dropdown.Menu>
+</Dropdown>
+
+// Action menu with divider and icons
+<Dropdown>
+  <Dropdown.Toggle variant="secondary" size="sm">Actions</Dropdown.Toggle>
+  <Dropdown.Menu>
+    <Dropdown.Item onClick={onView}>View</Dropdown.Item>
+    <Dropdown.Item onClick={onEdit}>Edit</Dropdown.Item>
+    <Dropdown.Divider />
+    <Dropdown.Item className="text-danger" onClick={onDelete}>Delete</Dropdown.Item>
+  </Dropdown.Menu>
+</Dropdown>
+
+// Direction: drop="up" | "down" (default) | "start" | "end"
+<Dropdown drop="up">...</Dropdown>`} />
         </div>
       ),
     },
+    /* ------------------------------------------------------------------ */
+    /*  7. Card                                                            */
+    /* ------------------------------------------------------------------ */
     {
-      key: "play-modal",
-      title: "Modal Dialog",
+      key: "play-card",
+      title: "7. Card (Content Container)",
       content: (
         <div className={styles.playBody}>
-          <Button size="sm" variant="secondary" onClick={() => setModalOpen(true)}>Open Modal</Button>
+          <p className={styles.playLabel}>Card Variants</p>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 12 }}>
+            <Card title="Basic Card" subtitle="With title and subtitle">
+              <p style={{ margin: 0, fontSize: 13 }}>Card body content goes here.</p>
+            </Card>
+            <Card
+              title="Card with Footer"
+              footer={
+                <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
+                  <Button variant="secondary" size="sm">Cancel</Button>
+                  <Button size="sm">Save</Button>
+                </div>
+              }
+            >
+              <p style={{ margin: 0, fontSize: 13 }}>Footers are great for action buttons.</p>
+            </Card>
+            <Card
+              header={
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <span style={{ fontWeight: 700, color: "#1a4364" }}>Custom Header</span>
+                  <Badge bg="success">Live</Badge>
+                </div>
+              }
+            >
+              <p style={{ margin: 0, fontSize: 13 }}>Use <code>header</code> prop for custom layouts.</p>
+            </Card>
+          </div>
+
+          <Card
+            title="Interactive Card"
+            subtitle="Click the button to open a modal"
+            footer={
+              <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
+                <Button size="sm" onClick={() => setCardModalOpen(true)}>Open Modal</Button>
+              </div>
+            }
+          >
+            <p style={{ margin: 0, fontSize: 13 }}>This card demonstrates combining Card + Button + Modal together.</p>
+          </Card>
+          <Modal
+            show={cardModalOpen}
+            onHide={() => setCardModalOpen(false)}
+            title="Card Action"
+            footer={<Button variant="secondary" onClick={() => setCardModalOpen(false)}>Close</Button>}
+          >
+            <p style={{ margin: 0, fontSize: 14 }}>You triggered this modal from the card footer button.</p>
+          </Modal>
+
+          <Snippet title="Card usage" code={`import { Card } from "@/shared/components/ui";
+
+// Basic card
+<Card title="User Details" subtitle="Personal information">
+  <p>Name: Jordan Patel</p>
+</Card>
+
+// With footer actions
+<Card title="Edit Profile" footer={
+  <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
+    <Button variant="secondary">Cancel</Button>
+    <Button>Save</Button>
+  </div>
+}>
+  <Input value={name} onChange={(e) => setName(e.target.value)} />
+</Card>
+
+// Custom header (replaces title/subtitle)
+<Card header={<MyCustomHeader />}>
+  <p>Body content</p>
+</Card>`} />
+        </div>
+      ),
+    },
+    /* ------------------------------------------------------------------ */
+    /*  8. Badge                                                           */
+    /* ------------------------------------------------------------------ */
+    {
+      key: "play-badges",
+      title: "8. Badges (Status Display)",
+      content: (
+        <div className={styles.playBody}>
+          <p className={styles.playLabel}>Status Badges</p>
+          <p style={{ fontSize: 12, color: "#4f6a7d", margin: 0 }}>
+            Use badges for status indicators. Always pick colors consistently across the project.
+          </p>
+          <div className={styles.badgeRow}>
+            <Badge bg="success">Active</Badge>
+            <Badge bg="warning" text="dark">Pending</Badge>
+            <Badge bg="danger">Rejected</Badge>
+            <Badge bg="secondary">Inactive</Badge>
+            <Badge bg="dark">Suspended</Badge>
+            <Badge bg="info" text="dark">In Review</Badge>
+            <Badge bg="light" text="dark">Draft</Badge>
+          </div>
+
+          <p className={styles.playLabel} style={{ marginTop: 12 }}>Status Color Conventions</p>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 6 }}>
+            {[
+              { bg: "success",   meaning: "Active, Approved, Complete, Enabled" },
+              { bg: "warning",   meaning: "Pending, Review, In Progress" },
+              { bg: "danger",    meaning: "Error, Rejected, Failed, Overdue" },
+              { bg: "secondary", meaning: "Inactive, Disabled, Archived" },
+              { bg: "dark",      meaning: "Suspended, Voided, Terminated" },
+              { bg: "info",      meaning: "Informational, Under Review" },
+            ].map((s) => (
+              <div key={s.bg} style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 8px", background: "#fff", border: "1px solid #e2edf5", borderRadius: 6 }}>
+                <Badge bg={s.bg} text={s.bg === "warning" || s.bg === "info" ? "dark" : undefined}>
+                  {s.bg}
+                </Badge>
+                <span style={{ fontSize: 11, color: "#4f6a7d" }}>{s.meaning}</span>
+              </div>
+            ))}
+          </div>
+
+          <p className={styles.playLabel} style={{ marginTop: 12 }}>In Table Column (render function)</p>
+          <div style={{ padding: "8px 12px", background: "#f5faff", borderRadius: 8, border: "1px solid #d3e5f3" }}>
+            <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
+              <span style={{ fontSize: 12, color: "#5a7a91", width: 80 }}>active →</span>
+              <Badge bg="success">active</Badge>
+            </div>
+            <div style={{ display: "flex", gap: 16, alignItems: "center", marginTop: 4 }}>
+              <span style={{ fontSize: 12, color: "#5a7a91", width: 80 }}>pending →</span>
+              <Badge bg="warning" text="dark">pending</Badge>
+            </div>
+            <div style={{ display: "flex", gap: 16, alignItems: "center", marginTop: 4 }}>
+              <span style={{ fontSize: 12, color: "#5a7a91", width: 80 }}>inactive →</span>
+              <Badge bg="secondary">inactive</Badge>
+            </div>
+          </div>
+
+          <Snippet title="Badge usage in table columns" code={`import { Badge } from "@/shared/components/ui";
+
+// Status badge helper (define once per module)
+function getStatusBadge(status) {
+  const map = {
+    active:    { bg: "success" },
+    pending:   { bg: "warning", text: "dark" },
+    inactive:  { bg: "secondary" },
+    suspended: { bg: "dark" },
+    rejected:  { bg: "danger" },
+  };
+  return map[status] || { bg: "light", text: "dark" };
+}
+
+// In column definition
+const columns = [
+  {
+    key: "status", label: "Status", sortable: true, width: 120,
+    render: (row) => {
+      const s = getStatusBadge(row.status);
+      return <Badge bg={s.bg} text={s.text}>{row.status}</Badge>;
+    },
+  },
+];`} />
+        </div>
+      ),
+    },
+    /* ------------------------------------------------------------------ */
+    /*  9. Modal                                                           */
+    /* ------------------------------------------------------------------ */
+    {
+      key: "play-modal",
+      title: "9. Modal (Dialog / Confirmation)",
+      content: (
+        <div className={styles.playBody}>
+          <p className={styles.playLabel}>Try it</p>
+          <Button size="sm" onClick={() => setModalOpen(true)}>Open Modal</Button>
           <Modal
             show={modalOpen}
             onHide={() => setModalOpen(false)}
@@ -2302,16 +2391,124 @@ function PlaygroundTab() {
               </>
             }
           >
-            <p style={{ margin: 0, fontSize: 14 }}>Shared modal with footer actions.</p>
+            <p style={{ margin: 0, fontSize: 14 }}>This modal has footer actions with a loading state on Save.</p>
           </Modal>
+
+          <Snippet title="Modal usage" code={`import { Modal, Button } from "@/shared/components/ui";
+
+const [show, setShow] = useState(false);
+const [saving, setSaving] = useState(false);
+
+// Confirmation modal
+<Modal
+  show={show}
+  onHide={() => setShow(false)}
+  title="Confirm Delete"
+  footer={
+    <>
+      <Button variant="secondary" onClick={() => setShow(false)}>Cancel</Button>
+      <Button variant="danger" loading={saving} onClick={handleDelete}>
+        Yes, Delete
+      </Button>
+    </>
+  }
+>
+  <p>Are you sure you want to delete this record?</p>
+</Modal>
+
+// Open it
+<Button variant="danger" onClick={() => setShow(true)}>Delete</Button>`} />
+
+          <div style={{ padding: "8px 12px", background: "#fff3cd", borderRadius: 6, borderLeft: "4px solid #ffc107", marginTop: 4 }}>
+            <p style={{ margin: 0, fontSize: 12, color: "#664d03" }}>
+              <strong>Rule:</strong> Always use shared Modal for confirmations — never <code>window.confirm()</code> or <code>alert()</code>.
+              Put action buttons in <code>footer</code>. The destructive button should match the action variant (danger for delete, etc.).
+            </p>
+          </div>
         </div>
       ),
     },
+    /* ------------------------------------------------------------------ */
+    /*  10. Toast                                                          */
+    /* ------------------------------------------------------------------ */
     {
-      key: "play-table",
-      title: "Data Table (with Filters & Actions)",
+      key: "play-toast",
+      title: "10. Toast Notifications",
       content: (
         <div className={styles.playBody}>
+          <p className={styles.playLabel}>Click to trigger each type</p>
+          <div className={styles.actionRow}>
+            <Button size="sm" onClick={() => { setToastCount(c => c + 1); toastSuccess("Record saved successfully.", "Success"); }}>
+              Success
+            </Button>
+            <Button size="sm" variant="secondary" onClick={() => { setToastCount(c => c + 1); toastInfo("3 records matched your search.", "Info"); }}>
+              Info
+            </Button>
+            <Button size="sm" variant="secondary" onClick={() => { setToastCount(c => c + 1); toastWarning("This action cannot be undone.", "Warning"); }}>
+              Warning
+            </Button>
+            <Button size="sm" variant="danger" onClick={() => { setToastCount(c => c + 1); toastError("Failed to save — check your connection.", "Error"); }}>
+              Error
+            </Button>
+          </div>
+          <p style={{ fontSize: 12, color: "#666", marginTop: 4 }}>Toasts triggered: {toastCount}</p>
+
+          <p className={styles.playLabel} style={{ marginTop: 12 }}>When to use each type</p>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 6 }}>
+            {[
+              { fn: "toastSuccess", when: "Create, update, delete, approve succeeded", color: "#198754" },
+              { fn: "toastInfo",    when: "Search results count, status updates, FYI", color: "#0dcaf0" },
+              { fn: "toastWarning", when: "Irreversible actions, data conflicts",       color: "#ffc107" },
+              { fn: "toastError",   when: "Save failed, validation error, server error", color: "#dc3545" },
+            ].map((t) => (
+              <div key={t.fn} style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "6px 8px", background: "#fff", border: "1px solid #e2edf5", borderRadius: 6 }}>
+                <div style={{ width: 4, minHeight: 28, borderRadius: 2, background: t.color, flexShrink: 0, marginTop: 2 }} />
+                <div>
+                  <code style={{ fontSize: 11 }}>{t.fn}()</code>
+                  <p style={{ margin: 0, fontSize: 11, color: "#5a7a91" }}>{t.when}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <Snippet title="Toast usage" code={`import { toastSuccess, toastError, toastWarning, toastInfo } from "@/shared/components/ui";
+
+// After a successful save
+toastSuccess("User created successfully.", "Success");
+
+// After an error
+toastError("Failed to save — please try again.", "Error");
+
+// Warning before irreversible action
+toastWarning("This will permanently void the record.", "Warning");
+
+// Informational
+toastInfo("3 records matched your filter.", "Search");
+
+// In a Server Action handler
+const handleSave = async () => {
+  setSaving(true);
+  try {
+    await createUser(formData);  // Server Action
+    toastSuccess("User created.", "Success");
+  } catch (err) {
+    toastError(err.message, "Error");
+  } finally {
+    setSaving(false);
+  }
+};`} />
+        </div>
+      ),
+    },
+    /* ------------------------------------------------------------------ */
+    /*  11. Data Table                                                     */
+    /* ------------------------------------------------------------------ */
+    {
+      key: "play-table",
+      title: "11. Data Table (TableZ — Filters, Sort, Actions)",
+      content: (
+        <div className={styles.playBody}>
+          <p className={styles.playLabel}>Live interactive table with filters and row actions</p>
           <TableZ
             data={tableRows}
             columns={tableColumns}
@@ -2323,42 +2520,45 @@ function PlaygroundTab() {
             searchPlaceholder="Search code, name, team, role, status"
             onChange={handleTableChange}
           />
-          <div className={styles.eventLogWrap} style={{ marginTop: 16 }}>
+          <div className={styles.eventLogWrap} style={{ marginTop: 8 }}>
             <button type="button" className={styles.eventLogToggle} onClick={() => setShowTableLog((v) => !v)}>
               <FontAwesomeIcon icon={showTableLog ? faChevronUp : faChevronDown} aria-hidden="true" />
               {showTableLog ? "Hide" : "Show"} table events
             </button>
             {showTableLog ? <pre className={styles.eventPre}>{JSON.stringify(lastEvent, null, 2)}</pre> : null}
           </div>
-        </div>
-      ),
-    },
-    {
-      key: "play-badges",
-      title: "Badges (Status Display)",
-      content: (
-        <div className={styles.playBody}>
-          <div className={styles.badgeRow}>
-            <Badge bg="success">Active</Badge>
-            <Badge bg="warning" text="dark">Pending</Badge>
-            <Badge bg="secondary">Inactive</Badge>
-            <Badge bg="dark">Suspended</Badge>
-          </div>
-        </div>
-      ),
-    },
-    {
-      key: "play-toast",
-      title: "Toast Notifications",
-      content: (
-        <div className={styles.playBody}>
-          <div className={styles.actionRow}>
-            <Button size="sm" onClick={() => { setToastCount(c => c + 1); toastSuccess("Success message!", "Success"); }}>Success</Button>
-            <Button size="sm" variant="secondary" onClick={() => { setToastCount(c => c + 1); toastInfo("Info message!", "Info"); }}>Info</Button>
-            <Button size="sm" variant="secondary" onClick={() => { setToastCount(c => c + 1); toastWarning("Warning message!", "Warning"); }}>Warning</Button>
-            <Button size="sm" variant="danger" onClick={() => { setToastCount(c => c + 1); toastError("Error message!", "Error"); }}>Error</Button>
-          </div>
-          <p style={{ fontSize: 12, color: "#666", marginTop: 8 }}>Toasts shown: {toastCount}</p>
+
+          <Snippet title="Minimal table setup" code={`import { TableZ, TABLE_FILTER_TYPES, createFilterConfig } from "@/shared/components/ui";
+
+const columns = [
+  { key: "employee_code", label: "Code",   sortable: true, width: 130 },
+  { key: "full_name",     label: "Name",   sortable: true, width: 180 },
+  { key: "status",        label: "Status", sortable: true, width: 120,
+    render: (row) => <Badge bg={statusColor(row.status)}>{row.status}</Badge>,
+  },
+];
+
+const filterConfig = createFilterConfig([
+  { key: "status", label: "Status", type: TABLE_FILTER_TYPES.SELECT,
+    options: [{ label: "Active", value: "active" }, { label: "Pending", value: "pending" }] },
+]);
+
+const actions = [
+  { key: "edit", label: "Edit", icon: "pencil-square", type: "secondary",
+    onClick: (row) => openEditModal(row) },
+  { key: "delete", label: "Delete", icon: "trash", type: "danger",
+    confirm: true, onClick: (row) => handleDelete(row.id) },
+];
+
+<TableZ
+  data={rows}
+  columns={columns}
+  state={tableState}
+  filterConfig={filterConfig}
+  actions={actions}
+  loading={loading}
+  onChange={handleTableChange}
+/>`} />
         </div>
       ),
     },
@@ -2369,11 +2569,11 @@ function PlaygroundTab() {
       <Accordion items={playgroundItems} />
       <div className={styles.bonusSection}>
         <p className={styles.bonusSectionLabel}>Bonus Playground</p>
-        <p className={styles.bonusSectionSub}>Extended scenarios beyond the basics.</p>
+        <p className={styles.bonusSectionSub}>Full real-world scenarios combining multiple components together.</p>
         <Accordion items={[
           { key: "bonus-workflow", title: "Workflow Actions with Modal Confirmation", content: <BonusWorkflowModal /> },
-          { key: "bonus-table",    title: "Real-World Table Scenario (Employee Review)", content: <BonusRealWorldTable /> },
-          { key: "bonus-form",     title: "Add User Form", content: <BonusAddUserForm /> },
+          { key: "bonus-table",   title: "Real-World Table Scenario (Employee Review)", content: <BonusRealWorldTable /> },
+          { key: "bonus-form",    title: "Add User Form (Complete Validation)", content: <BonusAddUserForm /> },
         ]} />
       </div>
     </div>
@@ -2856,12 +3056,12 @@ function ReferenceTab() {
           </div>
 
           <hr style={{ margin: "2rem 0", borderColor: "#ddd" }} />
-          <p className={styles.ruleHeading}>How to Databind Table (End-to-End: Database ? API ? Frontend)</p>
+          <p className={styles.ruleHeading}>How to Databind Table (End-to-End: Database → Server Action → View → Table)</p>
           <p className={styles.stepNote}>
             This is the <strong>complete flow</strong> for binding a Supabase database table to the shared Table component.
             Real example from: Card Module Setup (table: <code>psb_s_appcard</code>).
           </p>
-          <Snippet title="Full Data Binding Flow (DB ? API ? Frontend ? Table)" code={SNIPPET_TABLE_DATABIND} />
+          <Snippet title="Full Data Binding Flow (DB → Server Action → Page → View → Table)" code={SNIPPET_TABLE_DATABIND} />
 
           <hr style={{ margin: "2rem 0", borderColor: "#ddd" }} />
           <p className={styles.ruleHeading}>Column Configuration</p>
@@ -2985,7 +3185,7 @@ function ReferenceTab() {
         <div className={styles.refBody}>
           <p className={styles.stepNote}>
             Toast fires a temporary notification in the top-right corner.
-            <code>GlobalToastHost</code> is mounted once in the app layout — never add it again.
+            <code>GlobalToastHost</code> is mounted once in the app layout â€” never add it again.
             Just call the function from anywhere.
           </p>
           <div className={styles.propGrid}>
@@ -3136,13 +3336,13 @@ function ReferenceTab() {
 }
 
 // ---------------------------------------------------------------------------
-// TableX Tab — The Easy Table (for jr devs)
+// TableX Tab â€” The Easy Table (for jr devs)
 // ---------------------------------------------------------------------------
 
 const TABLEX_SNIPPET_BASIC = `import { TableX } from "@/shared/components/ui";
 
 // That's it. Just tell it which table and which columns.
-// It fetches the data, sorts, filters, paginates — all automatic.
+// It fetches the data, sorts, filters, paginates â€” all automatic.
 
 <TableX
   source="psb_s_user"
@@ -3184,7 +3384,7 @@ const TABLEX_SNIPPET_FILTERS = `// Filters let users narrow down the table rows.
 // For "select" filters, also add: source, display
 
 const userFilters = [
-  // SELECT filter — dropdown loaded from another table
+  // SELECT filter â€” dropdown loaded from another table
   {
     key: "status_id",         // column in your table to filter on
     type: "select",           // makes a dropdown
@@ -3192,13 +3392,13 @@ const userFilters = [
     display: "sts_name",      // which column to show as the label
   },
 
-  // TEXT filter — free text search on that column
+  // TEXT filter â€” free text search on that column
   {
     key: "email",
     type: "text",
   },
 
-  // DATERANGE filter — pick a start and end date
+  // DATERANGE filter â€” pick a start and end date
   {
     key: "created_at",
     type: "daterange",
@@ -3276,7 +3476,7 @@ const userFeatures = {
 
 const TABLEX_SNIPPET_FULL = `import { TableX } from "@/shared/components/ui";
 
-// FULL EXAMPLE — everything together
+// FULL EXAMPLE â€” everything together
 
 const userFilters = [
   { key: "status_id", type: "select", source: "psb_s_status", display: "sts_name" },
@@ -3324,9 +3524,9 @@ function TableXTab() {
   return (
     <div className={styles.tabContent}>
       <div className={styles.refBody}>
-        <h2 className={styles.stepHeading}>TableX — The Easy Table</h2>
+        <h2 className={styles.stepHeading}>TableX â€” The Easy Table</h2>
         <p className={styles.stepNote}>
-          TableX is for everyday use. Give it a table name and column list — it does everything else.
+          TableX is for everyday use. Give it a table name and column list â€” it does everything else.
           No hooks. No state. No fetch logic. Just props.
         </p>
       </div>
@@ -3344,21 +3544,21 @@ function TableXTab() {
               <Snippet title="Code" code={TABLEX_SNIPPET_BASIC} />
               <div className={styles.propGrid}>
                 <RefPropRow prop="source" required type="string" desc="The database table name (e.g. psb_s_user)" />
-                <RefPropRow prop="columns" required type="string[]" desc="Which columns to show. Order matters — left to right." />
+                <RefPropRow prop="columns" required type="string[]" desc="Which columns to show. Order matters â€” left to right." />
               </div>
             </div>
           ),
         },
         {
           key: "tablex-columns",
-          title: "2. Columns — Strings vs Objects",
+          title: "2. Columns â€” Strings vs Objects",
           content: (
             <div className={styles.refBody}>
               <p className={styles.stepNote}>
                 You can pass column names as simple strings (easy) or as objects (when you need custom labels or cell rendering).
               </p>
-              <Snippet title="Simple — Just Strings" code={TABLEX_SNIPPET_COLUMNS_STRING} />
-              <Snippet title="Advanced — Objects" code={TABLEX_SNIPPET_COLUMNS_OBJECT} />
+              <Snippet title="Simple â€” Just Strings" code={TABLEX_SNIPPET_COLUMNS_STRING} />
+              <Snippet title="Advanced â€” Objects" code={TABLEX_SNIPPET_COLUMNS_OBJECT} />
               <div className={styles.ruleGrid}>
                 <div className={styles.ruleCol}>
                   <p className={styles.ruleHeading}>String Column</p>
@@ -3489,9 +3689,9 @@ function TableXTab() {
           content: (
             <div className={styles.refBody}>
               <p className={styles.stepNote}>
-                TableX is powered by the <strong>databind engine</strong> — a set of generic API routes at <code>/api/databind/</code>
+                TableX is powered by the <strong>databind engine</strong> â€” a set of generic Server Actions in <code>src/shared/utils/databind.actions.js</code>
                 that can query, filter, sort, paginate, and export data from <em>any</em> Supabase table.
-                You never call these APIs directly — TableX does it for you.
+                You never call these Server Actions directly â€” TableX does it for you.
               </p>
               <div style={{ marginTop: "1rem", padding: "1rem", backgroundColor: "#f5f5f5", borderRadius: "4px" }}>
                 <p className={styles.ruleHeading}>What Happens When You Render a TableX</p>
@@ -3499,22 +3699,22 @@ function TableXTab() {
   <TableX source="psb_s_user" columns={["user_id", "first_name", "email"]} />
 
 TableX automatically:
-  1. Calls POST /api/databind/query with:
+  1. Calls databindQuery() Server Action with:
      { table: "psb_s_user", fields: ["user_id","first_name","email"], page: 1, pageSize: 50 }
 
-  2. For select filters, calls POST /api/databind/options with:
+  2. For select filters, calls databindOptions() with:
      { table: "psb_s_status", key: "status_id", display: "sts_name" }
 
-  3. For export, calls POST /api/databind/export with:
+  3. For export, calls databindExport() with:
      { table: "psb_s_user", format: "csv", columns: [...], filters: {...} }
 
-  4. For column discovery, calls GET /api/databind/schema?table=psb_s_user`}</pre>
+  4. For column discovery, calls databindSchema() with:\n     { table: "psb_s_user" }`}</pre>
               </div>
               <div style={{ marginTop: "1.5rem" }}>
-                <p className={styles.ruleHeading}>When Do You Need Custom API Routes?</p>
+                <p className={styles.ruleHeading}>When Do You Need Custom Server Actions?</p>
                 <div className={styles.ruleGrid}>
                   <div className={styles.ruleCol}>
-                    <p style={{ fontWeight: 600, color: "#2e7d32" }}>Use Databind (no custom API)</p>
+                    <p style={{ fontWeight: 600, color: "#2e7d32" }}>Use Databind (no custom code)</p>
                     <ul className={styles.ruleList}>
                       <li>Show data from a single table</li>
                       <li>Filter, sort, paginate</li>
@@ -3523,7 +3723,7 @@ TableX automatically:
                     </ul>
                   </div>
                   <div className={styles.ruleCol}>
-                    <p style={{ fontWeight: 600, color: "#d32f2f" }}>Write Custom API Route</p>
+                    <p style={{ fontWeight: 600, color: "#d32f2f" }}>Write Custom Server Actions</p>
                     <ul className={styles.ruleList}>
                       <li>Multi-step operations (create user + assign role)</li>
                       <li>Complex validation beyond DB constraints</li>
@@ -3535,8 +3735,8 @@ TableX automatically:
               </div>
               <div style={{ marginTop: "1rem", padding: "1rem", backgroundColor: "#fff3cd", borderRadius: "4px", borderLeft: "4px solid #ffc107" }}>
                 <p style={{ margin: 0, fontSize: "0.9rem" }}>
-                  <strong>Rule of thumb:</strong> Start with TableX + databind. Only create a custom API route when databind cannot do what you need.
-                  Most new modules will never need custom API routes.
+                  <strong>Rule of thumb:</strong> Start with TableX + databind. Only write custom Server Actions when databind cannot do what you need.
+                  Most new modules will never need custom Server Actions.
                 </p>
               </div>
             </div>
@@ -3548,12 +3748,12 @@ TableX automatically:
 }
 
 // ---------------------------------------------------------------------------
-// Table Tab — The Power Table (for senior devs)
+// Table Tab â€” The Power Table (for senior devs)
 // ---------------------------------------------------------------------------
 
 const TABLE_SNIPPET_UNCONTROLLED = `import { TableZ } from "@/shared/components/ui";
 
-// UNCONTROLLED MODE — TableZ handles sorting, filtering, pagination internally.
+// UNCONTROLLED MODE â€” TableZ handles sorting, filtering, pagination internally.
 // You just pass data and columns. Good for small, local datasets.
 
 const columns = [
@@ -3591,7 +3791,7 @@ const actions = [
 
 const TABLE_SNIPPET_CONTROLLED = `import { TableZ, createFilterConfig, TABLE_FILTER_TYPES } from "@/shared/components/ui";
 
-// CONTROLLED MODE — You manage the state. TableZ tells you what changed.
+// CONTROLLED MODE â€” You manage the state. TableZ tells you what changed.
 // Use this when you need server-side sorting, filtering, pagination.
 // You must pass: state + onChange
 
@@ -3642,7 +3842,7 @@ function handleTableChange(event) {
   onChange={handleTableChange}
 />`;
 
-const TABLE_SNIPPET_DRAGGABLE = `// DRAG & DROP — let users reorder rows by dragging.
+const TABLE_SNIPPET_DRAGGABLE = `// DRAG & DROP â€” let users reorder rows by dragging.
 // The table auto-updates the "order" field on each row.
 // Use with onReorder to save the new order.
 
@@ -3659,7 +3859,7 @@ const TABLE_SNIPPET_DRAGGABLE = `// DRAG & DROP — let users reorder rows by dr
   }}
 />`;
 
-const TABLE_SNIPPET_BATCH = `// BATCH EDIT — track created, updated, and deleted rows.
+const TABLE_SNIPPET_BATCH = `// BATCH EDIT â€” track created, updated, and deleted rows.
 // Table highlights changed rows. You save all changes at once.
 
 <TableZ
@@ -3678,7 +3878,7 @@ const TABLE_SNIPPET_BATCH = `// BATCH EDIT — track created, updated, and delet
   }}
 />`;
 
-const TABLE_SNIPPET_MASTERDETAIL = `// MASTER-DETAIL PATTERN — click a row in the left table,
+const TABLE_SNIPPET_MASTERDETAIL = `// MASTER-DETAIL PATTERN â€” click a row in the left table,
 // show related data in the right table.
 // Used in: Application Setup, Card Module Setup, Company Department Setup
 
@@ -3689,7 +3889,7 @@ const departments = allDepartments.filter(
   (d) => d.comp_id === selectedCompany?.comp_id
 );
 
-// LEFT TABLE — Companies (master)
+// LEFT TABLE â€” Companies (master)
 <TableZ
   data={companies}
   columns={companyColumns}
@@ -3699,7 +3899,7 @@ const departments = allDepartments.filter(
   actions={companyActions}
 />
 
-// RIGHT TABLE — Departments (detail)
+// RIGHT TABLE â€” Departments (detail)
 <TableZ
   data={departments}
   columns={departmentColumns}
@@ -3712,7 +3912,7 @@ const departments = allDepartments.filter(
   }
 />`;
 
-const TABLE_SNIPPET_COLUMNS_FULL = `// COLUMN OPTIONS — full list of what you can set on a column
+const TABLE_SNIPPET_COLUMNS_FULL = `// COLUMN OPTIONS â€” full list of what you can set on a column
 
 const columns = [
   {
@@ -3728,7 +3928,7 @@ const columns = [
   },
 ];`;
 
-const TABLE_SNIPPET_ACTIONS_FULL = `// ACTION OPTIONS — full list of what you can set on an action
+const TABLE_SNIPPET_ACTIONS_FULL = `// ACTION OPTIONS â€” full list of what you can set on an action
 
 const actions = [
   {
@@ -3745,39 +3945,39 @@ const actions = [
   },
 ];`;
 
-const TABLE_SNIPPET_EVENTS = `// TABLE EVENTS — what event.type values you will receive in onChange (TableZ)
+const TABLE_SNIPPET_EVENTS = `// TABLE EVENTS â€” what event.type values you will receive in onChange (TableZ)
 
-// "search"           — user typed in the search bar
+// "search"           â€” user typed in the search bar
 //                      event.value = the search text
 //
-// "filters"          — user changed a filter (dropdown, date, etc.)
+// "filters"          â€” user changed a filter (dropdown, date, etc.)
 //                      event.filters = { filterKey: filterValue }
 //
-// "sorting"          — user clicked a sortable column header
+// "sorting"          â€” user clicked a sortable column header
 //                      event.sorting = { key: "column", direction: "asc"|"desc" }
 //
-// "pagination"       — user changed page or page size
+// "pagination"       â€” user changed page or page size
 //                      event.pagination = { page: 2, pageSize: 50 }
 //
-// "action"           — user clicked a row action button
+// "action"           â€” user clicked a row action button
 //                      event.action = the action config, event.row = the row data
 //
-// "export"           — user clicked CSV or Excel export
+// "export"           â€” user clicked CSV or Excel export
 //                      event.format = "csv"|"excel", event.context = { filters, sorting, ... }
 //
-// "columnVisibility" — user toggled a column in the Customize panel
+// "columnVisibility" â€” user toggled a column in the Customize panel
 //                      event.columnVisibility = { columnKey: true|false }
 //
-// "columnResize"     — user resized a column by dragging
+// "columnResize"     â€” user resized a column by dragging
 //                      event.columnSizing = { columnKey: newWidth }`;
 
 function TableZTab() {
   return (
     <div className={styles.tabContent}>
       <div className={styles.refBody}>
-        <h2 className={styles.stepHeading}>TableZ — The Power Table</h2>
+        <h2 className={styles.stepHeading}>TableZ â€” The Power Table</h2>
         <p className={styles.stepNote}>
-          TableZ is the full engine. Use it when you need complete control — server-side state,
+          TableZ is the full engine. Use it when you need complete control â€” server-side state,
           drag-and-drop, batch editing, master-detail, or custom rendering.
           For simple tables, use TableX instead.
         </p>
@@ -3846,12 +4046,12 @@ function TableZTab() {
               </p>
               <div style={{ marginTop: "1rem", padding: "1rem", backgroundColor: "#f5f5f5", borderRadius: "4px" }}>
                 <p className={styles.ruleHeading}>How Batch Mode Works (Every Admin Module Uses This)</p>
-                <pre style={{ fontSize: "0.85rem", overflow: "auto", margin: 0 }}>{`1. LOAD: Fetch data from API → store as BASELINE (frozen) + DRAFT (working copy)
-2. EDIT: User adds/edits/deletes rows → changes go to DRAFT only
-3. DIFF: Compare DRAFT vs BASELINE → compute what changed (useMemo)
+                <pre style={{ fontSize: "0.85rem", overflow: "auto", margin: 0 }}>{`1. LOAD: Fetch data from API â†’ store as BASELINE (frozen) + DRAFT (working copy)
+2. EDIT: User adds/edits/deletes rows â†’ changes go to DRAFT only
+3. DIFF: Compare DRAFT vs BASELINE â†’ compute what changed (useMemo)
 4. SHOW: Highlight changed rows (green=new, blue=modified, red=deleted)
-5. SAVE: User clicks "Save Batch" → send only the changes to API
-6. RESET: Reload from server → new BASELINE, DRAFT = clone of BASELINE`}</pre>
+5. SAVE: User clicks "Save Batch" â†’ send only the changes to API
+6. RESET: Reload from server â†’ new BASELINE, DRAFT = clone of BASELINE`}</pre>
               </div>
               <Snippet title="Basic Batch Mode" code={TABLE_SNIPPET_BATCH} />
               <div style={{ marginTop: "1rem", padding: "1rem", backgroundColor: "#fff3cd", borderRadius: "4px", borderLeft: "4px solid #ffc107" }}>
@@ -3870,18 +4070,18 @@ function TableZTab() {
           content: (
             <div className={styles.refBody}>
               <p className={styles.stepNote}>
-                <code>InlineEditCell</code> lets users click a table cell to edit its value directly — no modal needed.
+                <code>InlineEditCell</code> lets users click a table cell to edit its value directly â€” no modal needed.
                 Used in Application Setup, Card Module Setup, and other admin modules for quick field edits.
               </p>
               <div style={{ marginTop: "1rem", padding: "1rem", backgroundColor: "#f5f5f5", borderRadius: "4px" }}>
                 <p className={styles.ruleHeading}>How It Works</p>
                 <pre style={{ fontSize: "0.85rem", overflow: "auto", margin: 0 }}>{`1. Cell shows text normally (read-only)
-2. User clicks the "Edit" row action → row enters edit mode
+2. User clicks the "Edit" row action â†’ row enters edit mode
 3. Cells with InlineEditCell become clickable (dashed underline)
-4. User clicks a cell → it becomes an input field
-5. User types new value → presses Enter or clicks away
-6. onCommit fires → your hook stages the change in the batch
-7. User clicks "Done" → row exits edit mode
+4. User clicks a cell â†’ it becomes an input field
+5. User types new value â†’ presses Enter or clicks away
+6. onCommit fires â†’ your hook stages the change in the batch
+7. User clicks "Done" â†’ row exits edit mode
 8. All changes saved together via "Save Batch"`}</pre>
               </div>
               <Snippet title="InlineEditCell in a Column Renderer" code={`import { InlineEditCell } from "@/shared/components/ui";

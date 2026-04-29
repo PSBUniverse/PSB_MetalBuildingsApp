@@ -1,21 +1,29 @@
 # Changelog
 
-## 2026-04-29 Auto-Route Generation
+## 2026-04-29 Auto-Route Generation And Module Scaffolding
 
-Route files in `src/app/` are now auto-generated from module `index.js` definitions.
+Route files in `src/app/` are now auto-generated from module `index.js` definitions. A new scaffolding script lets junior devs create modules with one command.
 
 ### Changes
 
 1. **Added `scripts/generate-routes.js`** — scans all module `index.js` files, reads their `routes` arrays, and generates thin `page.js` wrappers in `src/app/`.
-2. **Added npm scripts** — `gen:routes`, `predev`, `prebuild` hooks ensure routes are always up-to-date.
-3. **Removed `src/app/[...modulePath]/page.js`** — the catch-all dynamic route is no longer needed.
-4. **All 11 route files** are now auto-generated with `// @generated` markers.
+2. **Added `scripts/create-module.js`** — scaffolds a new module with the correct folder structure (`index.js` + `data/` + `pages/`). Supports group prefixes via slash syntax (e.g. `admin/inventory-tracker`). Auto-runs `generate-routes.js` after scaffolding.
+3. **Added npm scripts** — `gen:routes`, `predev`, `prebuild`, `create-module` hooks ensure routes are always up-to-date.
+4. **Removed `src/app/[...modulePath]/page.js`** — the catch-all dynamic route is no longer needed.
+5. **All 11 route files** are now auto-generated with `// @generated` markers.
 
 ### Impact
 
 - Junior devs never touch `src/app/` — they only define routes in their module's `index.js`.
 - Running `npm run dev` or `npm run build` automatically regenerates routes.
+- Running `npm run create-module -- my-module` scaffolds a complete module with inline docs.
 - Stale routes are automatically cleaned up when modules are removed.
+
+### Documentation Updated
+
+- All docs updated to reference `npm run create-module` as the standard way to start a new module.
+- CRUD example rewritten from legacy 7-file structure to current 5-file pattern (actions, data, Page, View).
+- Junior dev quickstart and full guide updated to lead with the scaffolding command.
 
 ---
 
@@ -92,7 +100,7 @@ All docs updated to reflect:
 1. No API routes — Server Actions are the only backend pattern.
 2. `public: true` module field documented in module system and field reference.
 3. Routes updated from `/examples` to `/psbpages/examples`.
-4. CRUD example marked as legacy structure with pointer to current Module System docs.
+4. CRUD example rewritten to current 5-file pattern (actions, data, Page, View).
 5. Auth flow docs updated: `bootstrapAuthState()` replaces `/api/me/bootstrap`.
 
 ## 2026-04-17 Shared UI Examples And Playground Update
