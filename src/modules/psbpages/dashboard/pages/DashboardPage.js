@@ -20,10 +20,10 @@ export default async function DashboardPage() {
       description: moduleDefinition.description || "Open module.",
       path: normalizeRoutePath(moduleDefinition.routes?.[0]?.path || "#"),
       appId: moduleDefinition.app_id,
-      icon: moduleDefinition.icon || moduleDefinition.group_icon || "bi-grid-3x3-gap",
+      icon: moduleDefinition.icon || moduleDefinition.group_icon || "table-cells-large",
       groupName: moduleDefinition.group_name || moduleDefinition.group || "Applications",
       groupDescription: moduleDefinition.group_desc || "",
-      groupIcon: moduleDefinition.group_icon || "bi-collection",
+      groupIcon: moduleDefinition.group_icon || "layer-group",
       order: Number(moduleDefinition.order ?? moduleDefinition.display_order ?? Number.MAX_SAFE_INTEGER),
     }))
     .sort((left, right) => left.order - right.order);

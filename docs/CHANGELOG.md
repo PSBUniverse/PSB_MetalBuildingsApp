@@ -1,5 +1,44 @@
 # Changelog
 
+## 2026-05-02 Status Badge System & Design Tokens
+
+Unified all status indicators across the platform using a new `StatusBadge` component backed by CSS custom property tokens. Replaced all local status Badge implementations with a single shared component.
+
+### Changes
+
+1. **Added `src/shared/components/ui/feedback/StatusBadge.js`** — shared component that renders a pill-shaped badge with dot indicator. Accepts `status` string (case-insensitive) and optional `label` override. Supported statuses: active, completed, approved, processing, in-progress, pending, waiting, suspended, failed, error, rejected, inactive, disabled, cancelled, archived, draft.
+
+2. **Added status tokens to `src/styles/variables.css`** — `--psb-status-{name}`, `--psb-status-{name}-bg`, `--psb-status-{name}-border` for all 10 status categories (active, completed, processing, pending, suspended, failed, inactive, cancelled, archived, draft).
+
+3. **Added status badge CSS to `src/app/globals.css`** — `.psb-status-badge`, `.psb-status-dot`, and per-status classes (`.psb-status-active`, `.psb-status-inactive`, etc.) using the token system.
+
+4. **Exported from barrel** — `StatusBadge` added to `src/shared/components/ui/index.js`.
+
+5. **Replaced local StatusBadge in admin pages:**
+   - `ApplicationSetupView.jsx` — removed local function, imported shared component
+   - `CardModuleSetupView.jsx` — removed local function, imported shared component
+   - `CompanyDepartmentSetupView.jsx` — removed local function, imported shared component
+   - `StatusSetupView.jsx` — removed local function, imported shared component
+   - `UserMasterSetupView.jsx` — replaced 3 raw Badge status usages with StatusBadge
+
+6. **Updated `ProfileView.jsx`** — replaced hardcoded Bootstrap Badge with shared StatusBadge.
+
+7. **Updated `ExamplesPage.js`** — all live status demos now use StatusBadge; all code snippets updated to teach the new pattern; `SNIPPET_BADGE` rewritten for StatusBadge.
+
+8. **Updated `useDataTableModuleController.js`** — status column now uses StatusBadge instead of Badge + helper function.
+
+### Migration Rule
+
+All active/inactive/pending/failed status indicators **must** use `StatusBadge`. Do not use raw `Badge` with `bg="success"` / `bg="danger"` for status display. `Badge` remains valid for non-status labels (roles, tags, categories, versions).
+
+### Impact
+
+- Status colors are now consistent across all modules via CSS tokens.
+- Changing a status color in `variables.css` propagates everywhere instantly.
+- No module-level color logic needed — just pass the status string.
+
+---
+
 ## 2026-04-29 Auto-Route Generation And Module Scaffolding
 
 Route files in `src/app/` are now auto-generated from module `index.js` definitions. A new scaffolding script lets junior devs create modules with one command.

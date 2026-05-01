@@ -5,8 +5,7 @@ import { resolveIcon } from "@/shared/utils/icons";
 
 /**
  * Renders a Font Awesome icon from a string icon name.
- * Accepts the same string names previously used for Bootstrap Icons
- * (e.g. "bi-pencil-square", "pencil-square", "bi-trash", "trash").
+ * Accepts Font Awesome icon names (e.g. "pen", "trash", "gear").
  *
  * Returns `null` when the icon name is empty or unrecognised.
  *

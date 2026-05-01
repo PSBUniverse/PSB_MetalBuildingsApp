@@ -2,7 +2,7 @@
 
 import { Button as BootstrapButton, Spinner } from "react-bootstrap";
 
-const ALLOWED_VARIANTS = new Set(["primary", "secondary", "danger", "ghost"]);
+const ALLOWED_VARIANTS = new Set(["primary", "secondary", "danger", "success", "warning", "restore", "ghost"]);
 
 function normalizeVariant(variant) {
   const raw = String(variant || "primary").trim().toLowerCase();
@@ -23,10 +23,14 @@ export default function Button({
   ...props
 }) {
   const normalizedVariant = normalizeVariant(variant);
-  const bootstrapVariant = normalizedVariant === "ghost" ? "light" : normalizedVariant;
+  const variantClassMap = { ghost: "light", success: "primary", warning: "primary", restore: "primary" };
+  const bootstrapVariant = variantClassMap[normalizedVariant] || normalizedVariant;
   const mergedClassName = [
     "psb-ui-button",
     normalizedVariant === "ghost" ? "psb-ui-button-ghost" : "",
+    normalizedVariant === "success" ? "psb-ui-button-success" : "",
+    normalizedVariant === "warning" ? "psb-ui-button-warning" : "",
+    normalizedVariant === "restore" ? "psb-ui-button-restore" : "",
     className,
   ]
     .filter(Boolean)

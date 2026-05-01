@@ -3,7 +3,7 @@ const statusSetupModule = {
   module_key: "psbuniverse",
   name: "Status Setup",
   description: "Configure system statuses.",
-  icon: "bi-tags",
+  icon: "tags",
   group_name: "Administration",
   group_desc: "Tools for organization setup and management.",
   order: 140,

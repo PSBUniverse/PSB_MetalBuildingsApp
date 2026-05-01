@@ -35,7 +35,7 @@ const rolesModule = {
   module_key: "roles-app",       // ← must match psb_s_application
   name: "Roles",
   description: "Manage user roles.",
-  icon: "bi-shield-lock",
+  icon: "shield-halved",
   group_name: "Administration",
   group_desc: "Tools for system configuration and management.",
   order: 150,

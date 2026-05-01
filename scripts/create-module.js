@@ -121,7 +121,7 @@ const indexContent = `\
  *   module_key  → Must match an application key in Application Setup.
  *   name        → Display name shown in the sidebar.
  *   description → Short summary for tooltips.
- *   icon        → Bootstrap Icons class. Browse: https://icons.getbootstrap.com
+ *   icon        → Font Awesome icon name. Browse: https://fontawesome.com/search?o=r&m=free
  *   group_name  → Sidebar section this appears under.
  *   group_desc  → Description for the sidebar section.
  *   order       → Sidebar position (lower = higher up).
@@ -132,7 +132,7 @@ const ${camel}Module = {
   module_key: "psbuniverse",          // ← change to your app key from Application Setup
   name: "${displayName}",
   description: "TODO: Describe what this module does.",
-  icon: "bi-box",                     // ← pick from https://icons.getbootstrap.com
+  icon: "box",                     // ← pick from https://fontawesome.com/search?o=r&m=free
   group_name: "${groupInfo.group_name}",
   group_desc: "${groupInfo.group_desc}",
   order: 200,                         // ← adjust to control sidebar position

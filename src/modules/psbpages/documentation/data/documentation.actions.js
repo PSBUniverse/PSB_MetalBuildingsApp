@@ -11,7 +11,7 @@ const BOOK_MANIFEST = [
   {
     id: "getting-started",
     title: "Getting Started",
-    icon: "bi-rocket-takeoff",
+    icon: "rocket",
     sections: [
       { id: "getting-started", file: "01-getting-started/getting-started.md", title: "Getting Started" },
     ],
@@ -19,7 +19,7 @@ const BOOK_MANIFEST = [
   {
     id: "architecture",
     title: "Architecture",
-    icon: "bi-diagram-3",
+    icon: "sitemap",
     sections: [
       { id: "overview", file: "02-architecture/overview.md", title: "Architecture Overview" },
       { id: "module-system", file: "02-architecture/module-system.md", title: "Module System" },
@@ -28,7 +28,7 @@ const BOOK_MANIFEST = [
   {
     id: "development-rules",
     title: "Development Rules",
-    icon: "bi-shield-check",
+    icon: "shield-halved",
     sections: [
       { id: "rules", file: "03-development-rules/rules.md", title: "Development Rules" },
     ],
@@ -36,7 +36,7 @@ const BOOK_MANIFEST = [
   {
     id: "ui-system",
     title: "UI System",
-    icon: "bi-palette",
+    icon: "palette",
     sections: [
       { id: "shared-components", file: "04-ui-system/shared-components.md", title: "Shared Components" },
     ],
@@ -44,7 +44,7 @@ const BOOK_MANIFEST = [
   {
     id: "database",
     title: "Database",
-    icon: "bi-database",
+    icon: "database",
     sections: [
       { id: "naming-conventions", file: "05-database/naming-conventions.md", title: "Naming Conventions" },
       { id: "crud-guide", file: "05-database/crud-guide.md", title: "CRUD Guide" },
@@ -54,7 +54,7 @@ const BOOK_MANIFEST = [
   {
     id: "batch-edit",
     title: "Batch Edit",
-    icon: "bi-pencil-square",
+    icon: "pen",
     sections: [
       { id: "blueprint", file: "06-batch-edit/blueprint.md", title: "Implementation Blueprint" },
       { id: "table-batch-modes", file: "06-batch-edit/table-batch-modes.md", title: "Table Batch Modes" },
@@ -63,7 +63,7 @@ const BOOK_MANIFEST = [
   {
     id: "auto-routing",
     title: "Auto-Route Generation",
-    icon: "bi-signpost-split",
+    icon: "signs-post",
     sections: [
       { id: "auto-routing", file: "07-proposals/auto-module-routing.md", title: "Auto-Route Generation" },
     ],
@@ -71,7 +71,7 @@ const BOOK_MANIFEST = [
   {
     id: "junior-dev-guide",
     title: "Junior Dev Guide",
-    icon: "bi-mortarboard",
+    icon: "graduation-cap",
     sections: [
       { id: "quickstart", file: "08-junior-dev-guide/quickstart.md", title: "Quick Start" },
       { id: "full-guide", file: "08-junior-dev-guide/full-guide.md", title: "Full Guide" },
@@ -80,7 +80,7 @@ const BOOK_MANIFEST = [
   {
     id: "changelog",
     title: "Changelog",
-    icon: "bi-clock-history",
+    icon: "clock-rotate-left",
     sections: [
       { id: "changelog", file: "CHANGELOG.md", title: "Release History" },
     ],

@@ -304,6 +304,64 @@
   color: #173348;
 }
 
+/* ── Button variant overrides (action token system) ── */
+.psb-ui-button.btn-primary {
+  background-color: var(--psb-action-edit);
+  border-color: var(--psb-action-edit);
+}
+.psb-ui-button.btn-primary:hover:not(:disabled) {
+  background-color: var(--psb-action-edit-hover);
+  border-color: var(--psb-action-edit-hover);
+}
+
+.psb-ui-button.btn-secondary {
+  background-color: var(--psb-action-cancel);
+  border-color: var(--psb-action-cancel);
+}
+.psb-ui-button.btn-secondary:hover:not(:disabled) {
+  background-color: var(--psb-action-cancel-hover);
+  border-color: var(--psb-action-cancel-hover);
+}
+
+.psb-ui-button.btn-danger {
+  background-color: var(--psb-action-delete);
+  border-color: var(--psb-action-delete);
+}
+.psb-ui-button.btn-danger:hover:not(:disabled) {
+  background-color: var(--psb-action-delete-hover);
+  border-color: var(--psb-action-delete-hover);
+}
+
+.psb-ui-button-success {
+  background-color: var(--psb-action-add) !important;
+  border-color: var(--psb-action-add) !important;
+  color: #fff !important;
+}
+.psb-ui-button-success:hover:not(:disabled) {
+  background-color: var(--psb-action-add-hover) !important;
+  border-color: var(--psb-action-add-hover) !important;
+}
+
+.psb-ui-button-warning {
+  background-color: var(--psb-action-deactivate) !important;
+  border-color: var(--psb-action-deactivate) !important;
+  color: #fff !important;
+}
+.psb-ui-button-warning:hover:not(:disabled) {
+  background-color: var(--psb-action-deactivate-hover) !important;
+  border-color: var(--psb-action-deactivate-hover) !important;
+}
+
+.psb-ui-button-restore {
+  background-color: var(--psb-action-restore) !important;
+  border-color: var(--psb-action-restore) !important;
+  color: #fff !important;
+}
+.psb-ui-button-restore:hover:not(:disabled) {
+  background-color: var(--psb-action-restore-hover) !important;
+  border-color: var(--psb-action-restore-hover) !important;
+}
+
 .psb-setup-action-btn {
   color: #678095;
   background: transparent;
@@ -858,32 +916,32 @@
 }
 
 /* ── Action color: View (gray) ── */
-.action-color-view { color: #6b7280; }
-.action-color-view:hover:not(:disabled) { background: #f3f4f6; color: #4b5563; }
+.action-color-view { color: var(--psb-action-cancel); }
+.action-color-view:hover:not(:disabled) { background: var(--psb-action-cancel-bg); color: var(--psb-action-cancel-hover); }
 
 /* ── Action color: Edit (blue) ── */
-.action-color-edit { color: #2563eb; }
-.action-color-edit:hover:not(:disabled) { background: #eff6ff; color: #1d4ed8; }
+.action-color-edit { color: var(--psb-action-edit); }
+.action-color-edit:hover:not(:disabled) { background: var(--psb-action-edit-bg); color: var(--psb-action-edit-hover); }
 
 /* ── Action color: Save (green) ── */
-.action-color-save { color: #15803d; }
-.action-color-save:hover:not(:disabled) { background: #f0fdf4; color: #166534; }
+.action-color-save { color: var(--psb-action-add); }
+.action-color-save:hover:not(:disabled) { background: var(--psb-action-add-bg); color: var(--psb-action-add-hover); }
 
 /* ── Action color: Deactivate / Disable (amber) ── */
-.action-color-deactivate { color: #d97706; }
-.action-color-deactivate:hover:not(:disabled) { background: #fffbeb; color: #b45309; }
+.action-color-deactivate { color: var(--psb-action-deactivate); }
+.action-color-deactivate:hover:not(:disabled) { background: var(--psb-action-deactivate-bg); color: var(--psb-action-deactivate-hover); }
 
 /* ── Action color: Delete (red) ── */
-.action-color-delete { color: #dc2626; }
-.action-color-delete:hover:not(:disabled) { background: #fef2f2; color: #b91c1c; }
+.action-color-delete { color: var(--psb-action-delete); }
+.action-color-delete:hover:not(:disabled) { background: var(--psb-action-delete-bg); color: var(--psb-action-delete-hover); }
 
 /* ── Action color: Cancel (gray) ── */
-.action-color-cancel { color: #4b5563; }
-.action-color-cancel:hover:not(:disabled) { background: #e5e7eb; color: #374151; }
+.action-color-cancel { color: var(--psb-action-cancel); }
+.action-color-cancel:hover:not(:disabled) { background: var(--psb-action-cancel-bg); color: var(--psb-action-cancel-hover); }
 
-/* ── Action color: Restore (green secondary) ── */
-.action-color-restore { color: #16a34a; }
-.action-color-restore:hover:not(:disabled) { background: #dcfce7; color: #15803d; }
+/* ── Action color: Restore (teal) ── */
+.action-color-restore { color: var(--psb-action-restore); }
+.action-color-restore:hover:not(:disabled) { background: var(--psb-action-restore-bg); color: var(--psb-action-restore-hover); }
 
 .table-actions-empty {
   color: #71889b;
@@ -1409,6 +1467,97 @@
 .psb-ui-badge {
   font-weight: 700;
 }
+
+/* ── Status Badge System ── */
+.psb-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.4;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+
+.psb-status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.psb-status-active {
+  color: var(--psb-status-active);
+  background: var(--psb-status-active-bg);
+  border-color: var(--psb-status-active-border);
+}
+.psb-status-active .psb-status-dot { background: var(--psb-status-active); }
+
+.psb-status-completed {
+  color: var(--psb-status-completed);
+  background: var(--psb-status-completed-bg);
+  border-color: var(--psb-status-completed-border);
+}
+.psb-status-completed .psb-status-dot { background: var(--psb-status-completed); }
+
+.psb-status-processing {
+  color: var(--psb-status-processing);
+  background: var(--psb-status-processing-bg);
+  border-color: var(--psb-status-processing-border);
+}
+.psb-status-processing .psb-status-dot { background: var(--psb-status-processing); }
+
+.psb-status-pending {
+  color: var(--psb-status-pending);
+  background: var(--psb-status-pending-bg);
+  border-color: var(--psb-status-pending-border);
+}
+.psb-status-pending .psb-status-dot { background: var(--psb-status-pending); }
+
+.psb-status-suspended {
+  color: var(--psb-status-suspended);
+  background: var(--psb-status-suspended-bg);
+  border-color: var(--psb-status-suspended-border);
+}
+.psb-status-suspended .psb-status-dot { background: var(--psb-status-suspended); }
+
+.psb-status-failed {
+  color: var(--psb-status-failed);
+  background: var(--psb-status-failed-bg);
+  border-color: var(--psb-status-failed-border);
+}
+.psb-status-failed .psb-status-dot { background: var(--psb-status-failed); }
+
+.psb-status-inactive {
+  color: var(--psb-status-inactive);
+  background: var(--psb-status-inactive-bg);
+  border-color: var(--psb-status-inactive-border);
+}
+.psb-status-inactive .psb-status-dot { background: var(--psb-status-inactive); }
+
+.psb-status-cancelled {
+  color: var(--psb-status-cancelled);
+  background: var(--psb-status-cancelled-bg);
+  border-color: var(--psb-status-cancelled-border);
+}
+.psb-status-cancelled .psb-status-dot { background: var(--psb-status-cancelled); }
+
+.psb-status-archived {
+  color: var(--psb-status-archived);
+  background: var(--psb-status-archived-bg);
+  border-color: var(--psb-status-archived-border);
+}
+.psb-status-archived .psb-status-dot { background: var(--psb-status-archived); }
+
+.psb-status-draft {
+  color: var(--psb-status-draft);
+  background: var(--psb-status-draft-bg);
+  border-color: var(--psb-status-draft-border);
+}
+.psb-status-draft .psb-status-dot { background: var(--psb-status-draft); }
 
 .psb-ui-input,
 .psb-ui-searchbar {

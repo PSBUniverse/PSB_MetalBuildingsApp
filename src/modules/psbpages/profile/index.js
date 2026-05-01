@@ -3,7 +3,7 @@ const profileModule = {
   module_key: "psbuniverse",
   name: "Profile",
   description: "User profile management.",
-  icon: "bi-person-circle",
+  icon: "circle-user",
   group_name: "System",
   group_desc: "Core system pages.",
   order: 20,

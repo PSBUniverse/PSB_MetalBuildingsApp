@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Badge, Button, Card, InlineEditCell, Input, Modal, TableZ, toastError, toastSuccess } from "@/shared/components/ui";
+import { Button, Card, InlineEditCell, Input, Modal, StatusBadge, TableZ, toastError, toastSuccess } from "@/shared/components/ui";
 import {
   isSameId,
   compareText,
@@ -367,13 +367,7 @@ function useStatusSetup({ statuses = [] }) {
 
 // ─── SUB-COMPONENTS ────────────────────────────────────────
 
-function StatusBadge({ isActive }) {
-  return (
-    <Badge bg={isActive ? "success" : "danger"} text="light">
-      {isActive ? "Active" : "Inactive"}
-    </Badge>
-  );
-}
+
 
 function StatusHeader({ hasPendingChanges, pendingSummary, isSavingBatch, isMutatingAction, handleSaveBatch, handleCancelBatch, openAddStatusDialog }) {
   return (
@@ -386,13 +380,13 @@ function StatusHeader({ hasPendingChanges, pendingSummary, isSavingBatch, isMuta
             {pendingSummary.total} pending
           </span>
         ) : null}
-        <Button type="button" size="sm" variant="secondary" loading={isSavingBatch} disabled={!hasPendingChanges || isSavingBatch || isMutatingAction} onClick={handleSaveBatch}>
+        <Button type="button" size="sm" variant="primary" loading={isSavingBatch} disabled={!hasPendingChanges || isSavingBatch || isMutatingAction} onClick={handleSaveBatch}>
           Save Batch
         </Button>
         <Button type="button" size="sm" variant="ghost" disabled={!hasPendingChanges || isSavingBatch || isMutatingAction} onClick={handleCancelBatch}>
           Cancel Batch
         </Button>
-        <Button type="button" size="sm" variant="primary" disabled={isSavingBatch || isMutatingAction} onClick={openAddStatusDialog}>
+        <Button type="button" size="sm" variant="success" disabled={isSavingBatch || isMutatingAction} onClick={openAddStatusDialog}>
           Add Status
         </Button>
       </div>
@@ -438,7 +432,7 @@ function StatusTable({ decoratedStatuses, isMutatingAction, isSavingBatch, pendi
       },
       {
         key: "is_active_bool", label: "Active", width: "22%", sortable: true, align: "center",
-        render: (row) => <StatusBadge isActive={Boolean(row?.is_active_bool)} />,
+        render: (row) => <StatusBadge status={row?.is_active_bool ? "active" : "inactive"} />,
       },
     ],
     [editingStatusId, isMutatingAction, isSavingBatch, onInlineEdit, onStopEditing],
@@ -491,7 +485,7 @@ function StatusDialog({ dialog, statusDraft, isMutatingAction, isSavingBatch, se
           </div>
           <div className="d-flex justify-content-end gap-2">
             <Button variant="ghost" size="sm" onClick={closeDialog} disabled={isBusy}>Cancel</Button>
-            <Button variant="primary" size="sm" loading={isBusy} disabled={isBusy} onClick={dialog.kind === "add-status" ? submitAddStatus : submitEditStatus}>
+            <Button variant={dialog.kind === "add-status" ? "success" : "primary"} size="sm" loading={isBusy} disabled={isBusy} onClick={dialog.kind === "add-status" ? submitAddStatus : submitEditStatus}>
               {dialog.kind === "add-status" ? "Add" : "Save"}
             </Button>
           </div>
@@ -515,7 +509,7 @@ function StatusDialog({ dialog, statusDraft, isMutatingAction, isSavingBatch, se
           <p className="mb-3">Deactivate status <strong>&quot;{dialog.target?.sts_name || "--"}&quot;</strong>? This action will be staged for Save Batch.</p>
           <div className="d-flex justify-content-end gap-2">
             <Button variant="ghost" size="sm" onClick={closeDialog} disabled={isBusy}>Cancel</Button>
-            <Button variant="danger" size="sm" loading={isBusy} disabled={isBusy} onClick={submitDeactivateStatus}>Deactivate</Button>
+            <Button variant="warning" size="sm" loading={isBusy} disabled={isBusy} onClick={submitDeactivateStatus}>Deactivate</Button>
           </div>
         </div>
       ) : null}

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Badge, Button, Card, InlineEditCell, Input, Modal, TableZ, toastError, toastSuccess } from "@/shared/components/ui";
+import { Button, Card, InlineEditCell, Input, Modal, StatusBadge, TableZ, toastError, toastSuccess } from "@/shared/components/ui";
 import {
   parseAppId, isSameId, compareText, buildOrderSignature,
   mapApplicationRow, mapRoleRow, removeObjectKey, mergeUpdatePatch, appendUniqueId,
@@ -442,9 +442,6 @@ function useApplicationSetup({ applications = [], roles = [], initialSelectedApp
 
 // ─── SUB-COMPONENTS ────────────────────────────────────────
 
-function StatusBadge({ isActive }) {
-  return <Badge bg={isActive ? "success" : "danger"} text="light">{isActive ? "Active" : "Inactive"}</Badge>;
-}
 
 function batchMarker(batchState) {
   if (batchState === "hardDeleted") return { text: "Deleted", cls: "psb-batch-marker psb-batch-marker-deleted" };
@@ -473,10 +470,10 @@ function ApplicationHeader({ hasPendingChanges, pendingSummary, isSavingOrder, i
             {pendingSummary.rowOrderChanged > 0 ? <span className="psb-batch-chip psb-batch-chip-order">Reordered</span> : null}
           </>
         ) : null}
-        <Button type="button" size="sm" variant="secondary" loading={isSavingOrder} disabled={!hasPendingChanges || isSavingOrder || isMutatingAction} onClick={handleSaveOrderChanges}>Save Batch</Button>
+        <Button type="button" size="sm" variant="primary" loading={isSavingOrder} disabled={!hasPendingChanges || isSavingOrder || isMutatingAction} onClick={handleSaveOrderChanges}>Save Batch</Button>
         <Button type="button" size="sm" variant="ghost" disabled={!hasPendingChanges || isSavingOrder || isMutatingAction} onClick={handleCancelOrderChanges}>Cancel Batch</Button>
-        <Button type="button" size="sm" variant="primary" disabled={isSavingOrder || isMutatingAction} onClick={openAddApplicationDialog}>Add Application</Button>
-        <Button type="button" size="sm" variant="primary" disabled={isSavingOrder || isMutatingAction || !selectedApp?.app_id || isSelectedAppPendingDeactivation} onClick={openAddRoleDialog}>Add Role</Button>
+        <Button type="button" size="sm" variant="success" disabled={isSavingOrder || isMutatingAction} onClick={openAddApplicationDialog}>Add Application</Button>
+        <Button type="button" size="sm" variant="success" disabled={isSavingOrder || isMutatingAction || !selectedApp?.app_id || isSelectedAppPendingDeactivation} onClick={openAddRoleDialog}>Add Role</Button>
       </div>
     </div>
   );
@@ -493,7 +490,7 @@ function ApplicationTable({ decoratedApplications, selectedApp, isSavingOrder, i
       const isEditing = String(row?.app_id ?? "") === String(editingAppId ?? ""); const editDisabled = !isEditing || isSavingOrder || isMutatingAction;
       return <InlineEditCell value={row?.app_desc || ""} onCommit={(val) => onInlineEdit?.(row, "app_desc", val)} onCancel={onStopEditing} disabled={editDisabled} />;
     }},
-    { key: "is_active_bool", label: "Active", width: "12%", sortable: true, align: "center", render: (row) => <StatusBadge isActive={Boolean(row?.is_active_bool)} /> },
+    { key: "is_active_bool", label: "Active", width: "12%", sortable: true, align: "center", render: (row) => <StatusBadge status={row?.is_active_bool ? "active" : "inactive"} /> },
   ], [editingAppId, isMutatingAction, isSavingOrder, onInlineEdit, onStopEditing, selectedApp?.app_id]);
 
   const actions = useMemo(() => [
@@ -521,7 +518,7 @@ function RolePanel({ selectedApp, decoratedSelectedAppRoles, isSavingOrder, isMu
       const isEditing = String(row?.role_id ?? "") === String(editingRoleId ?? ""); const editDisabled = !isEditing || isSavingOrder || isMutatingAction;
       return <InlineEditCell value={row?.role_desc || ""} onCommit={(val) => onInlineEdit?.(row, "role_desc", val)} onCancel={onStopEditing} disabled={editDisabled} />;
     }},
-    { key: "is_active_bool", label: "Active", width: "16%", sortable: true, align: "center", render: (row) => <StatusBadge isActive={Boolean(row?.is_active_bool)} /> },
+    { key: "is_active_bool", label: "Active", width: "16%", sortable: true, align: "center", render: (row) => <StatusBadge status={row?.is_active_bool ? "active" : "inactive"} /> },
   ], [editingRoleId, isMutatingAction, isSavingOrder, onInlineEdit, onStopEditing]);
 
   const actions = useMemo(() => [
@@ -553,7 +550,7 @@ function ApplicationDialog({ dialog, applicationDraft, roleDraft, isMutatingActi
   if (!kind) return null;
   const isBusy = isMutatingAction;
   const submitMap = { "add-application": submitAddApplication, "edit-application": submitEditApplication, "toggle-application": submitToggleApplication, "deactivate-application": submitDeactivateApplication, "edit-role": submitEditRole, "toggle-role": submitToggleRole, "deactivate-role": submitDeactivateRole, "add-role": submitAddRole };
-  const footerConfig = { "add-application": { label: "Add Application", variant: "primary" }, "edit-application": { label: "Save", variant: "primary" }, "edit-role": { label: "Save", variant: "primary" }, "add-role": { label: "Add Role", variant: "primary" }, "toggle-application": { label: dialog?.nextIsActive ? "Enable" : "Disable", variant: "secondary" }, "toggle-role": { label: dialog?.nextIsActive ? "Enable" : "Disable", variant: "secondary" }, "deactivate-application": { label: "Deactivate Application", variant: "danger" }, "deactivate-role": { label: "Deactivate Role", variant: "danger" } };
+  const footerConfig = { "add-application": { label: "Add Application", variant: "success" }, "edit-application": { label: "Save", variant: "primary" }, "edit-role": { label: "Save", variant: "primary" }, "add-role": { label: "Add Role", variant: "success" }, "toggle-application": { label: dialog?.nextIsActive ? "Enable" : "Disable", variant: "secondary" }, "toggle-role": { label: dialog?.nextIsActive ? "Enable" : "Disable", variant: "secondary" }, "deactivate-application": { label: "Deactivate Application", variant: "warning" }, "deactivate-role": { label: "Deactivate Role", variant: "warning" } };
   const fc = footerConfig[kind] || { label: "OK", variant: "primary" };
   const footer = (<><Button type="button" variant="ghost" onClick={closeDialog} disabled={isBusy}>Cancel</Button><Button type="button" variant={fc.variant} onClick={submitMap[kind]} loading={isBusy}>{fc.label}</Button></>);
   const isAppForm = kind === "add-application" || kind === "edit-application";

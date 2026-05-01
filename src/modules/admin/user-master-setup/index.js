@@ -3,7 +3,7 @@ const userMasterSetupModule = {
   module_key: "psbuniverse",
   name: "User Master Setup",
   description: "Manage user master records and activation status.",
-  icon: "bi-people",
+  icon: "users",
   group_name: "Administration",
   group_desc: "Internal setup tools for user administration.",
   order: 110,

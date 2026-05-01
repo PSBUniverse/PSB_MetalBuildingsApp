@@ -28,7 +28,7 @@ export function getCardGroupDescription(group) {
 }
 
 export function getCardGroupIcon(group) {
-  return group?.icon || "bi-collection";
+  return group?.icon || "layer-group";
 }
 
 export function getCardGroupDisplayOrder(group, fallback = 0) {
@@ -56,7 +56,7 @@ export function getCardRoutePath(card) {
 }
 
 export function getCardIcon(card) {
-  return card?.icon || "bi-grid-3x3-gap";
+  return card?.icon || "table-cells-large";
 }
 
 export function getCardDisplayOrder(card, fallback = 0) {

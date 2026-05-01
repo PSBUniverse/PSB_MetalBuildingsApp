@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Badge, toastError, toastInfo, toastSuccess, toastWarning } from "@/shared/components/ui";
+import { Badge, StatusBadge, toastError, toastInfo, toastSuccess, toastWarning } from "@/shared/components/ui";
 import { createFilterConfig, TABLE_FILTER_TYPES } from "@/shared/components/ui/table/filterSchema";
 import {
   getDataTableFilterOptions,
@@ -56,9 +56,7 @@ const DATA_TABLE_COLUMNS = [
     sortable: true,
     width: 150,
     render: (row) => (
-      <Badge bg={statusBadgeBackground(row.status)} text={row.status === "pending" ? "dark" : "light"}>
-        {row.status_label || row.status}
-      </Badge>
+      <StatusBadge status={row.status} label={row.status_label || undefined} />
     ),
   },
   {

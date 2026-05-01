@@ -55,7 +55,7 @@ export async function createCardGroupAction(payload) {
     app_id: appId,
     group_name: groupName,
     group_desc: normalizeText(payload?.group_desc),
-    icon: normalizeText(payload?.icon, "bi-collection"),
+    icon: normalizeText(payload?.icon, "layer-group"),
     is_active: payload?.is_active !== undefined ? payload.is_active : true,
   };
 
@@ -83,7 +83,7 @@ export async function updateCardGroupAction(groupId, updates) {
     patch.group_name = name;
   }
   if (hasOwn(updates, "group_desc")) patch.group_desc = normalizeText(updates.group_desc);
-  if (hasOwn(updates, "icon")) patch.icon = normalizeText(updates.icon, "bi-collection");
+  if (hasOwn(updates, "icon")) patch.icon = normalizeText(updates.icon, "layer-group");
   if (hasOwn(updates, "is_active")) patch.is_active = updates.is_active;
   if (hasOwn(updates, "display_order")) patch.display_order = updates.display_order;
   if (Object.keys(patch).length === 0) throw new Error("No valid fields to update.");
@@ -150,7 +150,7 @@ export async function createCardAction(payload) {
     card_name: cardName,
     card_desc: normalizeText(payload?.card_desc),
     route_path: normalizeText(payload?.route_path, "#"),
-    icon: normalizeText(payload?.icon, "bi-grid-3x3-gap"),
+    icon: normalizeText(payload?.icon, "table-cells-large"),
     is_active: payload?.is_active !== undefined ? payload.is_active : true,
   };
 
@@ -179,7 +179,7 @@ export async function updateCardAction(cardId, updates) {
   }
   if (hasOwn(updates, "card_desc")) patch.card_desc = normalizeText(updates.card_desc);
   if (hasOwn(updates, "route_path")) patch.route_path = normalizeText(updates.route_path, "#");
-  if (hasOwn(updates, "icon")) patch.icon = normalizeText(updates.icon, "bi-grid-3x3-gap");
+  if (hasOwn(updates, "icon")) patch.icon = normalizeText(updates.icon, "table-cells-large");
   if (hasOwn(updates, "is_active")) patch.is_active = updates.is_active;
   if (hasOwn(updates, "display_order")) patch.display_order = updates.display_order;
   if (Object.keys(patch).length === 0) throw new Error("No valid fields to update.");

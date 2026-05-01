@@ -3,7 +3,7 @@ const examplesModule = {
   module_key: "psbuniverse",
   name: "Examples",
   description: "Component examples and demos.",
-  icon: "bi-code-square",
+  icon: "code",
   group_name: "System",
   group_desc: "Core system pages.",
   order: 30,

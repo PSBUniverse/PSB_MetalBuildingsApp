@@ -1,8 +1,8 @@
-"use client";
+﻿"use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Badge, Button, Card, InlineEditCell, Input, Modal, TableZ, toastError, toastSuccess } from "@/shared/components/ui";
+import { Button, Card, InlineEditCell, Input, Modal, StatusBadge, TableZ, toastError, toastSuccess } from "@/shared/components/ui";
 import {
   parseId, isSameId, compareText, buildOrderSignature,
   mapGroupRow, mapCardRow, removeObjectKey, mergeUpdatePatch, appendUniqueId,
@@ -55,7 +55,7 @@ function useGroupActions({
     const groupName = String(groupDraft.name || "").trim();
     if (!groupName) { toastError("Group name is required."); return; }
     const groupDesc = String(groupDraft.desc || "").trim();
-    const groupIcon = String(groupDraft.icon || "").trim() || "bi-collection";
+    const groupIcon = String(groupDraft.icon || "").trim() || "layer-group";
     const tempGroupId = createTempId(TEMP_GROUP_PREFIX);
     setOrderedGroups((prev) => [...prev, mapGroupRow({
       group_id: tempGroupId, app_id: selectedApp?.app_id, group_name: groupName,
@@ -74,7 +74,7 @@ function useGroupActions({
     const groupName = String(groupDraft.name || "").trim();
     if (!groupName) { toastError("Group name is required."); return; }
     const groupDesc = String(groupDraft.desc || "").trim();
-    const groupIcon = String(groupDraft.icon || "").trim() || "bi-collection";
+    const groupIcon = String(groupDraft.icon || "").trim() || "layer-group";
     const groupId = row.group_id;
     setOrderedGroups((prev) => prev.map((g, i) => isSameId(g?.group_id, groupId)
       ? mapGroupRow({ ...g, group_name: groupName, group_desc: groupDesc, icon: groupIcon }, i) : g));
@@ -239,7 +239,7 @@ function useCardActions({
     if (!cardName) { toastError("Card name is required."); return; }
     const cardDesc = String(cardDraft.desc || "").trim();
     const routePath = String(cardDraft.route_path || "").trim() || "#";
-    const cardIcon = String(cardDraft.icon || "").trim() || "bi-grid-3x3-gap";
+    const cardIcon = String(cardDraft.icon || "").trim() || "table-cells-large";
     const tempCardId = createTempId(TEMP_CARD_PREFIX);
     setAllCards((prev) => [...prev, mapCardRow({
       card_id: tempCardId, group_id: target.group_id, app_id: target.app_id,
@@ -260,7 +260,7 @@ function useCardActions({
     if (!cardName) { toastError("Card name is required."); return; }
     const cardDesc = String(cardDraft.desc || "").trim();
     const routePath = String(cardDraft.route_path || "").trim() || "#";
-    const cardIcon = String(cardDraft.icon || "").trim() || "bi-grid-3x3-gap";
+    const cardIcon = String(cardDraft.icon || "").trim() || "table-cells-large";
     const cardId = row.card_id;
     setAllCards((prev) => prev.map((c, i) => isSameId(c?.card_id, cardId) ? mapCardRow({ ...c, card_name: cardName, card_desc: cardDesc, route_path: routePath, icon: cardIcon }, i) : c));
     setPendingBatch((prev) => {
@@ -622,9 +622,6 @@ function useCardModuleSetup({ applications = [], cardGroups = [], cards = [], in
 
 // ─── SUB-COMPONENTS ────────────────────────────────────────
 
-function StatusBadge({ isActive }) {
-  return <Badge bg={isActive ? "success" : "danger"} text="light">{isActive ? "Active" : "Inactive"}</Badge>;
-}
 
 function batchMarker(bs) {
   const map = {
@@ -657,10 +654,10 @@ function CardModuleHeader({ safeApplications, selectedApp, hasPendingChanges, pe
               {pendingSummary.rowOrderChanged > 0 ? <span className="psb-batch-chip psb-batch-chip-order">Reordered</span> : null}
             </>
           ) : null}
-          <Button type="button" size="sm" variant="secondary" loading={isSaving} disabled={!hasPendingChanges || isSaving || isMutatingAction} onClick={handleSaveBatch}>Save Batch</Button>
+          <Button type="button" size="sm" variant="primary" loading={isSaving} disabled={!hasPendingChanges || isSaving || isMutatingAction} onClick={handleSaveBatch}>Save Batch</Button>
           <Button type="button" size="sm" variant="ghost" disabled={!hasPendingChanges || isSaving || isMutatingAction} onClick={handleCancelBatch}>Cancel Batch</Button>
-          <Button type="button" size="sm" variant="primary" disabled={isSaving || isMutatingAction || !selectedApp?.app_id} onClick={openAddGroupDialog}>Add Group</Button>
-          <Button type="button" size="sm" variant="primary" disabled={isSaving || isMutatingAction || !selectedGroup?.group_id || isSelectedGroupPendingDeactivation} onClick={openAddCardDialog}>Add Card</Button>
+          <Button type="button" size="sm" variant="success" disabled={isSaving || isMutatingAction || !selectedApp?.app_id} onClick={openAddGroupDialog}>Add Group</Button>
+          <Button type="button" size="sm" variant="success" disabled={isSaving || isMutatingAction || !selectedGroup?.group_id || isSelectedGroupPendingDeactivation} onClick={openAddCardDialog}>Add Card</Button>
         </div>
       </div>
       <div className="mb-3">
@@ -692,9 +689,9 @@ function GroupTable({ decoratedGroups, selectedGroup, isSaving, isMutatingAction
     }},
     { key: "group_icon", label: "Icon", width: "12%", sortable: false, align: "center", defaultVisible: false, render: (row) => {
       const isEditing = String(row?.group_id ?? "") === String(editingGroupId ?? ""); const editDisabled = !isEditing || isSaving || isMutatingAction;
-      return <InlineEditCell value={row?.group_icon || row?.icon || ""} onCommit={(val) => onInlineEdit?.(row, "icon", val)} onCancel={onStopEditing} disabled={editDisabled} placeholder="bi-collection" />;
+      return <InlineEditCell value={row?.group_icon || row?.icon || ""} onCommit={(val) => onInlineEdit?.(row, "icon", val)} onCancel={onStopEditing} disabled={editDisabled} placeholder="layer-group" />;
     }},
-    { key: "is_active_bool", label: "Active", width: "10%", sortable: true, align: "center", render: (row) => <StatusBadge isActive={Boolean(row?.is_active_bool)} /> },
+    { key: "is_active_bool", label: "Active", width: "10%", sortable: true, align: "center", render: (row) => <StatusBadge status={row?.is_active_bool ? "active" : "inactive"} /> },
   ], [editingGroupId, isMutatingAction, isSaving, onInlineEdit, onStopEditing, selectedGroup?.group_id]);
 
   const actions = useMemo(() => [
@@ -732,9 +729,9 @@ function CardPanel({ selectedGroup, decoratedSelectedGroupCards, isSaving, isMut
     }},
     { key: "card_icon", label: "Icon", width: "10%", sortable: false, align: "center", defaultVisible: false, render: (row) => {
       const isEditing = String(row?.card_id ?? "") === String(editingCardId ?? ""); const editDisabled = !isEditing || isSaving || isMutatingAction;
-      return <InlineEditCell value={row?.card_icon || row?.icon || ""} onCommit={(val) => onInlineEdit?.(row, "icon", val)} onCancel={onStopEditing} disabled={editDisabled} placeholder="bi-grid-3x3-gap" />;
+      return <InlineEditCell value={row?.card_icon || row?.icon || ""} onCommit={(val) => onInlineEdit?.(row, "icon", val)} onCancel={onStopEditing} disabled={editDisabled} placeholder="table-cells-large" />;
     }},
-    { key: "is_active_bool", label: "Active", width: "12%", sortable: true, align: "center", render: (row) => <StatusBadge isActive={Boolean(row?.is_active_bool)} /> },
+    { key: "is_active_bool", label: "Active", width: "12%", sortable: true, align: "center", render: (row) => <StatusBadge status={row?.is_active_bool ? "active" : "inactive"} /> },
   ], [editingCardId, isMutatingAction, isSaving, onInlineEdit, onStopEditing]);
 
   const actions = useMemo(() => [
@@ -766,7 +763,7 @@ function CardModuleDialog({ dialog, groupDraft, cardDraft, isMutatingAction, set
   if (!kind) return null;
   const isBusy = isMutatingAction;
   const submitMap = { "add-group": submitAddGroup, "edit-group": submitEditGroup, "toggle-group": submitToggleGroup, "deactivate-group": submitDeactivateGroup, "add-card": submitAddCard, "edit-card": submitEditCard, "toggle-card": submitToggleCard, "deactivate-card": submitDeactivateCard };
-  const fc = { "add-group": { label: "Add Group", variant: "primary" }, "edit-group": { label: "Save", variant: "primary" }, "add-card": { label: "Add Card", variant: "primary" }, "edit-card": { label: "Save", variant: "primary" }, "toggle-group": { label: dialog?.nextIsActive ? "Enable" : "Disable", variant: "secondary" }, "toggle-card": { label: dialog?.nextIsActive ? "Enable" : "Disable", variant: "secondary" }, "deactivate-group": { label: "Deactivate Group", variant: "danger" }, "deactivate-card": { label: "Deactivate Card", variant: "danger" } }[kind] || { label: "OK", variant: "primary" };
+  const fc = { "add-group": { label: "Add Group", variant: "success" }, "edit-group": { label: "Save", variant: "primary" }, "add-card": { label: "Add Card", variant: "success" }, "edit-card": { label: "Save", variant: "primary" }, "toggle-group": { label: dialog?.nextIsActive ? "Enable" : "Disable", variant: "secondary" }, "toggle-card": { label: dialog?.nextIsActive ? "Enable" : "Disable", variant: "secondary" }, "deactivate-group": { label: "Deactivate Group", variant: "warning" }, "deactivate-card": { label: "Deactivate Card", variant: "warning" } }[kind] || { label: "OK", variant: "primary" };
   const footer = (<><Button type="button" variant="ghost" onClick={closeDialog} disabled={isBusy}>Cancel</Button><Button type="button" variant={fc.variant} onClick={submitMap[kind]} loading={isBusy}>{fc.label}</Button></>);
   const isGroupForm = kind === "add-group" || kind === "edit-group";
   const isCardForm = kind === "add-card" || kind === "edit-card";
@@ -777,7 +774,7 @@ function CardModuleDialog({ dialog, groupDraft, cardDraft, isMutatingAction, set
         <div className="d-flex flex-column gap-3">
           <div><label className="form-label mb-1">Group Name</label><Input value={groupDraft.name} onChange={(e) => setGroupDraft((p) => ({ ...p, name: e.target.value }))} placeholder="Enter group name" autoFocus /></div>
           <div><label className="form-label mb-1">Description</label><Input as="textarea" rows={3} value={groupDraft.desc} onChange={(e) => setGroupDraft((p) => ({ ...p, desc: e.target.value }))} placeholder="Enter group description" /></div>
-          <div><label className="form-label mb-1">Icon</label><Input value={groupDraft.icon} onChange={(e) => setGroupDraft((p) => ({ ...p, icon: e.target.value }))} placeholder="e.g. bi-collection" /></div>
+          <div><label className="form-label mb-1">Icon</label><Input value={groupDraft.icon} onChange={(e) => setGroupDraft((p) => ({ ...p, icon: e.target.value }))} placeholder="e.g. layer-group" /></div>
         </div>
       ) : null}
       {isCardForm ? (
@@ -786,7 +783,7 @@ function CardModuleDialog({ dialog, groupDraft, cardDraft, isMutatingAction, set
           <div><label className="form-label mb-1">Card Name</label><Input value={cardDraft.name} onChange={(e) => setCardDraft((p) => ({ ...p, name: e.target.value }))} placeholder="Enter card name" autoFocus /></div>
           <div><label className="form-label mb-1">Description</label><Input as="textarea" rows={3} value={cardDraft.desc} onChange={(e) => setCardDraft((p) => ({ ...p, desc: e.target.value }))} placeholder="Enter card description" /></div>
           <div><label className="form-label mb-1">Route Path</label><Input value={cardDraft.route_path} onChange={(e) => setCardDraft((p) => ({ ...p, route_path: e.target.value }))} placeholder="e.g. /my-module" /></div>
-          <div><label className="form-label mb-1">Icon</label><Input value={cardDraft.icon} onChange={(e) => setCardDraft((p) => ({ ...p, icon: e.target.value }))} placeholder="e.g. bi-grid-3x3-gap" /></div>
+          <div><label className="form-label mb-1">Icon</label><Input value={cardDraft.icon} onChange={(e) => setCardDraft((p) => ({ ...p, icon: e.target.value }))} placeholder="e.g. table-cells-large" /></div>
         </div>
       ) : null}
       {kind === "toggle-group" ? <p className="mb-0">{dialog?.nextIsActive ? "Enable" : "Disable"} card group <strong>{dialog?.target?.group_name || ""}</strong>?</p> : null}

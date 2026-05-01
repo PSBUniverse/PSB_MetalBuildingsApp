@@ -18,7 +18,8 @@ This document defines every shared UI component, its behavior contract, and the 
 | Input | Form text input |
 | Modal | Dialog overlay |
 | Card | Content container |
-| Badge | Inline status label |
+| Badge | Inline label (tags, roles, categories) |
+| StatusBadge | Token-driven status indicator pill (active, inactive, pending, etc.) |
 | Toast | Auto-dismiss notification (via `toastSuccess`, `toastError`, etc.) |
 | GlobalToastHost | Single app-level toast container |
 
@@ -27,7 +28,7 @@ This document defines every shared UI component, its behavior contract, and the 
 > **In simple terms:** A "barrel export" just means there's one file that re-exports everything. Instead of remembering which subfolder each component lives in, you import them all from one place: `@/shared/components/ui`.
 
 ```js
-import { TableZ, TableX, Button, Modal, Badge } from "@/shared/components/ui";
+import { TableZ, TableX, Button, Modal, Badge, StatusBadge } from "@/shared/components/ui";
 ```
 
 **Hard rule:** Anything outside this list is rejected unless the shared UI system is explicitly extended first.
@@ -177,17 +178,47 @@ import { Card } from "@/shared/components/ui";
 ```jsx
 import { Badge } from "@/shared/components/ui";
 
-// Default (light background, dark text)
-<Badge>Draft</Badge>
-
-// Colored variants using Bootstrap bg names
-<Badge bg="success" text="white">Active</Badge>
-<Badge bg="danger" text="white">Rejected</Badge>
-<Badge bg="warning" text="dark">Pending</Badge>
-<Badge bg="info" text="white">In Review</Badge>
+// Use Badge for non-status labels: tags, roles, categories
+<Badge bg="primary">Admin</Badge>
+<Badge bg="info" text="dark">v2.1</Badge>
+<Badge bg="light" text="dark">Optional</Badge>
 ```
 
-**What you'll see:** A small rounded label. Use it inside table cells or next to headings to show status. Default is gray — use `bg` to change the color.
+**What you'll see:** A small rounded label. Use it for categorical tags, role labels, or version indicators — anything that is NOT a status. For active/inactive/pending/failed statuses, use `StatusBadge` instead.
+
+---
+
+### StatusBadge
+
+```jsx
+import { StatusBadge } from "@/shared/components/ui";
+
+// Basic usage — pass a status string
+<StatusBadge status="active" />
+<StatusBadge status="inactive" />
+<StatusBadge status="pending" />
+<StatusBadge status="failed" />
+<StatusBadge status="suspended" />
+<StatusBadge status="processing" />
+<StatusBadge status="draft" />
+<StatusBadge status="archived" />
+
+// Custom label override
+<StatusBadge status="active" label="Enabled" />
+
+// In a table column
+{
+  key: "is_active",
+  label: "Status",
+  render: (row) => <StatusBadge status={row.is_active ? "active" : "inactive"} />,
+}
+```
+
+**What you'll see:** A pill-shaped badge with a small colored dot and label. Colors are driven by CSS tokens in `variables.css` — every module gets the same colors automatically.
+
+**Supported statuses:** `active`, `completed`, `approved`, `processing`, `in-progress`, `pending`, `waiting`, `suspended`, `failed`, `error`, `rejected`, `inactive`, `disabled`, `cancelled`, `archived`, `draft`
+
+**Rule:** All active/inactive status indicators must use `StatusBadge`. Do not use raw `Badge` with `bg="success"` / `bg="danger"` for status display.
 
 ---
 
@@ -249,7 +280,7 @@ Here's what a real module view looks like using shared components:
 "use client";
 
 import { useState } from "react";
-import { Card, Button, Modal, Badge, Input } from "@/shared/components/ui";
+import { Card, Button, Modal, StatusBadge, Input } from "@/shared/components/ui";
 import { toastSuccess, toastError } from "@/shared/utils/toast";
 
 export default function MetalBuildingsView({ items = [] }) {
@@ -287,9 +318,7 @@ export default function MetalBuildingsView({ items = [] }) {
           {items.map((item) => (
             <div key={item.id} className="col-md-4">
               <Card title={item.name}>
-                <Badge bg={item.is_active ? "success" : "secondary"} text="white">
-                  {item.is_active ? "Active" : "Inactive"}
-                </Badge>
+                <StatusBadge status={item.is_active ? "active" : "inactive"} />
               </Card>
             </div>
           ))}
@@ -318,7 +347,7 @@ export default function MetalBuildingsView({ items = [] }) {
 }
 ```
 
-This example uses Button, Card, Badge, Modal, Input, and Toast — all from shared components, zero custom UI.
+This example uses Button, Card, StatusBadge, Modal, Input, and Toast — all from shared components, zero custom UI.
 
 ---
 
@@ -492,6 +521,15 @@ All shared components follow these locked design tokens.
 | Property | Spec |
 |----------|------|
 | Layout | Small, rounded, inline |
+| Use for | Tags, roles, categories, version labels |
+
+### StatusBadge
+
+| Property | Spec |
+|----------|------|
+| Layout | Pill-shaped with dot indicator |
+| Colors | Driven by `--psb-status-*` tokens in `variables.css` |
+| Use for | Active/inactive, pending, failed, processing, etc. |
 
 ---
 
@@ -718,6 +756,7 @@ Core includes wrapper components under `src/shared/components/ui`:
 3. Input
 4. Modal
 5. Table
+6. StatusBadge
 
 **Usage goals:**
 - Keep Bootstrap styling consistent across modules by using these wrappers.

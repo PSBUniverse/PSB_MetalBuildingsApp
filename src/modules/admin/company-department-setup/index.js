@@ -3,7 +3,7 @@ const companyDepartmentSetupModule = {
   module_key: "psbuniverse",
   name: "Company Department Setup",
   description: "Configure companies and company-linked departments.",
-  icon: "bi-diagram-3",
+  icon: "sitemap",
   group_name: "Administration",
   group_desc: "Tools for organization setup and management.",
   order: 120,

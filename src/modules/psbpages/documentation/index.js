@@ -3,7 +3,7 @@ const documentationModule = {
   module_key: "psbuniverse",
   name: "Documentation",
   description: "Project documentation and developer guide.",
-  icon: "bi-book",
+  icon: "book",
   group_name: "System",
   group_desc: "Core system pages.",
   order: 40,

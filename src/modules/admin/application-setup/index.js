@@ -3,7 +3,7 @@ const applicationSetupModule = {
   module_key: "psbuniverse",
   name: "Application Setup",
   description: "Configure and manage application settings.",
-  icon: "bi-gear",
+  icon: "gear",
   group_name: "Administration",
   group_desc: "Tools for system configuration and management.",
   order: 100,

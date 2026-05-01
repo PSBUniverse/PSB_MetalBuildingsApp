@@ -54,7 +54,7 @@ const myModule = {
   module_key: "metal-app",
   name: "Metal Buildings",
   description: "Metal Buildings application.",
-  icon: "bi-building",
+  icon: "building",
   group_name: "Applications",
   group_desc: "Business applications.",
   order: 200,
@@ -79,7 +79,7 @@ export default myModule;
 | `module_key` | Yes | Matches `module_key` in `psb_s_application`. Core resolves `app_id` from this. |
 | `name` | Yes | Display name shown on the dashboard |
 | `description` | No | Short text shown under the module card |
-| `icon` | No | Bootstrap icon class (e.g. `bi-building`) |
+| `icon` | No | Font Awesome icon name (e.g. `building`) |
 | `group_name` | No | Dashboard group this card belongs to |
 | `group_desc` | No | Description for the group |
 | `order` | No | Sort order (lower = appears first) |

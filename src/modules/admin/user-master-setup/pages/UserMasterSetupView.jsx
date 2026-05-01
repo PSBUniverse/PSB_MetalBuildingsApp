@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faXmark, faCheck } from "@fortawesome/free-solid-svg-icons";
-import { Badge, Button, Card, Input, Modal, TableZ, toastError, toastInfo, toastSuccess, toastWarning } from "@/shared/components/ui";
+import { Badge, Button, Card, Input, Modal, StatusBadge, TableZ, toastError, toastInfo, toastSuccess, toastWarning } from "@/shared/components/ui";
 import {
   TABS, EMPTY_LOOKUPS, normalizeText, normalizeOptionalText, asChoiceValue, rowIdOf, isTemporaryId,
   isTruthy, inferActiveFromStatus, formatDateTime,
@@ -375,7 +375,7 @@ function UserMasterHeader({
         <span className={`small ${hasPendingChanges ? "text-warning" : "text-muted"}`}>
           {hasPendingChanges ? `${pendingCount} staged change(s)` : "No staged changes"}
         </span>
-        <Button type="button" variant="secondary" size="sm" onClick={openAddUserPanel} disabled={isSavingBatch || isRefreshing}>
+        <Button type="button" variant="success" size="sm" onClick={openAddUserPanel} disabled={isSavingBatch || isRefreshing}>
           Add User
         </Button>
         <Button type="button" variant="primary" size="sm" onClick={saveBatch} disabled={!hasPendingChanges || isSavingBatch || isRefreshing}>
@@ -402,9 +402,7 @@ function UserTableSection({ tableRows, panelUserId, panelOpen, onRowClick }) {
     {
       key: "status_label", label: "Status", width: 130, sortable: true, align: "center",
       render: (row) => (
-        <Badge bg={row?.is_active ? "success" : "secondary"} text="light">
-          {normalizeText(row?.status_label).toUpperCase() || (row?.is_active ? "ACTIVE" : "INACTIVE")}
-        </Badge>
+        <StatusBadge status={row?.is_active ? "active" : "inactive"} label={normalizeText(row?.status_label).toUpperCase() || undefined} />
       ),
     },
   ], []);
@@ -437,7 +435,7 @@ function UserPanelSection({
     { key: "application_name", label: "Application", width: 260 },
     { key: "role_name", label: "Role", width: 260 },
     { key: "is_active", label: "Status", width: 120, align: "center",
-      render: (r) => <Badge bg={r?.is_active ? "success" : "secondary"} text="light">{r?.is_active ? "ACTIVE" : "INACTIVE"}</Badge> },
+      render: (r) => <StatusBadge status={r?.is_active ? "active" : "inactive"} /> },
   ], []);
 
   const accessTableActions = useMemo(() => [
@@ -456,7 +454,7 @@ function UserPanelSection({
         <div>
           <h2 className="h6 mb-1">{panelMode === "add" ? "Add User" : panelMode === "edit" ? "Edit User" : "User Details"}</h2>
           <div className="d-flex align-items-center gap-1 flex-wrap umsp-status-row">
-            <Badge bg={form?.is_active ? "success" : "secondary"} text="light">{selectedStatusLabel}</Badge>
+            <StatusBadge status={form?.is_active ? "active" : "inactive"} label={selectedStatusLabel} />
             <Badge bg={panelMode === "view" ? "info" : "warning"} text="dark">{panelMode.toUpperCase()}</Badge>
             {panelDirty ? <span className="small text-danger fw-semibold">Unsaved changes</span> : <span className="small text-muted">All changes staged</span>}
           </div>
@@ -523,7 +521,7 @@ function UserPanelSection({
               <>
                 <div className="d-flex justify-content-between align-items-center mb-2 umsp-access-toolbar">
                   <div className="small text-muted umsp-access-helper-text">Assign application role access using shared setup table controls.</div>
-                  <Button type="button" variant="secondary" size="sm" className="umsp-access-trigger-btn" onClick={startAccessCreate} disabled={!panelEditable}>Add Access</Button>
+                  <Button type="button" variant="success" size="sm" className="umsp-access-trigger-btn" onClick={startAccessCreate} disabled={!panelEditable}>Add Access</Button>
                 </div>
                 {accessEditor?.mode ? (
                   <div className="umsp-access-editor mb-2">
@@ -615,13 +613,13 @@ function UserModalsSection({
 
       <Modal show={Boolean(pendingAccessDeactivateRow)} onHide={closeAccessDeactivateModal} title="Deactivate Access"
         footer={<><Button type="button" variant="ghost" onClick={closeAccessDeactivateModal}>Keep Access</Button>
-          <Button type="button" variant="danger" onClick={confirmRemoveAccessRow}>Deactivate Access</Button></>}>
+          <Button type="button" variant="warning" onClick={confirmRemoveAccessRow}>Deactivate Access</Button></>}>
         <p className="mb-0">Deactivate access {pendingAccessDeactivateRow?.application_name || "Application"}{" / "}{pendingAccessDeactivateRow?.role_name || "Role"}?</p>
       </Modal>
 
       <Modal show={showDeactivateUserModal} onHide={() => setShowDeactivateUserModal(false)} title="Deactivate User"
         footer={<><Button type="button" variant="ghost" onClick={() => setShowDeactivateUserModal(false)} disabled={isDeactivatingUser || isSavingBatch || isRefreshing}>Keep User Active</Button>
-          <Button type="button" variant="danger" onClick={confirmDeactivateCurrentUser} disabled={isDeactivatingUser || isSavingBatch || isRefreshing}>{isDeactivatingUser ? "Deactivating..." : "Deactivate User"}</Button></>}>
+          <Button type="button" variant="warning" onClick={confirmDeactivateCurrentUser} disabled={isDeactivatingUser || isSavingBatch || isRefreshing}>{isDeactivatingUser ? "Deactivating..." : "Deactivate User"}</Button></>}>
         <p className="mb-0">Deactivate this user? This is a soft delete and will revoke all system access.</p>
       </Modal>
 

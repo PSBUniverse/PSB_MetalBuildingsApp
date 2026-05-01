@@ -3,7 +3,7 @@ const cardModuleSetupModule = {
   module_key: "psbuniverse",
   name: "Card Module Setup",
   description: "Configure application card groups and cards.",
-  icon: "bi-card-list",
+  icon: "list-check",
   group_name: "Administration",
   group_desc: "Tools for system configuration and management.",
   order: 130,

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useCallback, useMemo, useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -11,6 +11,7 @@ import {
   Input,
   Modal,
   SearchBar,
+  StatusBadge,
   TableZ,
   TABLE_FILTER_TYPES,
   createFilterConfig,
@@ -130,7 +131,7 @@ export async function createCard(payload) {
       card_name: cardName,
       card_desc: payload?.card_desc ?? "",
       route_path: payload?.route_path ?? "#",
-      icon: payload?.icon ?? "bi-grid-3x3-gap",
+      icon: payload?.icon ?? "table-cells-large",
       is_active: true,
     })
     .select("*")
@@ -165,9 +166,7 @@ const cardColumns = useMemo(() => [
     key: "is_active",
     label: "Active",
     width: 100,
-    render: (row) => <Badge bg={row.is_active ? "success" : "secondary"}>
-      {row.is_active ? "Active" : "Inactive"}
-    </Badge>,
+    render: (row) => <StatusBadge status={row.is_active ? "active" : "inactive"} />,
   },
 ], []);
 
@@ -245,17 +244,13 @@ const groupColumns = useMemo(() => [
   { key: "group_desc",    label: "Description", sortable: false, width: 250 },
   // "Icon" â€” hidden by default, available via Customize Table panel
   { key: "icon",          label: "Icon",        sortable: false, width: 120, defaultVisible: false },
-  // "Active" â€” render with Badge for visual status
+  // "Active" - render with StatusBadge for visual status
   {
     key: "is_active",
     label: "Active",
     sortable: false,
     width: 100,
-    render: (row) => (
-      <Badge bg={row.is_active ? "success" : "secondary"}>
-        {row.is_active ? "Yes" : "No"}
-      </Badge>
-    ),
+    render: (row) => <StatusBadge status={row.is_active ? "active" : "inactive"} />,
   },
 ], []);
 
@@ -390,23 +385,27 @@ const SNIPPET_BUTTON = `import { Button } from "@/shared/components/ui";
 
 // Variants determine the visual style and semantic meaning:
 //   "primary"   ? main action (Save, Submit, Approve)
-//   "secondary" ? secondary action (Cancel, Back, Reset)
-//   "danger"    ? destructive action (Delete, Deactivate, Reject)
-//   "ghost"     ? subtle/text-only action (Help, View Details)
+//   "primary"   → main CTA, save actions (blue)
+//   "success"   → creation / add actions (green)
+//   "secondary" → secondary action (Cancel, Back, Reset)
+//   "warning"   → reversible caution (Deactivate, Disable)
+//   "danger"    → destructive action (Delete, Remove permanently)
+//   "restore"   → recovery action (Restore, Re-enable)
+//   "ghost"     → subtle/text-only action (Help, View Details)
 
 // Real example: Card Module Setup batch save toolbar
 <Button variant="primary" loading={isSaving} onClick={handleSaveBatch}>
   Save Batch ({pendingSummary.total})
 </Button>
-<Button variant="secondary" onClick={handleCancelBatch} disabled={isSaving}>
+<Button variant="ghost" onClick={handleCancelBatch} disabled={isSaving}>
   Cancel
 </Button>
 
-// Real example: Modal footer with save flow
+// Real example: Modal footer with add flow
 <Button variant="ghost" onClick={closeDialog} disabled={isMutatingAction}>
   Cancel
 </Button>
-<Button variant="primary" loading={isMutatingAction} onClick={handleConfirmAddGroup}>
+<Button variant="success" loading={isMutatingAction} onClick={handleConfirmAddGroup}>
   Add Group
 </Button>
 
@@ -645,7 +644,7 @@ const handleConfirmAddGroup = async () => {
       app_id: selectedApp.app_id,
       group_name: groupName,
       group_desc: groupDraft.desc.trim(),
-      icon: groupDraft.icon.trim() || "bi-collection",
+      icon: groupDraft.icon.trim() || "layer-group",
     });
 
     toastSuccess("Card group added.", "Add Group");
@@ -677,40 +676,22 @@ const handleConfirmAddGroup = async () => {
   <Input value={groupDraft.desc} onChange={(e) => setGroupDraft(p => ({...p, desc: e.target.value}))} placeholder="Description" />
 </Modal>`;
 
-const SNIPPET_BADGE = `import { Badge } from "@/shared/components/ui";
+const SNIPPET_BADGE = `import { StatusBadge } from "@/shared/components/ui";
 
-// Badge displays status labels with color-coded backgrounds.
-// Used inside table column renderers to show row status visually.
+// StatusBadge renders a token-driven pill badge for status values.
+// Supported statuses: active, inactive, pending, processing,
+// completed, failed, cancelled, archived, draft, suspended.
 //
-// Real example: Card Module Setup â€” is_active column renderer
+// Real example: Card Module Setup - is_active column renderer
 {
   key: "is_active",
   label: "Active",
   width: 100,
-  render: (row) => (
-    <Badge bg={row.is_active ? "success" : "secondary"}>
-      {row.is_active ? "Yes" : "No"}
-    </Badge>
-  ),
+  render: (row) => <StatusBadge status={row.is_active ? "active" : "inactive"} />,
 }
 
-// Real example: User Master Setup â€” user status column
-{
-  key: "status",
-  label: "Status",
-  render: (row) => {
-    const map = {
-      active:   { bg: "success",   text: "light" },
-      pending:  { bg: "warning",   text: "dark"  },
-      inactive: { bg: "secondary", text: "light" },
-    };
-    const s = map[row.status] || { bg: "dark", text: "light" };
-    return <Badge bg={s.bg} text={s.text}>{row.status}</Badge>;
-  },
-}
-
-// Available bg values: success, warning, secondary, danger, dark, primary, info`;
-
+// Custom label override
+<StatusBadge status="active" label="Enabled" />`;
 const SNIPPET_TOAST = `import { toastSuccess, toastError, toastWarning, toastInfo } from "@/shared/components/ui";
 
 // Toast shows temporary notification messages in the top-right corner.
@@ -804,7 +785,7 @@ const myModule = {
   module_key: "my-app",         // â† ask your senior for this value
   name: "My Module",
   description: "My Module application.",
-  icon: "bi-grid",
+  icon: "table-cells",
   group_name: "Applications",
   group_desc: "Business applications.",
   order: 200,
@@ -945,7 +926,7 @@ const SNIPPET_ROLES_VIEW = `// pages/RolesView.jsx â€” CLIENT COMPONENT ("u
 
 import { useState } from "react";
 import { createRole, deleteRole } from "../data/roles.actions";
-import { Card, Button, Modal, Input, Badge } from "@/shared/components/ui";
+import { Card, Button, Modal, Input, StatusBadge } from "@/shared/components/ui";
 import { toastSuccess, toastError } from "@/shared/utils/toast";
 
 export default function RolesView({ seedRoles }) {
@@ -982,14 +963,12 @@ export default function RolesView({ seedRoles }) {
   return (
     <div className="container mt-4">
       <Card title="Roles" toolbar={
-        <Button variant="primary" onClick={() => setShowAdd(true)}>Add Role</Button>
+        <Button variant="success" onClick={() => setShowAdd(true)}>Add Role</Button>
       }>
         {roles.map((role) => (
           <div key={role.role_id} className="d-flex justify-content-between p-2 border-bottom">
             <span>{role.role_name}</span>
-            <Badge bg={role.is_active ? "success" : "secondary"}>
-              {role.is_active ? "Active" : "Inactive"}
-            </Badge>
+            <StatusBadge status={role.is_active ? "active" : "inactive"} />
           </div>
         ))}
       </Card>
@@ -1014,7 +993,7 @@ const rolesModule = {
   module_key: "roles-app",     // â† must match psb_s_application.module_key
   name: "Roles",
   description: "Manage user roles and permissions.",
-  icon: "bi-shield-lock",
+  icon: "shield-halved",
   group_name: "Admin",
   group_desc: "Admin modules.",
   order: 100,
@@ -1054,12 +1033,9 @@ function parseDateOnly(value) {
   return Number.isFinite(parsed.getTime()) ? parsed : null;
 }
 
-function getStatusBadge(status) {
-  const s = normalizeText(status);
-  if (s === "active")   return { bg: "success",   text: "light" };
-  if (s === "pending")  return { bg: "warning",   text: "dark"  };
-  if (s === "inactive") return { bg: "secondary", text: "light" };
-  return { bg: "dark", text: "light" };
+function getStatusBadge() {
+  // DEPRECATED: kept as placeholder; use <StatusBadge status="..." /> instead.
+  return { bg: "secondary", text: "light" };
 }
 
 async function copyText(text) {
@@ -1557,10 +1533,10 @@ function QuickStartUiRecipesContent() {
       </ExampleBlock>
       <ExampleBlock title="Badge" snippet={SNIPPET_BADGE}>
         <div className={styles.badgeRow}>
-          <Badge bg="success">Active</Badge>
-          <Badge bg="warning" text="dark">Pending</Badge>
-          <Badge bg="secondary">Inactive</Badge>
-          <Badge bg="dark">Suspended</Badge>
+          <StatusBadge status="active" />
+          <StatusBadge status="pending" />
+          <StatusBadge status="inactive" />
+          <StatusBadge status="suspended" />
         </div>
       </ExampleBlock>
     </div>
@@ -1602,8 +1578,7 @@ function PlaygroundTab() {
     {
       key: "status", label: "Status", sortable: true, width: 120,
       render: (row) => {
-        const s = getStatusBadge(row.status);
-        return <Badge bg={s.bg} text={s.text}>{row.status}</Badge>;
+        return <StatusBadge status={row.status} />;
       },
     },
     { key: "created_at", label: "Created", sortable: true, width: 130 },
@@ -2296,32 +2271,32 @@ const handleSearch = async (value) => {
         <div className={styles.playBody}>
           <p className={styles.playLabel}>Status Badges</p>
           <p style={{ fontSize: 12, color: "#4f6a7d", margin: 0 }}>
-            Use badges for status indicators. Always pick colors consistently across the project.
+            Use StatusBadge for status indicators. Colors are driven by CSS tokens for project-wide consistency.
           </p>
           <div className={styles.badgeRow}>
-            <Badge bg="success">Active</Badge>
-            <Badge bg="warning" text="dark">Pending</Badge>
-            <Badge bg="danger">Rejected</Badge>
-            <Badge bg="secondary">Inactive</Badge>
-            <Badge bg="dark">Suspended</Badge>
-            <Badge bg="info" text="dark">In Review</Badge>
-            <Badge bg="light" text="dark">Draft</Badge>
+            <StatusBadge status="active" />
+            <StatusBadge status="pending" />
+            <StatusBadge status="failed" />
+            <StatusBadge status="inactive" />
+            <StatusBadge status="suspended" />
+            <StatusBadge status="processing" />
+            <StatusBadge status="draft" />
           </div>
 
           <p className={styles.playLabel} style={{ marginTop: 12 }}>Status Color Conventions</p>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 6 }}>
             {[
-              { bg: "success",   meaning: "Active, Approved, Complete, Enabled" },
-              { bg: "warning",   meaning: "Pending, Review, In Progress" },
-              { bg: "danger",    meaning: "Error, Rejected, Failed, Overdue" },
-              { bg: "secondary", meaning: "Inactive, Disabled, Archived" },
-              { bg: "dark",      meaning: "Suspended, Voided, Terminated" },
-              { bg: "info",      meaning: "Informational, Under Review" },
+              { status: "active",     meaning: "Active, Approved, Complete, Enabled" },
+              { status: "pending",    meaning: "Pending, Review, Waiting" },
+              { status: "failed",     meaning: "Error, Rejected, Failed, Overdue" },
+              { status: "inactive",   meaning: "Inactive, Disabled" },
+              { status: "suspended",  meaning: "Suspended, Voided, Terminated" },
+              { status: "processing", meaning: "In Progress, Under Review" },
+              { status: "archived",   meaning: "Archived, Historical" },
+              { status: "draft",      meaning: "Draft, Unpublished" },
             ].map((s) => (
-              <div key={s.bg} style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 8px", background: "#fff", border: "1px solid #e2edf5", borderRadius: 6 }}>
-                <Badge bg={s.bg} text={s.bg === "warning" || s.bg === "info" ? "dark" : undefined}>
-                  {s.bg}
-                </Badge>
+              <div key={s.status} style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 8px", background: "#fff", border: "1px solid #e2edf5", borderRadius: 6 }}>
+                <StatusBadge status={s.status} />
                 <span style={{ fontSize: 11, color: "#4f6a7d" }}>{s.meaning}</span>
               </div>
             ))}
@@ -2331,42 +2306,30 @@ const handleSearch = async (value) => {
           <div style={{ padding: "8px 12px", background: "#f5faff", borderRadius: 8, border: "1px solid #d3e5f3" }}>
             <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
               <span style={{ fontSize: 12, color: "#5a7a91", width: 80 }}>active →</span>
-              <Badge bg="success">active</Badge>
+              <StatusBadge status="active" />
             </div>
             <div style={{ display: "flex", gap: 16, alignItems: "center", marginTop: 4 }}>
               <span style={{ fontSize: 12, color: "#5a7a91", width: 80 }}>pending →</span>
-              <Badge bg="warning" text="dark">pending</Badge>
+              <StatusBadge status="pending" />
             </div>
             <div style={{ display: "flex", gap: 16, alignItems: "center", marginTop: 4 }}>
               <span style={{ fontSize: 12, color: "#5a7a91", width: 80 }}>inactive →</span>
-              <Badge bg="secondary">inactive</Badge>
+              <StatusBadge status="inactive" />
             </div>
           </div>
 
-          <Snippet title="Badge usage in table columns" code={`import { Badge } from "@/shared/components/ui";
-
-// Status badge helper (define once per module)
-function getStatusBadge(status) {
-  const map = {
-    active:    { bg: "success" },
-    pending:   { bg: "warning", text: "dark" },
-    inactive:  { bg: "secondary" },
-    suspended: { bg: "dark" },
-    rejected:  { bg: "danger" },
-  };
-  return map[status] || { bg: "light", text: "dark" };
-}
+          <Snippet title="StatusBadge usage in table columns" code={`import { StatusBadge } from "@/shared/components/ui";
 
 // In column definition
 const columns = [
   {
     key: "status", label: "Status", sortable: true, width: 120,
-    render: (row) => {
-      const s = getStatusBadge(row.status);
-      return <Badge bg={s.bg} text={s.text}>{row.status}</Badge>;
-    },
+    render: (row) => <StatusBadge status={row.status} />,
   },
-];`} />
+];
+
+// Supported statuses: active, inactive, pending, processing,
+// completed, failed, cancelled, archived, draft, suspended`} />
         </div>
       ),
     },
@@ -2528,13 +2491,13 @@ const handleSave = async () => {
             {showTableLog ? <pre className={styles.eventPre}>{JSON.stringify(lastEvent, null, 2)}</pre> : null}
           </div>
 
-          <Snippet title="Minimal table setup" code={`import { TableZ, TABLE_FILTER_TYPES, createFilterConfig } from "@/shared/components/ui";
+          <Snippet title="Minimal table setup" code={`import { TableZ, StatusBadge, TABLE_FILTER_TYPES, createFilterConfig } from "@/shared/components/ui";
 
 const columns = [
   { key: "employee_code", label: "Code",   sortable: true, width: 130 },
   { key: "full_name",     label: "Name",   sortable: true, width: 180 },
   { key: "status",        label: "Status", sortable: true, width: 120,
-    render: (row) => <Badge bg={statusColor(row.status)}>{row.status}</Badge>,
+    render: (row) => <StatusBadge status={row.status} />,
   },
 ];
 
@@ -2704,11 +2667,7 @@ function BonusRealWorldTable() {
     { key: "role",          label: "Role",      sortable: true, width: 110 },
     {
       key: "status", label: "Status", sortable: true, width: 120,
-      render: (row) => {
-        const map = { pending: { bg: "warning", text: "dark" }, approved: { bg: "success" }, rejected: { bg: "danger" } };
-        const s = map[row.status] || { bg: "secondary" };
-        return <Badge bg={s.bg} text={s.text}>{row.status}</Badge>;
-      },
+      render: (row) => <StatusBadge status={row.status} />,
     },
     { key: "submitted_at", label: "Submitted", sortable: true, width: 130 },
   ], []);
@@ -2940,7 +2899,7 @@ function BonusAddUserForm() {
       </div>
       <div className={styles.addUserActions}>
         <Button variant="secondary" onClick={() => { setForm(EMPTY_FORM); setTouched({}); }}>Reset</Button>
-        <Button variant="primary" loading={saving} onClick={handleSubmit}>Add User</Button>
+        <Button variant="success" loading={saving} onClick={handleSubmit}>Add User</Button>
       </div>
     </div>
   );
@@ -3169,12 +3128,12 @@ function ReferenceTab() {
             <RefPropRow prop="children" required type="ReactNode" desc="Label text." />
           </div>
           <div className={styles.badgeRow}>
-            <Badge bg="success">Active</Badge>
-            <Badge bg="warning" text="dark">Pending</Badge>
-            <Badge bg="secondary">Inactive</Badge>
-            <Badge bg="dark">Suspended</Badge>
+            <StatusBadge status="active" />
+            <StatusBadge status="pending" />
+            <StatusBadge status="inactive" />
+            <StatusBadge status="suspended" />
           </div>
-          <Snippet title="Badge in table column renderer (real examples)" code={SNIPPET_BADGE} />
+          <Snippet title="StatusBadge in table column renderer (real examples)" code={SNIPPET_BADGE} />
         </div>
       ),
     },
@@ -3368,11 +3327,7 @@ const TABLEX_SNIPPET_COLUMNS_OBJECT = `// ADVANCED WAY: use objects when you nee
     {
       key: "is_active",
       label: "Active",
-      render: (row) => (
-        <Badge bg={row.is_active ? "success" : "secondary"}>
-          {row.is_active ? "Yes" : "No"}
-        </Badge>
-      ),
+      render: (row) => <StatusBadge status={row.is_active ? "active" : "inactive"} />,
     },
   ]}
 />
@@ -3763,11 +3718,7 @@ const columns = [
     key: "is_active",
     label: "Active",
     width: 100,
-    render: (row) => (
-      <Badge bg={row.is_active ? "success" : "secondary"}>
-        {row.is_active ? "Yes" : "No"}
-      </Badge>
-    ),
+    render: (row) => <StatusBadge status={row.is_active ? "active" : "inactive"} />,
   },
 ];
 

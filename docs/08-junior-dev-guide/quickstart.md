@@ -45,7 +45,7 @@ const metalBuildingsModule = {
   module_key: "metal-app",      // ← ask your senior for this value
   name: "Metal Buildings",
   description: "Metal Buildings application.",
-  icon: "bi-building",          // ← pick from https://icons.getbootstrap.com
+  icon: "building",          // ← pick from https://fontawesome.com/search?o=r&m=free
   group_name: "Applications",
   group_desc: "Business applications.",
   order: 200,
@@ -65,7 +65,7 @@ export default metalBuildingsModule;
 | `module_key` | Which application this belongs to — must match a `module_key` in `psb_s_application` (ask your senior for the value) |
 | `name` | The display name users see on the dashboard |
 | `description` | A short sentence shown under the module card |
-| `icon` | A Bootstrap icon class (e.g. `bi-building`, `bi-gear`) |
+| `icon` | A Font Awesome icon name (e.g. `building`, `gear`) |
 | `group_name` | Which group this card sits under on the dashboard |
 | `group_desc` | Description for the group |
 | `order` | Sort order (lower number = appears first) |

@@ -1,6 +1,6 @@
 /**
- * Centralized icon registry — maps legacy Bootstrap-Icon string names
- * to Font Awesome icon definitions.
+ * Centralized icon registry — maps string names to Font Awesome icon
+ * definitions.
  *
  * Every icon used anywhere in the app should be registered here so that
  * string-based icon references (stored in the database, action configs, etc.)
@@ -8,78 +8,83 @@
  */
 
 import {
-  faSort,
-  faSortUp,
-  faSortDown,
   faBan,
+  faBook,
+  faBox,
   faBucket,
+  faBuilding,
   faCheck,
   faChevronDown,
+  faChevronLeft,
+  faChevronRight,
   faChevronUp,
+  faCircleUser,
+  faClockRotateLeft,
+  faCode,
+  faDatabase,
+  faEllipsisVertical,
   faEnvelope,
+  faGear,
+  faGraduationCap,
   faGripVertical,
   faLayerGroup,
   faListCheck,
+  faPalette,
   faPen,
-  faPenToSquare,
   faPhone,
   faPlus,
+  faRightToBracket,
+  faRocket,
   faRotateLeft,
   faShieldHalved,
+  faSignsPost,
+  faSitemap,
+  faSort,
+  faSortDown,
+  faSortUp,
+  faTableCells,
   faTableCellsLarge,
+  faTags,
   faTrash,
-  faEllipsisVertical,
+  faUsers,
   faXmark,
 } from "@fortawesome/free-solid-svg-icons";
 
 import {
+  faCircleCheck,
+  faCircleXmark,
   faEye,
   faEyeSlash,
   faFloppyDisk,
-  faCircleCheck,
-  faCircleXmark,
 } from "@fortawesome/free-regular-svg-icons";
 
 /**
  * Map of string icon names to FA icon objects.
- * Keys cover both the "bi-xxx" form and the bare "xxx" form used in action configs.
+ * Keys use Font Awesome naming conventions.
  */
 const ICON_MAP = Object.freeze({
   // Sort
-  "arrow-down-up": faSort,
-  "bi-arrow-down-up": faSort,
+  "sort": faSort,
   "sort-up": faSortUp,
-  "bi-sort-up": faSortUp,
   "sort-down": faSortDown,
-  "bi-sort-down": faSortDown,
 
   // Chevrons
   "chevron-down": faChevronDown,
-  "bi-chevron-down": faChevronDown,
+  "chevron-left": faChevronLeft,
+  "chevron-right": faChevronRight,
   "chevron-up": faChevronUp,
-  "bi-chevron-up": faChevronUp,
 
   // Actions / CRUD
-  "pencil-square": faPen,
-  "bi-pencil-square": faPen,
-  "pencil": faPen,
-  "bi-pencil": faPen,
   "pen": faPen,
   "edit": faPen,
   "trash": faTrash,
-  "bi-trash": faTrash,
   "delete": faTrash,
   "ban": faBan,
   "deactivate": faBan,
-  "plus-lg": faPlus,
-  "bi-plus-lg": faPlus,
   "plus": faPlus,
-  "add": faPlus,
   "eye": faEye,
-  "bi-eye": faEye,
   "preview": faEye,
   "eye-slash": faEyeSlash,
-  "bi-eye-slash": faEyeSlash,
   "save": faFloppyDisk,
   "floppy-disk": faFloppyDisk,
   "restore": faRotateLeft,
@@ -88,49 +93,50 @@ const ICON_MAP = Object.freeze({
   "xmark": faXmark,
 
   // Status / feedback
-  "check2": faCheck,
-  "bi-check2": faCheck,
-  "check-circle": faCircleCheck,
-  "bi-check-circle": faCircleCheck,
-  "slash-circle": faBan,
-  "bi-slash-circle": faBan,
-  "x-octagon": faCircleXmark,
-  "bi-x-octagon": faCircleXmark,
-  "x-circle": faCircleXmark,
-  "bi-x-circle": faCircleXmark,
-  "x-lg": faXmark,
-  "bi-x-lg": faXmark,
+  "check": faCheck,
+  "circle-check": faCircleCheck,
+  "circle-xmark": faCircleXmark,
 
   // Dashboard / cards
-  "grid-3x3-gap": faTableCellsLarge,
-  "bi-grid-3x3-gap": faTableCellsLarge,
-  "collection": faLayerGroup,
-  "bi-collection": faLayerGroup,
-  "card-list": faListCheck,
-  "bi-card-list": faListCheck,
+  "table-cells": faTableCells,
+  "table-cells-large": faTableCellsLarge,
+  "layer-group": faLayerGroup,
+  "list-check": faListCheck,
 
   // Contact
-  "envelope-at-fill": faEnvelope,
-  "bi-envelope-at-fill": faEnvelope,
-  "telephone-fill": faPhone,
-  "bi-telephone-fill": faPhone,
+  "envelope": faEnvelope,
+  "phone": faPhone,
+
+  // Navigation / system
+  "gear": faGear,
+  "sitemap": faSitemap,
+  "users": faUsers,
+  "tags": faTags,
+  "circle-user": faCircleUser,
+  "code": faCode,
+  "right-to-bracket": faRightToBracket,
+  "book": faBook,
+  "rocket": faRocket,
+  "shield-halved": faShieldHalved,
+  "palette": faPalette,
+  "database": faDatabase,
+  "signs-post": faSignsPost,
+  "graduation-cap": faGraduationCap,
+  "clock-rotate-left": faClockRotateLeft,
+  "building": faBuilding,
+  "box": faBox,
 
   // Misc
   "grip-vertical": faGripVertical,
-  "bi-grip-vertical": faGripVertical,
-  "three-dots-vertical": faEllipsisVertical,
-  "bi-three-dots-vertical": faEllipsisVertical,
-  "shield-lock": faShieldHalved,
-  "bi-shield-lock": faShieldHalved,
+  "ellipsis-vertical": faEllipsisVertical,
   "bucket": faBucket,
-  "bi-bucket": faBucket,
 });
 
 /**
  * Resolve a string icon name to a Font Awesome icon definition.
  * Returns `null` when the name is empty or not mapped.
  *
- * @param {string} name  Bootstrap-icon style name, with or without "bi-" prefix.
+ * @param {string} name  Font Awesome icon name (e.g. "pen", "trash", "gear").
  * @returns {import("@fortawesome/fontawesome-svg-core").IconDefinition | null}
  */
 export function resolveIcon(name) {

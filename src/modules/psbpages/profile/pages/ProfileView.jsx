@@ -1,10 +1,11 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
-import { Badge, Button, Card, Col, Container, Form, Modal, Row, Spinner } from "react-bootstrap";
+import { Button, Card, Col, Container, Form, Modal, Row, Spinner } from "react-bootstrap";
 import { useAuth } from "@/core/auth/useAuth";
 import { getSupabase } from "@/core/supabase/client";
 import { toastError, toastInfo, toastSuccess } from "@/shared/utils/toast";
+import { StatusBadge } from "@/shared/components/ui";
 import {
   hasText, getLabel, buildInitials, statusIsActive, buildRequestUpdateMailto,
   buildProfile, buildRelations, buildRoleGroupsByApp,
@@ -144,11 +145,7 @@ function ProfileSocialCard({
           <div className="profile-avatar">{initials}</div>
           <h3 className="profile-name mb-1 text-center">{fullName}</h3>
           <p className="profile-handle mb-2 text-center">@{String(profile.username || "unknown")}</p>
-          <Badge bg="light" text="dark"
-            className={`profile-status-badge ${isActive ? "status-active" : "status-inactive"}`}>
-            <span className="profile-status-indicator" aria-hidden="true" />
-            <span>{isActive ? "Active" : "Inactive"}</span>
-          </Badge>
+          <StatusBadge status={isActive ? "active" : "inactive"} />
 
           <div className="profile-org-lines mt-3 text-center">
             <p className="mb-1">{companyLabel}</p>

@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { loadSection } from "../data/documentation.actions";
+import AppIcon from "@/shared/components/ui/AppIcon";
 import styles from "./DocumentationView.module.css";
 
 // ---------------------------------------------------------------------------
@@ -174,7 +175,7 @@ function Sidebar({ manifest, activeSection, onSelect, collapsed, onToggle }) {
     <aside className={`${styles.sidebar} ${collapsed ? styles.sidebarCollapsed : ""}`}>
       <div className={styles.sidebarHeader}>
         <button className={styles.collapseBtn} onClick={onToggle} title={collapsed ? "Expand" : "Collapse"}>
-          <i className={`bi ${collapsed ? "bi-chevron-right" : "bi-chevron-left"}`} />
+          <AppIcon icon={collapsed ? "chevron-right" : "chevron-left"} />
         </button>
         {!collapsed && <span className={styles.sidebarTitle}>Documentation</span>}
       </div>
@@ -183,7 +184,7 @@ function Sidebar({ manifest, activeSection, onSelect, collapsed, onToggle }) {
           {manifest.map((chapter) => (
             <div key={chapter.id} className={styles.chapterGroup}>
               <div className={styles.chapterLabel}>
-                <i className={`bi ${chapter.icon}`} />
+                <AppIcon icon={chapter.icon} />
                 <span>{chapter.title}</span>
               </div>
               {chapter.sections.map((section) => (

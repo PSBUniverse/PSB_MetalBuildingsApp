@@ -3,7 +3,7 @@ const loginModule = {
   module_key: "psbuniverse",
   name: "Login",
   description: "Authentication page.",
-  icon: "bi-box-arrow-in-right",
+  icon: "right-to-bracket",
   group_name: "System",
   group_desc: "Core system pages.",
   order: 1,

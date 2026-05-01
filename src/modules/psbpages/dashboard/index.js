@@ -3,7 +3,7 @@ const dashboardModule = {
   module_key: "psbuniverse",
   name: "Dashboard",
   description: "Main dashboard with module cards.",
-  icon: "bi-grid",
+  icon: "table-cells",
   group_name: "System",
   group_desc: "Core system pages.",
   order: 10,

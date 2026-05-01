@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Badge, Button, Card, InlineEditCell, Input, Modal, TableZ, toastError, toastSuccess } from "@/shared/components/ui";
+import { Button, Card, InlineEditCell, Input, Modal, StatusBadge, TableZ, toastError, toastSuccess } from "@/shared/components/ui";
 import {
   parseCompanyId, isSameId, compareText, normalizeText, mapCompanyRow, mapDepartmentRow,
   removeObjectKey, mergeUpdatePatch, appendUniqueId,
@@ -662,9 +662,6 @@ function useCompanyDepartmentSetup({ companies = [], departments = [], initialSe
 //  LOCAL COMPONENTS
 // ═══════════════════════════════════════════════════════════
 
-function StatusBadge({ isActive }) {
-  return <Badge bg={isActive ? "success" : "danger"} text="light">{isActive ? "Active" : "Inactive"}</Badge>;
-}
 
 function batchMarker(bs) {
   const map = {
@@ -707,13 +704,13 @@ function CompanyDeptHeader({
             ) : null}
           </>
         ) : null}
-        <Button type="button" size="sm" variant="secondary" loading={isSaving}
+        <Button type="button" size="sm" variant="primary" loading={isSaving}
           disabled={!hasPendingChanges || isSaving || isMutatingAction} onClick={handleSaveBatch}>Save Batch</Button>
         <Button type="button" size="sm" variant="ghost"
           disabled={!hasPendingChanges || isSaving || isMutatingAction} onClick={handleCancelBatch}>Cancel Batch</Button>
-        <Button type="button" size="sm" variant="primary"
+        <Button type="button" size="sm" variant="success"
           disabled={isSaving || isMutatingAction} onClick={openAddCompanyDialog}>Add Company</Button>
-        <Button type="button" size="sm" variant="primary"
+        <Button type="button" size="sm" variant="success"
           disabled={isSaving || isMutatingAction || !selectedCompany?.comp_id || isSelectedCompanyPendingDeactivation}
           onClick={openAddDepartmentDialog}>Add Department</Button>
       </div>
@@ -795,7 +792,7 @@ function CompanyTableSection({
     },
     {
       key: "is_active_bool", label: "Active", width: "12%", sortable: true, align: "center",
-      render: (row) => <StatusBadge isActive={Boolean(row?.is_active_bool)} />,
+      render: (row) => <StatusBadge status={row?.is_active_bool ? "active" : "inactive"} />,
     },
   ], [editingCompanyId, isMutatingAction, isSaving, onInlineEdit, onStopEditing, selectedCompany?.comp_id]);
 
@@ -877,7 +874,7 @@ function DepartmentPanelSection({
     },
     {
       key: "is_active_bool", label: "Active", width: "22%", sortable: true, align: "center",
-      render: (row) => <StatusBadge isActive={Boolean(row?.is_active_bool)} />,
+      render: (row) => <StatusBadge status={row?.is_active_bool ? "active" : "inactive"} />,
     },
   ], [editingDeptId, isMutatingAction, isSaving, onInlineEdit, onStopEditing]);
 
@@ -953,14 +950,14 @@ function CompanyDeptDialog({
   };
 
   const fc = {
-    "add-company": { label: "Add Company", variant: "primary" },
+    "add-company": { label: "Add Company", variant: "success" },
     "edit-company": { label: "Save", variant: "primary" },
-    "add-department": { label: "Add Department", variant: "primary" },
+    "add-department": { label: "Add Department", variant: "success" },
     "edit-department": { label: "Save", variant: "primary" },
     "toggle-company": { label: dialog?.nextIsActive ? "Enable" : "Disable", variant: "secondary" },
     "toggle-department": { label: dialog?.nextIsActive ? "Enable" : "Disable", variant: "secondary" },
-    "deactivate-company": { label: "Deactivate Company", variant: "danger" },
-    "deactivate-department": { label: "Deactivate Department", variant: "danger" },
+    "deactivate-company": { label: "Deactivate Company", variant: "warning" },
+    "deactivate-department": { label: "Deactivate Department", variant: "warning" },
   }[kind] || { label: "OK", variant: "primary" };
 
   const footer = (

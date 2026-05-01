@@ -1,4 +1,4 @@
-"use server";
+﻿"use server";
 
 import { cookies } from "next/headers";
 import { getSupabaseAdmin } from "@/core/supabase/admin";
@@ -204,7 +204,7 @@ export async function loadAssignedCardsFromDatabase() {
           groupId: String(row?.group_id || row?.app_group_id || row?.card_group_id || "").trim(),
           groupName: readText(row, ["group_name", "name", "label"], "Application"),
           groupDescription: readText(row, ["group_desc", "description"], ""),
-          groupIcon: readText(row, ["icon"], "bi-collection"),
+          groupIcon: readText(row, ["icon"], "layer-group"),
           groupOrder: asNumber(row?.display_order ?? row?.group_order ?? row?.sort_order ?? row?.order_no, 0),
         }))
         .filter((group) => hasValue(group.groupId));
@@ -232,7 +232,7 @@ export async function loadAssignedCardsFromDatabase() {
           cardName: readText(row, ["card_name", "name", "label"], "Module"),
           cardDescription: readText(row, ["card_desc", "description"], "Open module."),
           routePath: normalizeRoutePath(readText(row, ["route_path", "route", "path", "href"], "#")),
-          icon: readText(row, ["icon"], "bi-grid-3x3-gap"),
+          icon: readText(row, ["icon"], "table-cells-large"),
           cardOrder: asNumber(row?.display_order ?? row?.card_order ?? row?.sort_order ?? row?.order_no, 0),
         }))
         .filter((card) => hasValue(card.cardId) && groupById.has(card.groupId));
@@ -272,10 +272,10 @@ export async function loadAssignedCardsFromDatabase() {
           description: card.cardDescription || "Open module.",
           path: card.routePath,
           appId,
-          icon: card.icon || "bi-grid-3x3-gap",
+          icon: card.icon || "table-cells-large",
           groupName: group?.groupName || "Applications",
           groupDescription: group?.groupDescription || "",
-          groupIcon: group?.groupIcon || "bi-collection",
+          groupIcon: group?.groupIcon || "layer-group",
           order: totalOrder,
         });
       });
@@ -330,10 +330,10 @@ export async function loadAssignedAppsFromDatabase() {
         description: "Assigned application.",
         path: "#",
         appId,
-        icon: "bi-grid-3x3-gap",
+        icon: "table-cells-large",
         groupName: "Applications",
         groupDescription: "",
-        groupIcon: "bi-collection",
+        groupIcon: "layer-group",
         order: index + 1,
       }));
     }
@@ -349,10 +349,10 @@ export async function loadAssignedAppsFromDatabase() {
           description: readText(appRecord, ["app_desc", "description"], "Assigned application."),
           path: normalizeRoutePath(readText(appRecord, ["route_path", "route", "path", "href", "module_path"], "#")),
           appId,
-          icon: readText(appRecord, ["icon", "app_icon"], "bi-grid-3x3-gap"),
+          icon: readText(appRecord, ["icon", "app_icon"], "table-cells-large"),
           groupName: "Applications",
           groupDescription: "",
-          groupIcon: "bi-collection",
+          groupIcon: "layer-group",
           order: Number(appRecord?.display_order ?? appRecord?.app_order ?? appRecord?.sort_order ?? appRecord?.order_no ?? index + 1),
         };
       })

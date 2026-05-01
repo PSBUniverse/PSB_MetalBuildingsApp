@@ -11,8 +11,8 @@ import { useAuth } from "@/core/auth/useAuth";
 import { hasAppAccess } from "@/core/auth/access";
 import psbLogo from "@/styles/psb_logo_notitle.png";
 
-const DEFAULT_CARD_ICON = "bi-grid-3x3-gap";
-const DEFAULT_GROUP_ICON = "bi-collection";
+const DEFAULT_CARD_ICON = "table-cells-large";
+const DEFAULT_GROUP_ICON = "layer-group";
 const ORG_BANNER = {
   name: "",
   tagline: "Premium Steel Buildings Inc.",
