@@ -2528,6 +2528,11 @@ textarea.quote-field-control {
   }
 }
 
+/* Hide TableZ search bar when not needed */
+.psb-hide-search .psb-ui-table-search-shell {
+  display: none;
+}
+
 @media (max-width: 991px) {
   .app-header {
     padding: 0.55rem 0.72rem;
