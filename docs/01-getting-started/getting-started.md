@@ -11,7 +11,7 @@ Your app repo (e.g. `PSB_MetalBuildingsApp`) is a fork of PSBUniverse-core. You 
 ### Step 1: Clone
 
 ```bash
-git clone https://github.com/PSBUniverse/PSB_MetalBuildingsApp.git
+git clone https://github.com/PSBUniverse-DEV/PSB_MetalBuildingsApp.git
 cd PSB_MetalBuildingsApp
 ```
 
@@ -46,7 +46,7 @@ Your app needs a link to the shared PSBUniverse-core repo so you can pull platfo
 ### Step 4: Add the core remote
 
 ```bash
-git remote add core https://github.com/PSBUniverse/PSBUniverse-core.git
+git remote add core https://github.com/PSBUniverse-DEV/PSBUniverse-core.git
 ```
 
 > If you get "remote core already exists" — that's fine, move on.
@@ -68,10 +68,10 @@ git remote -v
 You should see four lines:
 
 ```
-core    https://github.com/PSBUniverse/PSBUniverse-core.git (fetch)
+core    https://github.com/PSBUniverse-DEV/PSBUniverse-core.git (fetch)
 core    no_push_allowed (push)
-origin  https://github.com/PSBUniverse/PSB_MetalBuildingsApp.git (fetch)
-origin  https://github.com/PSBUniverse/PSB_MetalBuildingsApp.git (push)
+origin  https://github.com/PSBUniverse-DEV/PSB_MetalBuildingsApp.git (fetch)
+origin  https://github.com/PSBUniverse-DEV/PSB_MetalBuildingsApp.git (push)
 ```
 
 - `origin` = your app repo (where you push your work)
