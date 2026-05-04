@@ -216,6 +216,105 @@ The blessed reference implementation is at:
 
 ## Development Flow
 
+---
+
+# 🧱 Environment Architecture
+
+## 🗄️ Databases (Supabase)
+
+| Environment | Database       | Purpose            |
+| ----------- | -------------- | ------------------ |
+| Local Dev   | `PREMIUM-QAS`  | Developer machines |
+| Dev/Test    | `PREMIUM-DEV`  | Testing / staging  |
+| Production  | `PREMIUM-PROD` | Live system        |
+
+---
+
+## 🌐 Vercel Deployments
+
+| Project Name      | Connected Database | Notes                              |
+| ----------------- | ------------------ | ---------------------------------- |
+| `PSBUniverse-DEV` | `PREMIUM-DEV`      | Uses anon + service keys from DEV  |
+| `PSBUniverse`     | `PREMIUM-PROD`     | Uses anon + service keys from PROD |
+
+---
+
+## 💻 Local Development
+
+* Runs **outside Vercel**
+* Always connects to:
+  👉 `PREMIUM-QAS`
+* Used for:
+
+  * Feature development
+  * Debugging
+  * Unsafe testing (don’t pollute DEV/PROD)
+
+---
+
+## 🧑‍💻 GitHub Repositories
+
+| Repo               | Purpose     | Connected Environment                         |
+| ------------------ | ----------- | --------------------------------------------- |
+| `PSBUniverse`      | Development | Vercel: `PSBUniverse-DEV` + DB: `PREMIUM-DEV` |
+| `PSBUniverse-PROD` | Production  | Vercel: `PSBUniverse` + DB: `PREMIUM-PROD`    |
+
+---
+
+# ⚠️ Critical Rules (Don’t screw this up)
+
+* **NEVER connect local dev to PROD**
+* **NEVER use PROD keys in DEV**
+* **DEV = unstable, expect data resets**
+* **PROD = locked down, audited only**
+
+---
+
+# 💡 What’s Good / What’s Risky
+
+### ✅ Good
+
+* Clear separation of environments
+* Dedicated DB per stage
+* Separate repos for PROD (prevents accidental deploys)
+
+### ⚠️ Weak Points
+
+* You’re using **service keys in Vercel** → if exposed, you're dead
+  👉 These should **never touch client-side code**
+* No mention of:
+
+  * environment variable management
+  * access control (who can deploy to PROD)
+  * migration strategy (this will bite you hard later)
+
+---
+
+# 🔧 What You Should Add (Non-Optional)
+
+### 1. Environment Variables Policy
+
+* `.env.local` → QAS
+* NEVER hardcode keys
+
+### 2. DB Migration Flow
+
+You need a pipeline:
+
+```
+QAS → DEV → PROD
+```
+
+Use migrations, not manual edits.
+
+### 3. Deployment Control
+
+* Protect `PSBUniverse-PROD` repo:
+
+  * Require PR approval
+  * No direct pushes
+
+
 ### Junior Developer Flow
 
 1. Run `npm run create-module -- <module-name>` to scaffold the module.
@@ -299,3 +398,5 @@ If your work requires changing any of these:
 4. Core route guard logic
 
 **Stop and escalate to the technical lead.** Do not make architecture changes inside module tasks.
+
+

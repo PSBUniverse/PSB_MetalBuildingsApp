@@ -9,6 +9,14 @@ import path from "node:path";
  */
 const BOOK_MANIFEST = [
   {
+    id: "development-rules",
+    title: "Development Rules",
+    icon: "shield-halved",
+    sections: [
+      { id: "rules", file: "03-development-rules/rules.md", title: "Development Rules" },
+    ],
+  },
+  {
     id: "getting-started",
     title: "Getting Started",
     icon: "rocket",
@@ -23,14 +31,6 @@ const BOOK_MANIFEST = [
     sections: [
       { id: "overview", file: "02-architecture/overview.md", title: "Architecture Overview" },
       { id: "module-system", file: "02-architecture/module-system.md", title: "Module System" },
-    ],
-  },
-  {
-    id: "development-rules",
-    title: "Development Rules",
-    icon: "shield-halved",
-    sections: [
-      { id: "rules", file: "03-development-rules/rules.md", title: "Development Rules" },
     ],
   },
   {
