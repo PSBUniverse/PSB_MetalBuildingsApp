@@ -73,6 +73,8 @@ function generatePageContent(importPath, componentName) {
     GENERATED_MARKER,
     `import ${componentName} from "${importPath}";`,
     "",
+    `export const dynamic = "force-dynamic";`,
+    "",
     "export default function Page(props) {",
     `  return <${componentName} {...props} />;`,
     "}",
